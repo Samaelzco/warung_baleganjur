@@ -24,7 +24,7 @@ new class extends Component {
         <flux:heading size="xl" level="1">{{ __('Print QR') }}</flux:heading>
         <div class="flex items-center gap-2">
             <flux:link :href="route('meja.index', [], false)" wire:navigate>
-                <flux:button icon="arrow-left" variant="ghost">{{ __('Back') }}</flux:button>
+                <flux:button icon="arrow-left" variant="ghost" class="btn-ghost-accent">{{ __('Back') }}</flux:button>
             </flux:link>
             <flux:button icon="printer" class="btn-brand" onclick="window.print()">{{ __('Print') }}</flux:button>
         </div>

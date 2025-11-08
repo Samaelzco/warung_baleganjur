@@ -51,7 +51,7 @@ new class extends Component {
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <flux:heading size="xl" level="1">{{ __('Create Table') }}</flux:heading>
         <flux:link :href="route('meja.index')" wire:navigate>
-            <flux:button variant="ghost" icon="arrow-left">{{ __('Back') }}</flux:button>
+            <flux:button variant="ghost" icon="arrow-left" class="btn-ghost-accent">{{ __('Back') }}</flux:button>
         </flux:link>
     </div>
 
@@ -59,20 +59,20 @@ new class extends Component {
         <form wire:submit="save" class="grid gap-6 md:grid-cols-3">
             <div class="md:col-span-1">
                 <flux:input wire:model="form.nomor_meja" :label="__('Table Number')" required maxlength="10" />
-                <div class="mt-4">
-                    <label class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ __('Status') }}</label>
-                    <select wire:model="form.status" class="mt-2 w-full rounded-md border border-neutral-300 bg-white p-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
+                <div class="mt-4" data-flux-field>
+                    <label data-flux-label>{{ __('Status') }}</label>
+                    <flux:select wire:model="form.status">
                         <option value="kosong">{{ __('Empty') }}</option>
                         <option value="terisi">{{ __('Occupied') }}</option>
                         <option value="reservasi">{{ __('Reserved') }}</option>
-                    </select>
+                    </flux:select>
                 </div>
             </div>
 
             <div class="md:col-span-1">
                 <flux:input wire:model="form.qr_token" :label="__('QR Token')" readonly />
                 <div class="mt-2">
-                    <flux:button type="button" variant="ghost" icon="arrow-path" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
+                    <flux:button type="button" variant="ghost" class="btn-ghost-accent" icon="arrow-path" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
                     <flux:text variant="subtle" class="text-xs">{{ __('Used in URL: /order/{token}') }}</flux:text>
                 </div>
             </div>
@@ -96,7 +96,7 @@ new class extends Component {
             <div class="md:col-span-3 flex items-center gap-3">
                 <flux:button type="submit" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
                 <flux:link :href="route('meja.index')" wire:navigate>
-                    <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
+                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
                 </flux:link>
             </div>
         </form>
