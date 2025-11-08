@@ -89,7 +89,9 @@ new class extends Component {
         if ($this->confirmingDeleteId) {
             Meja::where('id', $this->confirmingDeleteId)->delete();
             $this->confirmingDeleteId = null;
+            // Close both mobile (bottom sheet) and desktop (centered) delete modals
             $this->dispatch('modal-close', name: 'confirm-delete-meja');
+            $this->dispatch('modal-close', name: 'confirm-delete-meja-desktop');
             $this->dispatch('meja-toast', message: __('Table deleted successfully.'));
         }
     }
@@ -353,7 +355,7 @@ new class extends Component {
                                             >
                                                 {{ __('Edit') }}
                                             </flux:button>
-                                            <flux:modal.trigger name="confirm-delete-meja">
+                                            <flux:modal.trigger name="confirm-delete-meja-desktop">
                                                 <flux:button
                                                     size="sm"
                                                     icon="trash"
@@ -390,18 +392,22 @@ new class extends Component {
             </div>
         </div>
 
-                <flux:modal name="create-meja" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-3xl" closable="false">
-            <form wire:submit.prevent="save" class="space-y-6">
-                <div class="flex items-center justify-between">
+        <flux:modal name="create-meja" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
+                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>
                         <flux:heading size="lg">{{ __('Create Table') }}</flux:heading>
                         <flux:subheading>{{ __('Fill the details below to add a new table.') }}</flux:subheading>
                     </div>
+                    <flux:modal.close>
+                        <flux:button variant="ghost" icon="x-mark" class="hidden sm:inline-flex" aria-label="{{ __('Close') }}" />
+                    </flux:modal.close>
                 </div>
 
-                <div class="grid gap-6 md:grid-cols-3">
-                    <div class="space-y-4 md:col-span-1">
-                        <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" />
+                <form id="create-meja-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:pb-0">
+                    <div class="grid gap-6 md:grid-cols-5">
+                    <div class="space-y-4 md:col-span-3">
+                        <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
                         @error('form.nomor_meja')
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
@@ -419,55 +425,74 @@ new class extends Component {
                         </div>
                     </div>
 
-                    <div class="space-y-4 md:col-span-1">
-                        <flux:input wire:model.defer="form.qr_token" :label="__('QR Token')" readonly />
+                    <div class="space-y-4 md:col-span-2 md:pl-2">
+                        <flux:input wire:model.defer="form.qr_token" :label="__('QR Token')" readonly class="font-mono" help="{{ __('Unique code used in the QR link') }}" />
                         @error('form.qr_token')
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
-
-                        <div class="flex items-center justify-between rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+                        <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
                             <span>{{ __('Used in URL: /order/{token}') }}</span>
-                            <flux:button size="xs" variant="ghost" icon="arrow-path" type="button" wire:click="regenerateToken">
-                                {{ __('Regenerate') }}
-                            </flux:button>
+                            <div class="inline-flex items-center gap-1">
+                                <flux:button size="xs" variant="ghost" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                            <div class="flex items-center justify-between">
+                                <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
+                                <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null, 'download' => 1], false)" target="_blank">
+                                    <flux:button size="xs" icon="arrow-down-tray" variant="ghost" class="btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
+                                </flux:link>
+                            </div>
+                            <div class="rounded-xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
+                                @if (!empty($form['qr_token']))
+                                    <img alt="QR" class="mx-auto h-44 w-44" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 320, 'format' => 'svg'], false) }}" />
+                                @else
+                                    <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
+                                @endif
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null], false)" target="_blank">
+                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost">{{ __('Open Order Page') }}</flux:button>
+                                </flux:link>
+                                <flux:text variant="subtle" class="text-xs">{{ __('Preview for printing and testing') }}</flux:text>
+                            </div>
+                        </div>
+                        <div class="hidden md:flex items-center justify-end gap-3 pt-2">
+                            <flux:modal.close>
+                                <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
+                            </flux:modal.close>
+                            <flux:button type="submit" form="create-meja-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
                         </div>
                     </div>
+                </form>
 
-                    <div class="space-y-3 md:col-span-1">
-                        <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
-                        <div class="rounded-2xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
-                            @if (!empty($form['qr_token']))
-                                <img alt="QR" class="mx-auto h-40 w-40" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 256, 'format' => 'svg'], false) }}" />
-                            @else
-                                <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
-                            @endif
-                        </div>
-                        <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null, 'download' => 1], false)" target="_blank">
-                            <flux:button icon="arrow-down-tray" variant="ghost" class="btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
-                        </flux:link>
+                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
+                    <div class="grid grid-cols-2 gap-2">
+                        <flux:modal.close>
+                            <flux:button type="button" variant="ghost" class="w-full">{{ __('Cancel') }}</flux:button>
+                        </flux:modal.close>
+                        <flux:button type="submit" form="create-meja-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
                     </div>
                 </div>
-
-                <div class="flex items-center justify-end gap-3">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                </div>
-            </form>
+            </div>
         </flux:modal>
-                <flux:modal name="edit-meja" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-3xl" closable="false">
-            <form wire:submit.prevent="update" class="space-y-6">
-                <div class="flex items-center justify-between">
+        <flux:modal name="edit-meja" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
+                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>
                         <flux:heading size="lg">{{ __('Edit Table') }}</flux:heading>
                         <flux:subheading>{{ __('Update the details for this table.') }}</flux:subheading>
                     </div>
+                    <flux:modal.close>
+                        <flux:button variant="ghost" icon="x-mark" class="hidden sm:inline-flex" aria-label="{{ __('Close') }}" />
+                    </flux:modal.close>
                 </div>
 
-                <div class="grid gap-6 md:grid-cols-3">
-                    <div class="space-y-4 md:col-span-1">
-                        <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" />
+                <form id="edit-meja-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:pb-0">
+                    <div class="grid gap-6 md:grid-cols-5">
+                    <div class="space-y-4 md:col-span-3">
+                        <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
                         @error('form.nomor_meja')
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
@@ -485,46 +510,94 @@ new class extends Component {
                         </div>
                     </div>
 
-                    <div class="space-y-4 md:col-span-1">
-                        <flux:input wire:model.defer="form.qr_token" :label="__('QR Token')" readonly />
+                    <div class="space-y-4 md:col-span-2 md:pl-2">
+                        <flux:input wire:model.defer="form.qr_token" :label="__('QR Token')" readonly class="font-mono" help="{{ __('Unique code used in the QR link') }}" />
                         @error('form.qr_token')
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
-
-                        <div class="flex items-center justify-between rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
+                        <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
                             <span>{{ __('Used in URL: /order/{token}') }}</span>
-                            <flux:button size="xs" variant="ghost" icon="arrow-path" type="button" wire:click="regenerateToken">
-                                {{ __('Regenerate') }}
-                            </flux:button>
+                            <div class="inline-flex items-center gap-1">
+                                <flux:button size="xs" variant="ghost" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                            <div class="flex items-center justify-between">
+                                <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
+                                <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null, 'download' => 1], false)" target="_blank">
+                                    <flux:button size="xs" icon="arrow-down-tray" variant="ghost" class="btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
+                                </flux:link>
+                            </div>
+                            <div class="rounded-xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
+                                @if (!empty($form['qr_token']))
+                                    <img alt="QR" class="mx-auto h-44 w-44" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 320, 'format' => 'svg'], false) }}" />
+                                @else
+                                    <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
+                                @endif
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null], false)" target="_blank">
+                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost">{{ __('Open Order Page') }}</flux:button>
+                                </flux:link>
+                                <flux:text variant="subtle" class="text-xs">{{ __('Preview for printing and testing') }}</flux:text>
+                            </div>
+                        </div>
+                        <div class="hidden md:flex items-center justify-end gap-3 pt-2">
+                            <flux:modal.close>
+                                <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
+                            </flux:modal.close>
+                            <flux:button type="submit" form="edit-meja-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
                         </div>
                     </div>
+                </form>
 
-                    <div class="space-y-3 md:col-span-1">
-                        <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
-                        <div class="rounded-2xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
-                            @if (!empty($form['qr_token']))
-                                <img alt="QR" class="mx-auto h-40 w-40" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 256, 'format' => 'svg'], false) }}" />
-                            @else
-                                <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
-                            @endif
-                        </div>
-                        <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null, 'download' => 1], false)" target="_blank">
-                            <flux:button icon="arrow-down-tray" variant="ghost" class="btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
-                        </flux:link>
+                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
+                    <div class="grid grid-cols-2 gap-2">
+                        <flux:modal.close>
+                            <flux:button type="button" variant="ghost" class="w-full">{{ __('Cancel') }}</flux:button>
+                        </flux:modal.close>
+                        <flux:button type="submit" form="edit-meja-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
                     </div>
                 </div>
-
-                <div class="flex items-center justify-end gap-3">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                </div>
-            </form>
+            </div>
         </flux:modal>
         @php($selectedMeja = $items->firstWhere('id', $confirmingDeleteId))
 
-        <flux:modal name="confirm-delete-meja" focusable class="max-w-full sm:max-w-lg">
+        <flux:modal name="confirm-delete-meja" focusable variant="flyout" position="bottom" class="rounded-t-3xl sm:rounded-xl">
+            <div class="space-y-4 p-2 max-h-[60dvh] overflow-y-auto">
+                <div class="flex items-center justify-center">
+                    <div class="mx-auto mb-1 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <flux:heading size="lg">{{ __('Delete this table?') }}</flux:heading>
+                    <flux:subheading>
+                        {{ __('This action cannot be undone. Orders linked to this table will lose their QR link.') }}
+                    </flux:subheading>
+                </div>
+
+                @if ($selectedMeja)
+                    <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
+                        <p class="font-semibold">{{ __('Table') }} {{ $selectedMeja->nomor_meja }}</p>
+                        <p class="text-xs opacity-80">{{ __('Created at') }} {{ $selectedMeja->created_at?->format('d M Y') }}</p>
+                    </div>
+                @endif
+
+                <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+                    <flux:modal.close>
+                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                    </flux:modal.close>
+                    <flux:button variant="danger" wire:click="delete">
+                        {{ __('Yes, delete') }}
+                    </flux:button>
+                </div>
+            </div>
+        </flux:modal>
+
+        <!-- Desktop centered delete modal -->
+        @php($selectedMeja = $items->firstWhere('id', $confirmingDeleteId))
+        <flux:modal name="confirm-delete-meja-desktop" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-lg">
             <div class="space-y-4 p-2">
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this table?') }}</flux:heading>
@@ -540,7 +613,7 @@ new class extends Component {
                     </div>
                 @endif
 
-                <div class="flex justify-end gap-2">
+                <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
                         <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
@@ -597,8 +670,5 @@ new class extends Component {
         });
     </script>
 @endif
-
-
-
 
 
