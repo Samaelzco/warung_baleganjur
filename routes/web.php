@@ -29,4 +29,77 @@ Route::middleware(['auth'])->group(function () {
             ),
         )
         ->name('two-factor.show');
+
+    // Tables (Meja) CRUD
+    Volt::route('meja', 'meja.index')->name('meja.index');
+    Volt::route('meja/print', 'meja.print')->name('meja.print');
+    Volt::route('meja/create', 'meja.create')->name('meja.create');
+    Volt::route('meja/{meja}/edit', 'meja.edit')->name('meja.edit');
+
 });
+
+// QR image (PNG) generator (public path to avoid auth/cookie issues when embedding in <img>)
+Route::get('meja/qr', function (\Illuminate\Http\Request $request) {
+    $token = (string) $request->query('token', '');
+
+    if ($token === '' && $request->filled('meja')) {
+        $meja = \App\Models\Meja::findOrFail($request->query('meja'));
+        $token = $meja->qr_token;
+    }
+
+    abort_unless($token !== '', 404);
+
+    $host = request()->getSchemeAndHttpHost();
+    $url = $host . '/order/' . $token;
+
+    $size = (int) $request->query('size', 512);
+    if ($size < 120) { $size = 120; }
+    if ($size > 2048) { $size = 2048; }
+
+    $format = strtolower((string) $request->query('format', 'svg'));
+
+    if ($format === 'png') {
+        try {
+            $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+                new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
+                new \BaconQrCode\Renderer\Image\PngImageBackEnd()
+            );
+            $writer = new \BaconQrCode\Writer($renderer);
+            $data = $writer->writeString($url);
+
+            $response = response($data, 200, [
+                'Content-Type' => 'image/png',
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+
+            if ($request->boolean('download')) {
+                $filename = 'qr-meja-' . substr($token, 0, 8) . '.png';
+                $response->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            }
+
+            return $response;
+        } catch (\Throwable $e) {
+            // Fall through to SVG below if PNG backend not available
+        }
+    }
+
+    // Default SVG output (browser-friendly, no ext dependencies)
+    $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+        new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
+        new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+    );
+    $writer = new \BaconQrCode\Writer($renderer);
+    $svg = $writer->writeString($url);
+
+    $response = response($svg, 200, [
+        'Content-Type' => 'image/svg+xml',
+        'Cache-Control' => 'public, max-age=86400',
+    ]);
+
+    if ($request->boolean('download')) {
+        $filename = 'qr-meja-' . substr($token, 0, 8) . '.svg';
+        $response->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    return $response;
+})->name('meja.qr');

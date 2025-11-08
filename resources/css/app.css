@@ -23,16 +23,25 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
+    /* Brand tokens */
+    --brand-primary: #F5BB2F; /* gold */
+    --brand-primary-hover: #E5A91F;
+    --brand-primary-active: #C38E1F;
+    --brand-accent: #080A35; /* deep navy */
+    --brand-accent-hover: #101452;
+
+    /* Flux accent overrides (light) */
+    --color-accent: var(--brand-accent);
+    --color-accent-content: var(--brand-accent);
     --color-accent-foreground: var(--color-white);
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        /* Flux accent overrides (dark) */
+        --color-accent: var(--brand-primary);
+        --color-accent-content: var(--brand-primary);
+        --color-accent-foreground: var(--brand-accent);
     }
 }
 
@@ -47,6 +56,10 @@
     }
 }
 
+/* horizontal scroll without visible scrollbar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
 }
@@ -59,6 +72,44 @@ input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
+
+/* Brand helpers (optional) */
+.btn-brand { background: var(--brand-primary); color: var(--brand-accent); }
+.btn-brand:hover { background: var(--brand-primary-hover); }
+.btn-brand:active { background: var(--brand-primary-active); }
+
+.btn-accent { background: var(--brand-accent); color: white; }
+.btn-accent:hover { background: var(--brand-accent-hover); }
+
+/* Accent subtle/outline for secondary actions */
+.btn-outline-accent {
+    background: transparent;
+    color: var(--brand-accent);
+    border: 1px solid var(--brand-accent);
+}
+.btn-outline-accent:hover { background: color-mix(in srgb, var(--brand-accent) 12%, transparent); }
+
+.btn-ghost-accent {
+    background: transparent;
+    color: var(--brand-accent);
+}
+.btn-ghost-accent:hover { background: color-mix(in srgb, var(--brand-accent) 10%, transparent); }
+
+/* Dark mode adjustments for secondary accent buttons */
+.dark .btn-outline-accent {
+    color: var(--brand-primary);
+    border-color: var(--brand-primary);
+}
+.dark .btn-outline-accent:hover {
+    background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+}
+
+.dark .btn-ghost-accent {
+    color: var(--brand-primary);
+}
+.dark .btn-ghost-accent:hover {
+    background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
 }
 
 /* \[:where(&)\]:size-4 {

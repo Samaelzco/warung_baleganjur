@@ -220,6 +220,7 @@ new class extends Component {
 
                     <flux:button
                         variant="primary"
+                        class="btn-brand"
                         icon="shield-check"
                         icon:variant="outline"
                         wire:click="enable"
@@ -290,7 +291,7 @@ new class extends Component {
 
                         <flux:button
                             variant="primary"
-                            class="flex-1"
+                            class="flex-1 btn-brand"
                             wire:click="confirmTwoFactor"
                             x-bind:disabled="$wire.code.length < 6"
                         >
@@ -323,7 +324,7 @@ new class extends Component {
                     <flux:button
                         :disabled="$errors->has('setupData')"
                         variant="primary"
-                        class="w-full"
+                        class="w-full btn-brand"
                         wire:click="showVerificationIfNecessary"
                     >
                         {{ $this->modalConfig['buttonText'] }}
