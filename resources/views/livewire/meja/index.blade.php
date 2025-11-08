@@ -165,7 +165,7 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Tables') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 <flux:link :href="route('meja.print', [], false)" wire:navigate>
-                    <flux:button icon="printer" variant="ghost">{{ __('Print All QR') }}</flux:button>
+                    <flux:button icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print All QR') }}</flux:button>
                 </flux:link>
                 <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
             </div>
@@ -220,13 +220,13 @@ new class extends Component {
                 <flux:input wire:model.live.debounce.1000ms="search" :placeholder="__('Search table number or token')" />
             </div>
             <div class="flex items-center gap-2">
-                <select wire:model.live="statusFilter" class="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
+                <select wire:model.live="statusFilter" class="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]">
                     <option value="all">{{ __('All') }}</option>
                     <option value="kosong">{{ __('Empty') }}</option>
                     <option value="terisi">{{ __('Occupied') }}</option>
                     <option value="reservasi">{{ __('Reserved') }}</option>
                 </select>
-                <flux:button size="sm" variant="ghost" wire:click="$set('search','');$set('statusFilter','all')">{{ __('Clear') }}</flux:button>
+                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','');$set('statusFilter','all')">{{ __('Clear') }}</flux:button>
             </div>
         </div>
 
@@ -399,12 +399,12 @@ new class extends Component {
                         <flux:heading size="lg">{{ __('Create Table') }}</flux:heading>
                         <flux:subheading>{{ __('Fill the details below to add a new table.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close>
-                        <flux:button variant="ghost" icon="x-mark" class="hidden sm:inline-flex" aria-label="{{ __('Close') }}" />
+                    <flux:modal.close class="hidden sm:block">
+                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
                     </flux:modal.close>
                 </div>
 
-                <form id="create-meja-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:pb-0">
+                <form id="create-meja-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
                     <div class="grid gap-6 md:grid-cols-5">
                     <div class="space-y-4 md:col-span-3">
                         <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
@@ -412,13 +412,13 @@ new class extends Component {
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
 
-                        <div>
-                            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ __('Status') }}</label>
-                            <select wire:model.defer="form.status" class="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-3 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900">
+                        <div data-flux-field>
+                            <label data-flux-label>{{ __('Status') }}</label>
+                            <flux:select wire:model.defer="form.status">
                                 <option value="kosong">{{ __('Empty') }}</option>
                                 <option value="terisi">{{ __('Occupied') }}</option>
                                 <option value="reservasi">{{ __('Reserved') }}</option>
-                            </select>
+                            </flux:select>
                             @error('form.status')
                                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                             @enderror
@@ -433,7 +433,7 @@ new class extends Component {
                         <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
                             <span>{{ __('Used in URL: /order/{token}') }}</span>
                             <div class="inline-flex items-center gap-1">
-                                <flux:button size="xs" variant="ghost" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
+                                <flux:button size="xs" variant="ghost" class="btn-ghost-accent" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
                             </div>
                         </div>
 
@@ -453,14 +453,14 @@ new class extends Component {
                             </div>
                             <div class="flex items-center justify-between">
                                 <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null], false)" target="_blank">
-                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost">{{ __('Open Order Page') }}</flux:button>
+                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost" class="btn-ghost-accent">{{ __('Open Order Page') }}</flux:button>
                                 </flux:link>
                                 <flux:text variant="subtle" class="text-xs">{{ __('Preview for printing and testing') }}</flux:text>
                             </div>
                         </div>
                         <div class="hidden md:flex items-center justify-end gap-3 pt-2">
                             <flux:modal.close>
-                                <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
+                                <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
                             </flux:modal.close>
                             <flux:button type="submit" form="create-meja-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
                         </div>
@@ -470,7 +470,7 @@ new class extends Component {
                 <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
                     <div class="grid grid-cols-2 gap-2">
                         <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="w-full">{{ __('Cancel') }}</flux:button>
+                        <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
                         </flux:modal.close>
                         <flux:button type="submit" form="create-meja-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
                     </div>
@@ -484,12 +484,12 @@ new class extends Component {
                         <flux:heading size="lg">{{ __('Edit Table') }}</flux:heading>
                         <flux:subheading>{{ __('Update the details for this table.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close>
-                        <flux:button variant="ghost" icon="x-mark" class="hidden sm:inline-flex" aria-label="{{ __('Close') }}" />
+                    <flux:modal.close class="hidden sm:block">
+                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
                     </flux:modal.close>
                 </div>
 
-                <form id="edit-meja-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] md:pb-0">
+                <form id="edit-meja-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
                     <div class="grid gap-6 md:grid-cols-5">
                     <div class="space-y-4 md:col-span-3">
                         <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
@@ -497,13 +497,13 @@ new class extends Component {
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
 
-                        <div>
-                            <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ __('Status') }}</label>
-                            <select wire:model.defer="form.status" class="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-3 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900">
+                        <div data-flux-field>
+                            <label data-flux-label>{{ __('Status') }}</label>
+                            <flux:select wire:model.defer="form.status">
                                 <option value="kosong">{{ __('Empty') }}</option>
                                 <option value="terisi">{{ __('Occupied') }}</option>
                                 <option value="reservasi">{{ __('Reserved') }}</option>
-                            </select>
+                            </flux:select>
                             @error('form.status')
                                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                             @enderror
@@ -518,7 +518,7 @@ new class extends Component {
                         <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
                             <span>{{ __('Used in URL: /order/{token}') }}</span>
                             <div class="inline-flex items-center gap-1">
-                                <flux:button size="xs" variant="ghost" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
+                                <flux:button size="xs" variant="ghost" class="btn-ghost-accent" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
                             </div>
                         </div>
 
@@ -538,14 +538,14 @@ new class extends Component {
                             </div>
                             <div class="flex items-center justify-between">
                                 <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null], false)" target="_blank">
-                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost">{{ __('Open Order Page') }}</flux:button>
+                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost" class="btn-ghost-accent">{{ __('Open Order Page') }}</flux:button>
                                 </flux:link>
                                 <flux:text variant="subtle" class="text-xs">{{ __('Preview for printing and testing') }}</flux:text>
                             </div>
                         </div>
                         <div class="hidden md:flex items-center justify-end gap-3 pt-2">
                             <flux:modal.close>
-                                <flux:button type="button" variant="ghost">{{ __('Cancel') }}</flux:button>
+                                <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
                             </flux:modal.close>
                             <flux:button type="submit" form="edit-meja-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
                         </div>
@@ -555,7 +555,7 @@ new class extends Component {
                 <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
                     <div class="grid grid-cols-2 gap-2">
                         <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="w-full">{{ __('Cancel') }}</flux:button>
+                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
                         </flux:modal.close>
                         <flux:button type="submit" form="edit-meja-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
                     </div>
@@ -649,10 +649,10 @@ new class extends Component {
                 x-transition:leave="transform ease-in duration-200"
                 x-transition:leave-start="translate-y-0 opacity-100"
                 x-transition:leave-end="-translate-y-3 opacity-0"
-                class="pointer-events-auto rounded-2xl border border-emerald-200/70 bg-white/90 px-4 py-3 text-sm text-emerald-800 shadow-lg shadow-emerald-200/50 dark:border-emerald-700/60 dark:bg-emerald-900/80 dark:text-emerald-100"
+                class="pointer-events-auto rounded-2xl toast-brand px-4 py-3 text-sm"
             >
                 <div class="flex items-center gap-2">
-                    <flux:icon icon="check-circle" class="text-emerald-500" />
+                    <flux:icon icon="check-circle" />
                     <span x-text="message"></span>
                 </div>
             </div>
@@ -670,5 +670,3 @@ new class extends Component {
         });
     </script>
 @endif
-
-
