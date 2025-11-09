@@ -16,6 +16,7 @@
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="view-columns" :href="route('meja.index')" :current="request()->routeIs('meja.*')" wire:navigate>{{ __('Tables') }}</flux:navlist.item>
                     <flux:navlist.item icon="layout-grid" :href="route('kategori.index')" :current="request()->routeIs('kategori.*')" wire:navigate>{{ __('Menu Categories') }}</flux:navlist.item>
+                    <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 

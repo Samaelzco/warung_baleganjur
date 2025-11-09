@@ -413,8 +413,7 @@ new class extends Component {
                         @enderror
 
                         <div data-flux-field>
-                            <label data-flux-label>{{ __('Status') }}</label>
-                            <flux:select wire:model.defer="form.status">
+                            <flux:select wire:model.defer="form.status" :label="__('Status')">
                                 <option value="kosong">{{ __('Empty') }}</option>
                                 <option value="terisi">{{ __('Occupied') }}</option>
                                 <option value="reservasi">{{ __('Reserved') }}</option>
@@ -498,8 +497,7 @@ new class extends Component {
                         @enderror
 
                         <div data-flux-field>
-                            <label data-flux-label>{{ __('Status') }}</label>
-                            <flux:select wire:model.defer="form.status">
+                            <flux:select wire:model.defer="form.status" :label="__('Status')">
                                 <option value="kosong">{{ __('Empty') }}</option>
                                 <option value="terisi">{{ __('Occupied') }}</option>
                                 <option value="reservasi">{{ __('Reserved') }}</option>

@@ -364,8 +364,7 @@ new class extends Component {
                             @enderror
 
                             <div>
-                                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ __('Description') }}</label>
-                                <textarea wire:model.defer="form.deskripsi" rows="4" class="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-3 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900" placeholder="{{ __('Optional, short description for this category') }}"></textarea>
+                                <flux:textarea wire:model.defer="form.deskripsi" :label="__('Description')" rows="4"  placeholder="{{ __('Optional, short description for this category') }}"></flux:textarea>
                                 @error('form.deskripsi')
                                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                                 @enderror
@@ -422,8 +421,7 @@ new class extends Component {
                             @enderror
 
                             <div>
-                                <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ __('Description') }}</label>
-                                <textarea wire:model.defer="form.deskripsi" rows="4" class="mt-2 w-full rounded-xl border border-neutral-200 bg-white p-3 text-sm shadow-sm transition focus:border-emerald-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900" placeholder="{{ __('Optional') }}"></textarea>
+                                <flux:textarea wire:model.defer="form.deskripsi" :label="__('Description')" rows="4" class="" placeholder="{{ __('Optional') }}"></flux:textarea>
                                 @error('form.deskripsi')
                                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                                 @enderror
