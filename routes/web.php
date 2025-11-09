@@ -36,6 +36,11 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('meja/create', 'meja.create')->name('meja.create');
     Volt::route('meja/{meja}/edit', 'meja.edit')->name('meja.edit');
 
+    // Kategori Menu CRUD
+    Volt::route('kategori', 'kategori.index')->name('kategori.index');
+    Volt::route('kategori/create', 'kategori.create')->name('kategori.create');
+    Volt::route('kategori/{kategori}/edit', 'kategori.edit')->name('kategori.edit');
+
 });
 
 // QR image (PNG) generator (public path to avoid auth/cookie issues when embedding in <img>)
