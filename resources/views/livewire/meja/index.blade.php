@@ -215,20 +215,23 @@ new class extends Component {
         </div>
 
         <!-- Search and filter -->
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex-1">
-                <flux:input wire:model.live.debounce.1000ms="search" :placeholder="__('Search table number or token')" />
-            </div>
-            <div class="flex items-center gap-2">
-                <select wire:model.live="statusFilter" class="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]">
-                    <option value="all">{{ __('All') }}</option>
-                    <option value="kosong">{{ __('Empty') }}</option>
-                    <option value="terisi">{{ __('Occupied') }}</option>
-                    <option value="reservasi">{{ __('Reserved') }}</option>
-                </select>
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','');$set('statusFilter','all')">{{ __('Clear') }}</flux:button>
-            </div>
-        </div>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex-1">
+                  <flux:input wire:model.live.debounce.1000ms="search" :placeholder="__('Search table number or token')" />
+              </div>
+              <div class="flex items-center gap-2">
+                  <flux:select
+                      wire:model.live="statusFilter"
+                      class="rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
+                  >
+                      <option value="all">{{ __('All') }}</option>
+                      <option value="kosong">{{ __('Empty') }}</option>
+                      <option value="terisi">{{ __('Occupied') }}</option>
+                      <option value="reservasi">{{ __('Reserved') }}</option>
+                  </flux:select>
+                  <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','');$set('statusFilter','all')">{{ __('Clear') }}</flux:button>
+              </div>
+          </div>
 
         <!-- Mobile cards -->
         <div class="block sm:hidden">
