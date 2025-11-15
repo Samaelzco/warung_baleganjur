@@ -343,7 +343,7 @@ new class extends Component {
         @php($selectedKategori = $items->firstWhere('id', $confirmingDeleteId))
 
         <!-- Create modal (match meja) -->
-        <flux:modal name="create-kategori" focusable class="mx-0 max-w-full rounded-none sm:mx-auto sm:max-w-4xl sm:rounded-2xl" closable="false">
+        <flux:modal name="create-kategori" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
                 <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
                     <div>
@@ -400,7 +400,7 @@ new class extends Component {
         </flux:modal>
 
         <!-- Edit modal (match meja) -->
-        <flux:modal name="edit-kategori" focusable class="mx-0 max-w-full rounded-none sm:mx-auto sm:max-w-4xl sm:rounded-2xl" closable="false">
+        <flux:modal name="edit-kategori" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
                 <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
                     <div>

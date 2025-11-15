@@ -17,6 +17,7 @@
                     <flux:navlist.item icon="view-columns" :href="route('meja.index')" :current="request()->routeIs('meja.*')" wire:navigate>{{ __('Tables') }}</flux:navlist.item>
                     <flux:navlist.item icon="layout-grid" :href="route('kategori.index')" :current="request()->routeIs('kategori.*')" wire:navigate>{{ __('Menu Categories') }}</flux:navlist.item>
                     <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
+                    <flux:navlist.item icon="banknotes" :href="route('pajak.index')" :current="request()->routeIs('pajak.*')" wire:navigate>{{ __('Taxes') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 
