@@ -271,23 +271,43 @@ new class extends Component {
         </div>
 
         <!-- filters -->
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex-1">
-                <flux:input wire:model.live.debounce.800ms="search" :placeholder="__('Search name or description')" />
+        <div class="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:items-center sm:gap-3">
+            <div>
+                <flux:input
+                    wire:model.live.debounce.800ms="search"
+                    :placeholder="__('Search name or description')"
+                />
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <select wire:model.live="statusFilter" class="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                    <option value="all">{{ __('All Status') }}</option>
-                    <option value="tersedia">{{ __('Available') }}</option>
-                    <option value="habis">{{ __('Out of stock') }}</option>
-                </select>
-                <select wire:model.live="kategoriFilter" class="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                    <option value="">{{ __('All Categories') }}</option>
-                    @foreach($kategories as $kat)
-                        <option value="{{ $kat->id }}">{{ $kat->nama_kategori }}</option>
-                    @endforeach
-                </select>
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','');$set('statusFilter','all');$set('kategoriFilter', null)">{{ __('Clear') }}</flux:button>
+            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div class="min-w-[9rem] sm:min-w-[10rem]">
+                    <flux:select
+                        wire:model.live="statusFilter"
+                        class="w-full rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                    >
+                        <option value="all">{{ __('All Status') }}</option>
+                        <option value="tersedia">{{ __('Available') }}</option>
+                        <option value="habis">{{ __('Out of stock') }}</option>
+                    </flux:select>
+                </div>
+                <div class="min-w-[9rem] sm:min-w-[10rem]">
+                    <flux:select
+                        wire:model.live="kategoriFilter"
+                        class="w-full rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                    >
+                        <option value="">{{ __('All Categories') }}</option>
+                        @foreach($kategories as $kat)
+                            <option value="{{ $kat->id }}">{{ $kat->nama_kategori }}</option>
+                        @endforeach
+                    </flux:select>
+                </div>
+                <flux:button
+                    size="sm"
+                    variant="ghost"
+                    class="btn-ghost-accent"
+                    wire:click="$set('search','');$set('statusFilter','all');$set('kategoriFilter', null)"
+                >
+                    {{ __('Clear') }}
+                </flux:button>
             </div>
         </div>
 
