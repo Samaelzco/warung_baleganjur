@@ -138,7 +138,7 @@ new class extends Component {
             ],
             'inactive' => [
                 'label' => __('Inactive'),
-                'dot'   => 'bg-neutral-400',
+                'dot'   => 'bg-amber-500',
                 'hint'  => __('Kept for history, not applied'),
             ],
         ];

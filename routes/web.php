@@ -51,6 +51,11 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('pajak/create', 'pajak.create')->name('pajak.create');
     Volt::route('pajak/{pajak}/edit', 'pajak.edit')->name('pajak.edit');
 
+    // Diskon
+    Volt::route('diskon', 'diskon.index')->name('diskon.index');
+    Volt::route('diskon/create', 'diskon.create')->name('diskon.create');
+    Volt::route('diskon/{diskon}/edit', 'diskon.edit')->name('diskon.edit');
+
 });
 
 // QR image (PNG) generator (public path to avoid auth/cookie issues when embedding in <img>)
