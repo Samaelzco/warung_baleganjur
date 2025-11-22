@@ -56,6 +56,11 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('diskon/create', 'diskon.create')->name('diskon.create');
     Volt::route('diskon/{diskon}/edit', 'diskon.edit')->name('diskon.edit');
 
+    // Pesanan
+    Volt::route('pesanan', 'pesanan.index')->name('pesanan.index');
+    Volt::route('pesanan/create', 'pesanan.create')->name('pesanan.create');
+    Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->name('pesanan.edit');
+
 });
 
 // QR image (PNG) generator (public path to avoid auth/cookie issues when embedding in <img>)

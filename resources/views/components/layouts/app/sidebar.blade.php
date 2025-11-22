@@ -19,6 +19,7 @@
                     <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
                     <flux:navlist.item icon="banknotes" :href="route('pajak.index')" :current="request()->routeIs('pajak.*')" wire:navigate>{{ __('Taxes') }}</flux:navlist.item>
                     <flux:navlist.item icon="tag" :href="route('diskon.index')" :current="request()->routeIs('diskon.*')" wire:navigate>{{ __('Discounts') }}</flux:navlist.item>
+                    <flux:navlist.item icon="receipt-percent" :href="route('pesanan.index')" :current="request()->routeIs('pesanan.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 

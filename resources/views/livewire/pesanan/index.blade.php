@@ -1,6 +1,13 @@
 <?php
 
+use App\Models\Diskon;
+use App\Models\Meja;
+use App\Models\Pajak;
 use App\Models\Pesanan;
+use App\Models\PesananDetail;
+use App\Models\Menu;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -8,6 +15,9 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
+    public ?int $editingId = null;
+    public array $form = [];
+    public array $orderItems = [];
     public string $search = '';
     public string $statusFilter = 'all';
     public string $paymentFilter = 'all';
@@ -19,9 +29,181 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
+    public function mount(): void
+    {
+        $this->resetCreateForm();
+    }
+
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
     public function updatingPaymentFilter(): void { $this->resetPage(); }
+
+    public function openCreateModal(): void
+    {
+        $this->resetCreateForm();
+        $this->dispatch('modal-show', name: 'create-pesanan');
+    }
+
+    public function openEditModal(int $id): void
+    {
+        $pesanan = Pesanan::with(['details.menu'])->findOrFail($id);
+        $this->editingId = $pesanan->id;
+
+        $this->form = [
+            'meja_id' => $pesanan->meja_id,
+            'kode_pesanan' => $pesanan->kode_pesanan,
+            'customer_name' => $pesanan->customer_name,
+            'customer_note' => $pesanan->customer_note,
+            'subtotal' => $pesanan->subtotal,
+            'discount_total' => $pesanan->discount_total,
+            'tax_total' => $pesanan->tax_total,
+            'total_harga' => $pesanan->total_harga,
+            'status' => $pesanan->status,
+            'metode_pembayaran' => $pesanan->metode_pembayaran,
+            'dibayar' => $pesanan->dibayar,
+            'kembalian' => $pesanan->kembalian,
+            'kasir_id' => $pesanan->kasir_id,
+            'chef_id' => $pesanan->chef_id,
+            'diskon_id' => $pesanan->diskon_id,
+            'pajak_id' => $pesanan->pajak_id,
+        ];
+
+        $this->orderItems = $pesanan->details->map(function (PesananDetail $detail) {
+            return [
+                'id' => $detail->id,
+                'menu_id' => $detail->menu_id,
+                'qty' => $detail->qty,
+                'harga' => (float) $detail->harga,
+                'subtotal' => (float) $detail->subtotal,
+                'catatan' => $detail->catatan,
+            ];
+        })->toArray();
+
+        $this->recalculateTotals();
+
+        $this->dispatch('modal-show', name: 'edit-pesanan');
+    }
+
+    public function save(): void
+    {
+        $validated = validator($this->form, [
+            'meja_id' => ['required', 'exists:mejas,id'],
+            'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan'],
+            'customer_name' => ['required', 'string', 'max:100'],
+            'customer_note' => ['nullable', 'string', 'max:255'],
+            'subtotal' => ['required', 'numeric', 'min:0'],
+            'discount_total' => ['nullable', 'numeric', 'min:0'],
+            'tax_total' => ['nullable', 'numeric', 'min:0'],
+            'total_harga' => ['required', 'numeric', 'min:0'],
+            'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
+            'metode_pembayaran' => ['nullable', 'in:tunai,transfer'],
+            'dibayar' => ['nullable', 'numeric', 'min:0'],
+            'kembalian' => ['nullable', 'numeric', 'min:0'],
+            'kasir_id' => ['nullable', 'exists:users,id'],
+            'chef_id' => ['nullable', 'exists:users,id'],
+            'diskon_id' => ['nullable', 'exists:diskons,id'],
+            'pajak_id' => ['nullable', 'exists:pajaks,id'],
+        ])->validate();
+
+        if (empty($validated['kode_pesanan'])) {
+            $validated['kode_pesanan'] = 'ORD-' . now()->format('YmdHis');
+        }
+
+        $validated['waktu_pesan'] = now();
+
+        Pesanan::create($validated);
+
+        $this->resetCreateForm();
+        $this->dispatch('modal-close', name: 'create-pesanan');
+        $this->dispatch('pesanan-toast', message: __('Order created successfully.'));
+    }
+
+    public function update(): void
+    {
+        if (!$this->editingId) {
+            return;
+        }
+
+        $data = array_merge($this->form, ['items' => $this->orderItems]);
+
+        $validated = validator($data, [
+            'meja_id' => ['required', 'exists:mejas,id'],
+            'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan,' . $this->editingId],
+            'customer_name' => ['required', 'string', 'max:100'],
+            'customer_note' => ['nullable', 'string', 'max:255'],
+            'subtotal' => ['required', 'numeric', 'min:0'],
+            'discount_total' => ['nullable', 'numeric', 'min:0'],
+            'tax_total' => ['nullable', 'numeric', 'min:0'],
+            'total_harga' => ['required', 'numeric', 'min:0'],
+            'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
+            'metode_pembayaran' => ['nullable', 'in:tunai,transfer'],
+            'dibayar' => ['nullable', 'numeric', 'min:0'],
+            'kembalian' => ['nullable', 'numeric', 'min:0'],
+            'kasir_id' => ['nullable', 'exists:users,id'],
+            'chef_id' => ['nullable', 'exists:users,id'],
+            'diskon_id' => ['nullable', 'exists:diskons,id'],
+            'pajak_id' => ['nullable', 'exists:pajaks,id'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.id' => ['nullable', 'integer'],
+            'items.*.menu_id' => ['required', 'exists:menus,id'],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.harga' => ['required', 'numeric', 'min:0'],
+            'items.*.subtotal' => ['required', 'numeric', 'min:0'],
+            'items.*.catatan' => ['nullable', 'string'],
+        ])->validate();
+
+        $pesanan = Pesanan::findOrFail($this->editingId);
+
+        if (in_array($validated['status'], ['selesai', 'batal'], true)) {
+            if (!$pesanan->waktu_selesai) {
+                $validated['waktu_selesai'] = now();
+            }
+
+            if (empty($validated['kasir_id']) && auth()->check()) {
+                $validated['kasir_id'] = auth()->id();
+            }
+        } else {
+            $validated['waktu_selesai'] = null;
+        }
+
+        DB::transaction(function () use ($validated, $pesanan) {
+            $pesananData = collect($validated)->except('items')->toArray();
+
+            $pesanan->update($pesananData);
+
+            $existingDetails = $pesanan->details()->get()->keyBy('id');
+            $keptIds = [];
+
+            foreach ($validated['items'] as $item) {
+                $payload = [
+                    'menu_id' => $item['menu_id'],
+                    'qty' => $item['qty'],
+                    'harga' => $item['harga'],
+                    'subtotal' => $item['subtotal'],
+                    'catatan' => $item['catatan'] ?? null,
+                ];
+
+                if (!empty($item['id']) && $existingDetails->has($item['id'])) {
+                    $detail = $existingDetails[$item['id']];
+                    $detail->update($payload);
+                } else {
+                    $detail = $pesanan->details()->create($payload);
+                }
+
+                $keptIds[] = $detail->id;
+            }
+
+            if (!empty($keptIds)) {
+                $pesanan->details()->whereNotIn('id', $keptIds)->delete();
+            } else {
+                $pesanan->details()->delete();
+            }
+        });
+
+        $this->editingId = null;
+        $this->dispatch('modal-close', name: 'edit-pesanan');
+        $this->dispatch('pesanan-toast', message: __('Order updated successfully.'));
+    }
 
     public function confirmDelete(int $id): void
     {
@@ -38,6 +220,98 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-pesanan-desktop');
             $this->dispatch('pesanan-toast', message: __('Order deleted successfully.'));
         }
+    }
+
+    protected function resetCreateForm(): void
+    {
+        $this->form = [
+            'meja_id' => null,
+            'kode_pesanan' => '',
+            'customer_name' => '',
+            'customer_note' => '',
+            'subtotal' => '',
+            'discount_total' => '',
+            'tax_total' => '',
+            'total_harga' => '',
+            'status' => 'menunggu',
+            'metode_pembayaran' => '',
+            'dibayar' => '',
+            'kembalian' => '',
+            'kasir_id' => '',
+            'chef_id' => '',
+            'diskon_id' => '',
+            'pajak_id' => '',
+        ];
+    }
+
+    public function addItem(): void
+    {
+        $this->orderItems[] = [
+            'id' => null,
+            'menu_id' => '',
+            'qty' => 1,
+            'harga' => 0,
+            'subtotal' => 0,
+            'catatan' => '',
+        ];
+    }
+
+    public function removeItem(int $index): void
+    {
+        if (!isset($this->orderItems[$index])) {
+            return;
+        }
+
+        unset($this->orderItems[$index]);
+        $this->orderItems = array_values($this->orderItems);
+
+        $this->recalculateTotals();
+    }
+
+    public function updatedOrderItems($value, $name): void
+    {
+        if (preg_match('/^(\\d+)\\.(qty|harga)$/', (string) $name, $matches)) {
+            $index = (int) $matches[1];
+            $this->recalculateItemSubtotal($index);
+        }
+    }
+
+    public function updatedForm($value, $name): void
+    {
+        if (in_array($name, ['discount_total', 'tax_total'], true)) {
+            $this->recalculateTotals();
+        }
+    }
+
+    protected function recalculateItemSubtotal(int $index): void
+    {
+        if (!isset($this->orderItems[$index])) {
+            return;
+        }
+
+        $qty = (int) ($this->orderItems[$index]['qty'] ?? 0);
+        $harga = (float) ($this->orderItems[$index]['harga'] ?? 0);
+
+        $this->orderItems[$index]['qty'] = $qty;
+        $this->orderItems[$index]['harga'] = $harga;
+        $this->orderItems[$index]['subtotal'] = $qty * $harga;
+
+        $this->recalculateTotals();
+    }
+
+    protected function recalculateTotals(): void
+    {
+        $subtotal = 0;
+
+        foreach ($this->orderItems as $item) {
+            $subtotal += (float) ($item['subtotal'] ?? 0);
+        }
+
+        $discount = (float) ($this->form['discount_total'] ?? 0);
+        $tax = (float) ($this->form['tax_total'] ?? 0);
+
+        $this->form['subtotal'] = $subtotal;
+        $this->form['total_harga'] = max($subtotal - $discount + $tax, 0);
     }
 }; ?>
 
@@ -99,7 +373,14 @@ new class extends Component {
             ],
         ];
 
+        $mejas   = Meja::orderBy('nomor_meja')->get();
+        $diskons = Diskon::orderBy('kode')->get();
+        $pajaks  = Pajak::orderBy('nama')->get();
+        $users   = User::orderBy('name')->get();
+        $menus   = Menu::orderBy('nama_menu')->get();
+
         $selectedPesanan = $items->firstWhere('id', $confirmingDeleteId);
+        $editingPesanan = $items->firstWhere('id', $editingId);
     @endphp
 
     <div class="space-y-6">
@@ -107,14 +388,11 @@ new class extends Component {
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <flux:heading size="xl" level="1">{{ __('Orders') }}</flux:heading>
-                
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <flux:link :href="route('pesanan.create')" wire:navigate>
-                    <flux:button icon="plus" variant="primary" class="btn-brand">
-                        {{ __('Create') }}
-                    </flux:button>
-                </flux:link>
+                <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">
+                    {{ __('Create') }}
+                </flux:button>
             </div>
         </div>
 
@@ -441,11 +719,14 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center justify-end gap-2">
-                                            <flux:link :href="route('pesanan.edit', $item)" wire:navigate>
-                                                <flux:button size="sm" variant="ghost" class="btn-ghost-accent rounded-2xl shadow-sm transition">
-                                                    {{ __('Edit') }}
-                                                </flux:button>
-                                            </flux:link>
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
+                                                class="btn-ghost-accent rounded-2xl shadow-sm transition"
+                                                wire:click="openEditModal({{ $item->id }})"
+                                            >
+                                                {{ __('Edit') }}
+                                            </flux:button>
                                             <flux:modal.trigger name="confirm-delete-pesanan-desktop">
                                                 <flux:button
                                                     size="sm"
@@ -474,6 +755,455 @@ new class extends Component {
                 {{ $items->links() }}
             </div>
         </div>
+
+        <!-- Create order modal -->
+        <flux:modal name="create-pesanan" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
+                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+                    <div>
+                        <flux:heading size="lg">{{ __('Create Order') }}</flux:heading>
+                        <flux:subheading>{{ __('Fill the details below to add a new order.') }}</flux:subheading>
+                    </div>
+                    <flux:modal.close class="hidden sm:block">
+                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
+                    </flux:modal.close>
+                </div>
+
+                <form id="create-pesanan-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
+                    <div class="grid gap-6 md:grid-cols-2">
+                        <div class="space-y-4">
+                            <flux:select wire:model.defer="form.meja_id" :label="__('Table')" required>
+                                <option value="">{{ __('Select') }}</option>
+                                @foreach ($mejas as $meja)
+                                    <option value="{{ $meja->id }}">{{ $meja->nomor_meja }}</option>
+                                @endforeach
+                            </flux:select>
+
+                            <flux:input
+                                wire:model.defer="form.kode_pesanan"
+                                :label="__('Order Code')"
+                                maxlength="20"
+                                placeholder="{{ __('Optional') }}"
+                            />
+
+                            <flux:input
+                                wire:model.defer="form.customer_name"
+                                :label="__('Customer Name')"
+                                required
+                                maxlength="100"
+                            />
+
+                            <flux:textarea
+                                wire:model.defer="form.customer_note"
+                                rows="3"
+                                :label="__('Customer Note')"
+                                placeholder="{{ __('Optional') }}"
+                            ></flux:textarea>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model.defer="form.status" :label="__('Status')" required>
+                                    <option value="menunggu">{{ __('Waiting') }}</option>
+                                    <option value="diproses">{{ __('In progress') }}</option>
+                                    <option value="siap">{{ __('Ready') }}</option>
+                                    <option value="selesai">{{ __('Completed') }}</option>
+                                    <option value="batal">{{ __('Cancelled') }}</option>
+                                </flux:select>
+
+                                <flux:select wire:model.defer="form.metode_pembayaran" :label="__('Payment Method')">
+                                    <option value="">{{ __('Select') }}</option>
+                                    <option value="tunai">{{ __('Cash') }}</option>
+                                    <option value="transfer">{{ __('Bank Transfer') }}</option>
+                                </flux:select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input
+                                    wire:model.defer="form.subtotal"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Subtotal')"
+                                    required
+                                />
+                                <flux:input
+                                    wire:model.defer="form.discount_total"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Discount Total')"
+                                />
+                                <flux:input
+                                    wire:model.defer="form.tax_total"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Tax Total')"
+                                />
+                                <flux:input
+                                    wire:model.defer="form.total_harga"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Grand Total')"
+                                    required
+                                />
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input
+                                    wire:model.defer="form.dibayar"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Paid Amount')"
+                                />
+                                <flux:input
+                                    wire:model.defer="form.kembalian"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Change')"
+                                />
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model.defer="form.diskon_id" :label="__('Discount')">
+                                    <option value="">{{ __('None') }}</option>
+                                    @foreach ($diskons as $diskon)
+                                        <option value="{{ $diskon->id }}">{{ $diskon->kode }}</option>
+                                    @endforeach
+                                </flux:select>
+
+                                <flux:select wire:model.defer="form.pajak_id" :label="__('Tax')">
+                                    <option value="">{{ __('None') }}</option>
+                                    @foreach ($pajaks as $pajak)
+                                        <option value="{{ $pajak->id }}">{{ $pajak->nama }} ({{ $pajak->persentase }}%)</option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model.defer="form.kasir_id" :label="__('Cashier')">
+                                    <option value="">{{ __('Select') }}</option>
+                                    @foreach ($users as $user)
+                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                    @endforeach
+                                </flux:select>
+
+                                <flux:select wire:model.defer="form.chef_id" :label="__('Chef')">
+                                    <option value="">{{ __('Select') }}</option>
+                                    @foreach ($users as $user)
+                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
+                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
+                                <ul class="mt-2 list-disc space-y-1 pl-4">
+                                    <li>{{ __('Leave the order code empty to auto-generate it.') }}</li>
+                                    <li>{{ __('Subtotal, discount, tax, and grand total should match the bill on the customer side.') }}</li>
+                                    <li>{{ __('Status and payment method help track which orders are still open or already paid.') }}</li>
+                                </ul>
+                            </div>
+
+                            <div class="hidden md:flex items-center justify-end gap-3 pt-2">
+                                <flux:modal.close>
+                                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
+                                </flux:modal.close>
+                                <flux:button type="submit" form="create-pesanan-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
+                    <div class="grid grid-cols-2 gap-2">
+                        <flux:modal.close>
+                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
+                        </flux:modal.close>
+                        <flux:button type="submit" form="create-pesanan-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
+                    </div>
+                </div>
+            </div>
+        </flux:modal>
+
+        <!-- Edit order modal -->
+        <flux:modal name="edit-pesanan" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+            <div class="flex flex-col max-h-[85vh] overflow-y-auto no-scrollbar">
+                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+                    <div>
+                        <flux:heading size="lg">{{ __('Edit Order') }}</flux:heading>
+                        <flux:subheading>{{ __('Update the details for this order.') }}</flux:subheading>
+                    </div>
+                    <flux:modal.close class="hidden sm:block">
+                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
+                    </flux:modal.close>
+                </div>
+
+                <form id="edit-pesanan-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
+                    <div class="grid gap-6 md:grid-cols-2">
+                        <div class="space-y-4">
+                            <flux:select wire:model.defer="form.meja_id" :label="__('Table')" required>
+                                <option value="">{{ __('Select') }}</option>
+                                @foreach ($mejas as $meja)
+                                    <option value="{{ $meja->id }}">{{ $meja->nomor_meja }}</option>
+                                @endforeach
+                            </flux:select>
+
+                            <flux:input
+                                wire:model.defer="form.kode_pesanan"
+                                :label="__('Order Code')"
+                                maxlength="20"
+                                placeholder="{{ __('Optional') }}"
+                            />
+
+                            <flux:input
+                                wire:model.defer="form.customer_name"
+                                :label="__('Customer Name')"
+                                required
+                                maxlength="100"
+                            />
+
+                            <flux:textarea
+                                wire:model.defer="form.customer_note"
+                                rows="3"
+                                :label="__('Customer Note')"
+                                placeholder="{{ __('Optional') }}"
+                            ></flux:textarea>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model.defer="form.status" :label="__('Status')" required>
+                                    <option value="menunggu">{{ __('Waiting') }}</option>
+                                    <option value="diproses">{{ __('In progress') }}</option>
+                                    <option value="siap">{{ __('Ready') }}</option>
+                                    <option value="selesai">{{ __('Completed') }}</option>
+                                    <option value="batal">{{ __('Cancelled') }}</option>
+                                </flux:select>
+
+                                <flux:select wire:model.defer="form.metode_pembayaran" :label="__('Payment Method')">
+                                    <option value="">{{ __('Select') }}</option>
+                                    <option value="tunai">{{ __('Cash') }}</option>
+                                    <option value="transfer">{{ __('Bank Transfer') }}</option>
+                                </flux:select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input
+                                    wire:model.defer="form.subtotal"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Subtotal')"
+                                    required
+                                />
+                                <flux:input
+                                    wire:model.defer="form.discount_total"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Discount Total')"
+                                />
+                                <flux:input
+                                    wire:model.defer="form.tax_total"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Tax Total')"
+                                />
+                                <flux:input
+                                    wire:model.defer="form.total_harga"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Grand Total')"
+                                    required
+                                />
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input
+                                    wire:model.defer="form.dibayar"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Paid Amount')"
+                                />
+                                <flux:input
+                                    wire:model.defer="form.kembalian"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    :label="__('Change')"
+                                />
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model.defer="form.diskon_id" :label="__('Discount')">
+                                    <option value="">{{ __('None') }}</option>
+                                    @foreach ($diskons as $diskon)
+                                        <option value="{{ $diskon->id }}">{{ $diskon->kode }}</option>
+                                    @endforeach
+                                </flux:select>
+
+                                <flux:select wire:model.defer="form.pajak_id" :label="__('Tax')">
+                                    <option value="">{{ __('None') }}</option>
+                                    @foreach ($pajaks as $pajak)
+                                        <option value="{{ $pajak->id }}">{{ $pajak->nama }} ({{ $pajak->persentase }}%)</option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model.defer="form.kasir_id" :label="__('Cashier')">
+                                    <option value="">{{ __('Select') }}</option>
+                                    @foreach ($users as $user)
+                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                    @endforeach
+                                </flux:select>
+
+                                <flux:select wire:model.defer="form.chef_id" :label="__('Chef')">
+                                    <option value="">{{ __('Select') }}</option>
+                                    @foreach ($users as $user)
+                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
+                                <flux:heading size="sm">{{ __('Order Info') }}</flux:heading>
+                                <p class="mt-1">
+                                    {{ __('Adjust status and payment carefully. Completed or cancelled orders will have their completion time recorded.') }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <div class="mt-2 rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <flux:heading size="sm">{{ __('Order Items') }}</flux:heading>
+                                    <flux:button type="button" size="xs" icon="plus" variant="ghost" class="btn-ghost-accent" wire:click="addItem">
+                                        {{ __('Add Item') }}
+                                    </flux:button>
+                                </div>
+
+                                @if (empty($orderItems))
+                                    <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                                        {{ __('No items for this order yet.') }}
+                                    </p>
+                                @else
+                                    <div class="overflow-hidden rounded-xl bg-neutral-50/60 dark:bg-neutral-900/40">
+                                        <div class="max-h-60 overflow-y-auto overflow-x-auto">
+                                            <table class="min-w-full text-[11px] table-fixed">
+                                                <thead class="bg-neutral-100/70 dark:bg-neutral-900/70">
+                                                    <tr>
+                                                        <th class="w-4/12 px-2 py-1 text-left font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Menu') }}
+                                                        </th>
+                                                        <th class="w-1/12 px-2 py-1 text-center font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Qty') }}
+                                                        </th>
+                                                        <th class="w-2/12 px-2 py-1 text-right font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Price') }}
+                                                        </th>
+                                                        <th class="w-2/12 px-2 py-1 text-right font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Subtotal') }}
+                                                        </th>
+                                                        <th class="w-2/12 px-2 py-1 text-left font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Note') }}
+                                                        </th>
+                                                        <th class="w-1/12 px-2 py-1"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-neutral-100/80 dark:divide-neutral-800/80">
+                                                    @foreach ($orderItems as $index => $item)
+                                                        <tr>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                <select
+                                                                    wire:model.defer="orderItems.{{ $index }}.menu_id"
+                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                >
+                                                                    <option value="">{{ __('Select') }}</option>
+                                                                    @foreach ($menus as $menu)
+                                                                        <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                <input
+                                                                    type="number"
+                                                                    min="1"
+                                                                    wire:model="orderItems.{{ $index }}.qty"
+                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-right text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    wire:model="orderItems.{{ $index }}.harga"
+                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-right text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle text-right">
+                                                                Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle">
+                                                                <input
+                                                                    type="text"
+                                                                    wire:model.defer="orderItems.{{ $index }}.catatan"
+                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                    placeholder="{{ __('Optional') }}"
+                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-1 align-middle text-right">
+                                                                <flux:button
+                                                                    type="button"
+                                                                    size="xs"
+                                                                    variant="ghost"
+                                                                    icon="trash"
+                                                                    class="btn-ghost-danger"
+                                                                    wire:click="removeItem({{ $index }})"
+                                                                >
+                                                                    {{ __('Remove') }}
+                                                                </flux:button>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="hidden md:block sticky bottom-0 z-10 -mx-4 border-t border-neutral-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
+                    <div class="flex items-center justify-end gap-3">
+                        <flux:modal.close>
+                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
+                        </flux:modal.close>
+                        <flux:button type="submit" form="edit-pesanan-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
+                    </div>
+                </div>
+
+                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
+                    <div class="grid grid-cols-2 gap-2">
+                        <flux:modal.close>
+                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
+                        </flux:modal.close>
+                        <flux:button type="submit" form="edit-pesanan-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
+                    </div>
+                </div>
+            </div>
+        </flux:modal>
 
         <!-- Delete confirm modal - mobile flyout -->
         <flux:modal
