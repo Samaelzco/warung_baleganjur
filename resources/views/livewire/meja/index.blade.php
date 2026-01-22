@@ -25,22 +25,26 @@ new class extends Component {
 
     public function confirmDelete(int $id): void
     {
+        $this->authorizeManage();
         $this->confirmingDeleteId = $id;
     }
 
     public function openCreateModal(): void
     {
+        $this->authorizeManage();
         $this->resetCreateForm();
         $this->dispatch('modal-show', name: 'create-meja');
     }
 
     public function regenerateToken(): void
     {
+        $this->authorizeManage();
         $this->form['qr_token'] = $this->generateUniqueToken();
     }
 
     public function openEditModal(int $id): void
     {
+        $this->authorizeManage();
         $meja = Meja::findOrFail($id);
         $this->editingId = $meja->id;
         $this->form = [
@@ -54,6 +58,7 @@ new class extends Component {
 
     public function save(): void
     {
+        $this->authorizeManage();
         $validated = validator($this->form, [
             'nomor_meja' => ['required', 'string', 'max:10'],
             'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token'],
@@ -69,6 +74,7 @@ new class extends Component {
 
     public function update(): void
     {
+        $this->authorizeManage();
         if (!$this->editingId) return;
 
         $validated = validator($this->form, [
@@ -86,6 +92,7 @@ new class extends Component {
 
     public function delete(): void
     {
+        $this->authorizeManage();
         if ($this->confirmingDeleteId) {
             Meja::where('id', $this->confirmingDeleteId)->delete();
             $this->confirmingDeleteId = null;
@@ -115,6 +122,11 @@ new class extends Component {
         } while (Meja::where('qr_token', $token)->exists());
 
         return $token;
+    }
+
+    protected function authorizeManage(): void
+    {
+        abort_unless(auth()->check() && auth()->user()->can('meja.manage'), 403);
     }
 
 }; ?>
@@ -167,7 +179,9 @@ new class extends Component {
                 <flux:link :href="route('meja.print', [], false)" wire:navigate>
                     <flux:button icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print All QR') }}</flux:button>
                 </flux:link>
-                <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                @can('meja.manage')
+                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                @endcan
             </div>
         </div>
 
@@ -268,10 +282,12 @@ new class extends Component {
                             <flux:link class="flex-1" :href="route('meja.qr', ['token' => $m->qr_token, 'download' => 1], false)">
                                 <flux:button size="sm" icon="arrow-down-tray" variant="ghost" class="w-full btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
                             </flux:link>
-                            <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
-                            <flux:modal.trigger name="confirm-delete-meja" class="flex-1">
-                                <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
-                            </flux:modal.trigger>
+                            @can('meja.manage')
+                                <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:modal.trigger name="confirm-delete-meja" class="flex-1">
+                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
+                                </flux:modal.trigger>
+                            @endcan
                         </div>
                     </div>
                 @empty
@@ -349,26 +365,28 @@ new class extends Component {
                                                     {{ __('Download PNG') }}
                                                 </flux:button>
                                             </flux:link>
-                                            <flux:button
-                                                size="sm"
-                                                icon="pencil-square"
-                                                variant="primary"
-                                                class="btn-accent rounded-2xl shadow-sm transition"
-                                                wire:click="openEditModal({{ $m->id }})"
-                                            >
-                                                {{ __('Edit') }}
-                                            </flux:button>
-                                            <flux:modal.trigger name="confirm-delete-meja-desktop">
+                                            @can('meja.manage')
                                                 <flux:button
                                                     size="sm"
-                                                    icon="trash"
-                                                    variant="danger"
-                                                    class="rounded-2xl shadow-sm transition"
-                                                    wire:click="confirmDelete({{ $m->id }})"
+                                                    icon="pencil-square"
+                                                    variant="primary"
+                                                    class="btn-accent rounded-2xl shadow-sm transition"
+                                                    wire:click="openEditModal({{ $m->id }})"
                                                 >
-                                                    {{ __('Delete') }}
+                                                    {{ __('Edit') }}
                                                 </flux:button>
-                                            </flux:modal.trigger>
+                                                <flux:modal.trigger name="confirm-delete-meja-desktop">
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="trash"
+                                                        variant="danger"
+                                                        class="rounded-2xl shadow-sm transition"
+                                                        wire:click="confirmDelete({{ $m->id }})"
+                                                    >
+                                                        {{ __('Delete') }}
+                                                    </flux:button>
+                                                </flux:modal.trigger>
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>

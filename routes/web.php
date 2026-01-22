@@ -9,7 +9,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::view('dashboard', 'dashboard')
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'can:dashboard.access'])
     ->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
@@ -31,36 +31,43 @@ Route::middleware(['auth'])->group(function () {
         ->name('two-factor.show');
 
     // Tables (Meja) CRUD
-    Volt::route('meja', 'meja.index')->name('meja.index');
-    Volt::route('meja/print', 'meja.print')->name('meja.print');
-    Volt::route('meja/create', 'meja.create')->name('meja.create');
-    Volt::route('meja/{meja}/edit', 'meja.edit')->name('meja.edit');
+    Volt::route('meja', 'meja.index')->middleware('can:meja.access')->name('meja.index');
+    Volt::route('meja/print', 'meja.print')->middleware('can:meja.access')->name('meja.print');
+    Volt::route('meja/create', 'meja.create')->middleware('can:meja.manage')->name('meja.create');
+    Volt::route('meja/{meja}/edit', 'meja.edit')->middleware('can:meja.manage')->name('meja.edit');
 
     // Kategori Menu CRUD
-    Volt::route('kategori', 'kategori.index')->name('kategori.index');
-    Volt::route('kategori/create', 'kategori.create')->name('kategori.create');
-    Volt::route('kategori/{kategori}/edit', 'kategori.edit')->name('kategori.edit');
+    Volt::route('kategori', 'kategori.index')->middleware('can:kategori.access')->name('kategori.index');
+    Volt::route('kategori/create', 'kategori.create')->middleware('can:kategori.manage')->name('kategori.create');
+    Volt::route('kategori/{kategori}/edit', 'kategori.edit')->middleware('can:kategori.manage')->name('kategori.edit');
 
     // Menu
-    Volt::route('menu', 'menu.index')->name('menu.index');
-    Volt::route('menu/create', 'menu.create')->name('menu.create');
-    Volt::route('menu/{menu}/edit', 'menu.edit')->name('menu.edit');
+    Volt::route('menu', 'menu.index')->middleware('can:menu.access')->name('menu.index');
+    Volt::route('menu/create', 'menu.create')->middleware('can:menu.manage')->name('menu.create');
+    Volt::route('menu/{menu}/edit', 'menu.edit')->middleware('can:menu.manage')->name('menu.edit');
 
     // Pajak
-    Volt::route('pajak', 'pajak.index')->name('pajak.index');
-    Volt::route('pajak/create', 'pajak.create')->name('pajak.create');
-    Volt::route('pajak/{pajak}/edit', 'pajak.edit')->name('pajak.edit');
+    Volt::route('pajak', 'pajak.index')->middleware('can:pajak.access')->name('pajak.index');
+    Volt::route('pajak/create', 'pajak.create')->middleware('can:pajak.manage')->name('pajak.create');
+    Volt::route('pajak/{pajak}/edit', 'pajak.edit')->middleware('can:pajak.manage')->name('pajak.edit');
 
     // Diskon
-    Volt::route('diskon', 'diskon.index')->name('diskon.index');
-    Volt::route('diskon/create', 'diskon.create')->name('diskon.create');
-    Volt::route('diskon/{diskon}/edit', 'diskon.edit')->name('diskon.edit');
+    Volt::route('diskon', 'diskon.index')->middleware('can:diskon.access')->name('diskon.index');
+    Volt::route('diskon/create', 'diskon.create')->middleware('can:diskon.manage')->name('diskon.create');
+    Volt::route('diskon/{diskon}/edit', 'diskon.edit')->middleware('can:diskon.manage')->name('diskon.edit');
 
     // Pesanan
-    Volt::route('pesanan', 'pesanan.index')->name('pesanan.index');
-    Volt::route('pesanan/create', 'pesanan.create')->name('pesanan.create');
-    Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->name('pesanan.edit');
+    Volt::route('pesanan', 'pesanan.index')->middleware('can:pesanan.access')->name('pesanan.index');
+    Volt::route('pesanan/create', 'pesanan.create')->middleware('can:pesanan.manage')->name('pesanan.create');
+    Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->middleware('can:pesanan.manage')->name('pesanan.edit');
 
+    // Users
+    Volt::route('users', 'users.index')->middleware('can:users.access')->name('users.index');
+    Volt::route('users/create', 'users.create')->middleware('can:users.manage')->name('users.create');
+    Volt::route('users/{user}/edit', 'users.edit')->middleware('can:users.manage')->name('users.edit');
+
+    // Roles
+    Volt::route('roles', 'roles.index')->middleware('can:roles.access')->name('roles.index');
 });
 
 // QR image (PNG) generator (public path to avoid auth/cookie issues when embedding in <img>)

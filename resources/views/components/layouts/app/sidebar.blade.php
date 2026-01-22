@@ -11,17 +11,37 @@
                 <x-app-logo />
             </a>
 
-            <flux:navlist variant="outline">
-                <flux:navlist.group :heading="__('Platform')" class="grid">
-                    <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="view-columns" :href="route('meja.index')" :current="request()->routeIs('meja.*')" wire:navigate>{{ __('Tables') }}</flux:navlist.item>
-                    <flux:navlist.item icon="layout-grid" :href="route('kategori.index')" :current="request()->routeIs('kategori.*')" wire:navigate>{{ __('Menu Categories') }}</flux:navlist.item>
-                    <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
-                    <flux:navlist.item icon="banknotes" :href="route('pajak.index')" :current="request()->routeIs('pajak.*')" wire:navigate>{{ __('Taxes') }}</flux:navlist.item>
-                    <flux:navlist.item icon="tag" :href="route('diskon.index')" :current="request()->routeIs('diskon.*')" wire:navigate>{{ __('Discounts') }}</flux:navlist.item>
-                    <flux:navlist.item icon="receipt-percent" :href="route('pesanan.index')" :current="request()->routeIs('pesanan.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
-                </flux:navlist.group>
-            </flux:navlist>
+                <flux:navlist variant="outline">
+                    <flux:navlist.group :heading="__('Platform')" class="grid">
+                    @can('dashboard.access')
+                        <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    @endcan
+                    @can('meja.access')
+                        <flux:navlist.item icon="view-columns" :href="route('meja.index')" :current="request()->routeIs('meja.*')" wire:navigate>{{ __('Tables') }}</flux:navlist.item>
+                    @endcan
+                    @can('kategori.access')
+                        <flux:navlist.item icon="layout-grid" :href="route('kategori.index')" :current="request()->routeIs('kategori.*')" wire:navigate>{{ __('Menu Categories') }}</flux:navlist.item>
+                    @endcan
+                    @can('menu.access')
+                        <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
+                    @endcan
+                    @can('pajak.access')
+                        <flux:navlist.item icon="banknotes" :href="route('pajak.index')" :current="request()->routeIs('pajak.*')" wire:navigate>{{ __('Taxes') }}</flux:navlist.item>
+                    @endcan
+                    @can('diskon.access')
+                        <flux:navlist.item icon="tag" :href="route('diskon.index')" :current="request()->routeIs('diskon.*')" wire:navigate>{{ __('Discounts') }}</flux:navlist.item>
+                    @endcan
+                    @can('pesanan.access')
+                        <flux:navlist.item icon="receipt-percent" :href="route('pesanan.index')" :current="request()->routeIs('pesanan.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
+                    @endcan
+                    @can('users.access')
+                        <flux:navlist.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>{{ __('Users') }}</flux:navlist.item>
+                    @endcan
+                    @can('roles.access')
+                        <flux:navlist.item icon="shield-check" :href="route('roles.index')" :current="request()->routeIs('roles.*')" wire:navigate>{{ __('Roles') }}</flux:navlist.item>
+                    @endcan
+                    </flux:navlist.group>
+                </flux:navlist>
 
             <flux:spacer />
 

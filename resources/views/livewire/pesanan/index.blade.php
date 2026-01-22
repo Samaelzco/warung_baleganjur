@@ -40,12 +40,14 @@ new class extends Component {
 
     public function openCreateModal(): void
     {
+        $this->authorizeManage();
         $this->resetCreateForm();
         $this->dispatch('modal-show', name: 'create-pesanan');
     }
 
     public function openEditModal(int $id): void
     {
+        $this->authorizeManage();
         $pesanan = Pesanan::with(['details.menu'])->findOrFail($id);
         $this->editingId = $pesanan->id;
 
@@ -86,6 +88,7 @@ new class extends Component {
 
     public function save(): void
     {
+        $this->authorizeManage();
         $validated = validator($this->form, [
             'meja_id' => ['required', 'exists:mejas,id'],
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan'],
@@ -120,6 +123,7 @@ new class extends Component {
 
     public function update(): void
     {
+        $this->authorizeManage();
         if (!$this->editingId) {
             return;
         }
@@ -207,11 +211,13 @@ new class extends Component {
 
     public function confirmDelete(int $id): void
     {
+        $this->authorizeManage();
         $this->confirmingDeleteId = $id;
     }
 
     public function delete(): void
     {
+        $this->authorizeManage();
         if ($this->confirmingDeleteId) {
             Pesanan::where('id', $this->confirmingDeleteId)->delete();
             $this->confirmingDeleteId = null;
@@ -242,6 +248,11 @@ new class extends Component {
             'diskon_id' => '',
             'pajak_id' => '',
         ];
+    }
+
+    protected function authorizeManage(): void
+    {
+        abort_unless(auth()->check() && auth()->user()->can('pesanan.manage'), 403);
     }
 
     public function addItem(): void
@@ -390,9 +401,11 @@ new class extends Component {
                 <flux:heading size="xl" level="1">{{ __('Orders') }}</flux:heading>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">
-                    {{ __('Create') }}
-                </flux:button>
+                @can('pesanan.manage')
+                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">
+                        {{ __('Create') }}
+                    </flux:button>
+                @endcan
             </div>
         </div>
 
@@ -592,21 +605,27 @@ new class extends Component {
                         </div>
 
                         <div class="mt-4 flex items-center gap-2">
-                            <flux:link class="flex-1" :href="route('pesanan.edit', $item)" wire:navigate>
-                                <flux:button size="sm" variant="ghost" class="w-full btn-ghost-accent">
-                                    {{ __('Edit') }}
-                                </flux:button>
-                            </flux:link>
-                            <flux:modal.trigger name="confirm-delete-pesanan" class="flex-1">
+                            @can('pesanan.manage')
                                 <flux:button
                                     size="sm"
-                                    variant="danger"
-                                    class="w-full"
-                                    wire:click="confirmDelete({{ $item->id }})"
+                                    icon="pencil-square"
+                                    variant="primary"
+                                    class="flex-1 btn-accent"
+                                    wire:click="openEditModal({{ $item->id }})"
                                 >
-                                    {{ __('Delete') }}
+                                    {{ __('Edit') }}
                                 </flux:button>
-                            </flux:modal.trigger>
+                                <flux:modal.trigger name="confirm-delete-pesanan" class="flex-1">
+                                    <flux:button
+                                        size="sm"
+                                        variant="danger"
+                                        class="w-full"
+                                        wire:click="confirmDelete({{ $item->id }})"
+                                    >
+                                        {{ __('Delete') }}
+                                    </flux:button>
+                                </flux:modal.trigger>
+                            @endcan
                         </div>
                     </div>
                 @empty
@@ -719,24 +738,27 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center justify-end gap-2">
-                                            <flux:button
-                                                size="sm"
-                                                variant="ghost"
-                                                class="btn-ghost-accent rounded-2xl shadow-sm transition"
-                                                wire:click="openEditModal({{ $item->id }})"
-                                            >
-                                                {{ __('Edit') }}
-                                            </flux:button>
-                                            <flux:modal.trigger name="confirm-delete-pesanan-desktop">
+                                            @can('pesanan.manage')
                                                 <flux:button
                                                     size="sm"
-                                                    variant="danger"
-                                                    class="rounded-2xl shadow-sm transition"
-                                                    wire:click="confirmDelete({{ $item->id }})"
+                                                    icon="pencil-square"
+                                                    variant="primary"
+                                                    class="btn-accent rounded-2xl shadow-sm transition"
+                                                    wire:click="openEditModal({{ $item->id }})"
                                                 >
-                                                    {{ __('Delete') }}
+                                                    {{ __('Edit') }}
                                                 </flux:button>
-                                            </flux:modal.trigger>
+                                                <flux:modal.trigger name="confirm-delete-pesanan-desktop">
+                                                    <flux:button
+                                                        size="sm"
+                                                        variant="danger"
+                                                        class="rounded-2xl shadow-sm transition"
+                                                        wire:click="confirmDelete({{ $item->id }})"
+                                                    >
+                                                        {{ __('Delete') }}
+                                                    </flux:button>
+                                                </flux:modal.trigger>
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>
