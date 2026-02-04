@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -15,6 +16,8 @@ class GodRoleSeeder extends Seeder
             if (!Schema::hasTable('roles') || !Schema::hasTable('permissions') || !Schema::hasTable('role_has_permissions')) {
                 return;
             }
+
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
 
             $defaultPermissions = [
                 'dashboard.access',
@@ -48,6 +51,8 @@ class GodRoleSeeder extends Seeder
 
             $godRole = Role::firstOrCreate(['name' => 'God', 'guard_name' => 'web']);
             $godRole->syncPermissions(Permission::query()->pluck('name')->all());
+
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
         } catch (\Throwable $e) {
             // Ignore if permission tables aren't migrated yet.
         }

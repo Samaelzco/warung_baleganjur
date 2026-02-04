@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -19,6 +20,8 @@ class SuperAdminSeeder extends Seeder
 
         try {
             if (Schema::hasTable('roles') && Schema::hasTable('model_has_roles')) {
+                app(PermissionRegistrar::class)->forgetCachedPermissions();
+
                 $this->call(GodRoleSeeder::class);
 
                 if (Schema::hasTable('permissions') && Schema::hasTable('role_has_permissions')) {
@@ -61,6 +64,8 @@ class SuperAdminSeeder extends Seeder
                 }
 
                 $user->syncRoles([$superAdminRole->name, $godRole->name]);
+
+                app(PermissionRegistrar::class)->forgetCachedPermissions();
             }
         } catch (\Throwable $e) {
             // Ignore if permission tables aren't migrated yet.
