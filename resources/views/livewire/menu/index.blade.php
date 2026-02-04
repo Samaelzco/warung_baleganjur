@@ -2,6 +2,7 @@
 
 use App\Models\Menu;
 use App\Models\KategoriMenu;
+use App\Models\Addon;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -45,7 +46,7 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $menu = Menu::findOrFail($id);
+        $menu = Menu::with('addons')->findOrFail($id);
         $this->editingId = $menu->id;
 
         $this->form = [
@@ -54,6 +55,7 @@ new class extends Component {
             'harga'       => $menu->harga,
             'status'      => $menu->status,
             'deskripsi'   => $menu->deskripsi,
+            'addon_ids'   => $menu->addons->pluck('id')->all(),
         ];
 
         $this->gambar = null;
@@ -71,8 +73,13 @@ new class extends Component {
             'harga'       => ['required', 'numeric', 'min:0'],
             'status'      => ['required', 'in:tersedia,habis'],
             'deskripsi'   => ['nullable', 'string'],
+            'addon_ids'   => ['nullable', 'array'],
+            'addon_ids.*' => ['integer', 'exists:addons,id'],
             'gambar'      => ['nullable', 'image', 'max:2048'],
         ])->validate();
+
+        $addonIds = $validated['addon_ids'] ?? [];
+        unset($validated['addon_ids']);
 
         if ($this->gambar) {
             $path = $this->gambar->store('menus', 'public');
@@ -81,7 +88,8 @@ new class extends Component {
             unset($validated['gambar']);
         }
 
-        Menu::create($validated);
+        $menu = Menu::create($validated);
+        $menu->addons()->sync($addonIds);
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-menu');
@@ -101,8 +109,13 @@ new class extends Component {
             'harga'       => ['required', 'numeric', 'min:0'],
             'status'      => ['required', 'in:tersedia,habis'],
             'deskripsi'   => ['nullable', 'string'],
+            'addon_ids'   => ['nullable', 'array'],
+            'addon_ids.*' => ['integer', 'exists:addons,id'],
             'gambar'      => ['nullable', 'image', 'max:2048'],
         ])->validate();
+
+        $addonIds = $validated['addon_ids'] ?? [];
+        unset($validated['addon_ids']);
 
         $menu = Menu::findOrFail($this->editingId);
 
@@ -117,6 +130,7 @@ new class extends Component {
         }
 
         $menu->update($validated);
+        $menu->addons()->sync($addonIds);
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-menu');
@@ -154,6 +168,7 @@ new class extends Component {
             'harga'       => 0,
             'status'      => 'tersedia',
             'deskripsi'   => '',
+            'addon_ids'   => [],
         ];
     }
 
@@ -186,6 +201,7 @@ new class extends Component {
         $availableCount = Menu::where('status', 'tersedia')->count();
         $outCount       = Menu::where('status', 'habis')->count();
         $kategories     = KategoriMenu::orderBy('nama_kategori')->get();
+        $addons         = Addon::orderBy('nama_addon')->get();
         $kategoriCount  = $kategories->count();
 
         $statusMeta = [
@@ -516,28 +532,44 @@ new class extends Component {
                                 @enderror
                             </div>
 
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" :label="__('Price (IDR)')" required />
-                                @error('form.harga')
-                                    <p class="text-xs text-red-500 sm:col-span-2">{{ $message }}</p>
-                                @enderror
+                                <div class="grid gap-4 sm:grid-cols-2">
+                                    <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" :label="__('Price (IDR)')" required />
+                                    @error('form.harga')
+                                        <p class="text-xs text-red-500 sm:col-span-2">{{ $message }}</p>
+                                    @enderror
 
-                                <div data-flux-field>
-                                    <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                        <option value="tersedia">{{ __('Available') }}</option>
-                                        <option value="habis">{{ __('Out of stock') }}</option>
-                                    </flux:select>
-                                    @error('form.status')
+                                    <div data-flux-field>
+                                        <flux:select wire:model.defer="form.status" :label="__('Status')">
+                                            <option value="tersedia">{{ __('Available') }}</option>
+                                            <option value="habis">{{ __('Out of stock') }}</option>
+                                        </flux:select>
+                                        @error('form.status')
+                                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                <flux:checkbox.group wire:model.defer="form.addon_ids" variant="pills" :label="__('Add-ons (optional)')">
+                                    @forelse ($addons as $addon)
+                                        <flux:checkbox
+                                            variant="pills"
+                                            value="{{ $addon->id }}"
+                                            :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')' . ($addon->status === 'habis' ? ' · ' . __('Out of stock') : '')"
+                                        />
+                                    @empty
+                                        <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons yet.') }}</div>
+                                    @endforelse
+                                    @error('form.addon_ids')
                                         <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                                     @enderror
-                                </div>
-                            </div>
+                                    <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Selected add-ons will be selectable when ordering this menu.') }}</p>
+                                </flux:checkbox.group>
 
-                            <div>
-                                <flux:textarea wire:model.defer="form.deskripsi" rows="4" :label="__('Description')" placeholder="{{ __('Optional, short description of this menu') }}"></flux:textarea>
-                                @error('form.deskripsi')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
+                                <div>
+                                    <flux:textarea wire:model.defer="form.deskripsi" rows="4" :label="__('Description')" placeholder="{{ __('Optional, short description of this menu') }}"></flux:textarea>
+                                    @error('form.deskripsi')
+                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                    @enderror
                             </div>
                         </div>
 
@@ -628,6 +660,22 @@ new class extends Component {
                                     @enderror
                                 </div>
                             </div>
+
+                            <flux:checkbox.group wire:model.defer="form.addon_ids" variant="pills" :label="__('Add-ons (optional)')">
+                                @forelse ($addons as $addon)
+                                    <flux:checkbox
+                                        variant="pills"
+                                        value="{{ $addon->id }}"
+                                        :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')' . ($addon->status === 'habis' ? ' · ' . __('Out of stock') : '')"
+                                    />
+                                @empty
+                                    <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons yet.') }}</div>
+                                @endforelse
+                                @error('form.addon_ids')
+                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                @enderror
+                                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Selected add-ons will be selectable when ordering this menu.') }}</p>
+                            </flux:checkbox.group>
 
                             <div>
                                 <flux:textarea wire:model.defer="form.deskripsi" rows="4" :label="__('Description')" placeholder="{{ __('Optional') }}"></flux:textarea>

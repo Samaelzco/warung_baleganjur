@@ -6,6 +6,7 @@ use App\Models\Pajak;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
 use App\Models\Menu;
+use App\Models\Addon;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
@@ -42,13 +43,15 @@ new class extends Component {
     {
         $this->authorizeManage();
         $this->resetCreateForm();
+        $this->orderItems = [];
+        $this->addItem();
         $this->dispatch('modal-show', name: 'create-pesanan');
     }
 
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $pesanan = Pesanan::with(['details.menu'])->findOrFail($id);
+        $pesanan = Pesanan::with(['details.menu', 'details.addons'])->findOrFail($id);
         $this->editingId = $pesanan->id;
 
         $this->form = [
@@ -77,6 +80,7 @@ new class extends Component {
                 'qty' => $detail->qty,
                 'harga' => (float) $detail->harga,
                 'subtotal' => (float) $detail->subtotal,
+                'addon_ids' => $detail->addons->pluck('id')->all(),
                 'catatan' => $detail->catatan,
             ];
         })->toArray();
@@ -89,32 +93,99 @@ new class extends Component {
     public function save(): void
     {
         $this->authorizeManage();
-        $validated = validator($this->form, [
+        $data = array_merge($this->form, ['items' => $this->orderItems]);
+        foreach (['customer_name', 'customer_note', 'discount_total', 'tax_total', 'chef_id', 'diskon_id', 'pajak_id'] as $field) {
+            if (array_key_exists($field, $data) && $data[$field] === '') {
+                $data[$field] = null;
+            }
+        }
+
+        $validated = validator($data, [
             'meja_id' => ['required', 'exists:mejas,id'],
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan'],
-            'customer_name' => ['required', 'string', 'max:100'],
+            'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
-            'subtotal' => ['required', 'numeric', 'min:0'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'total_harga' => ['required', 'numeric', 'min:0'],
-            'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
-            'metode_pembayaran' => ['nullable', 'in:tunai,transfer'],
-            'dibayar' => ['nullable', 'numeric', 'min:0'],
-            'kembalian' => ['nullable', 'numeric', 'min:0'],
-            'kasir_id' => ['nullable', 'exists:users,id'],
             'chef_id' => ['nullable', 'exists:users,id'],
             'diskon_id' => ['nullable', 'exists:diskons,id'],
             'pajak_id' => ['nullable', 'exists:pajaks,id'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.menu_id' => ['required', 'exists:menus,id'],
+            'items.*.qty' => ['required', 'integer', 'min:1'],
+            'items.*.addon_ids' => ['nullable', 'array'],
+            'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
+            'items.*.catatan' => ['nullable', 'string'],
         ])->validate();
 
         if (empty($validated['kode_pesanan'])) {
             $validated['kode_pesanan'] = 'ORD-' . now()->format('YmdHis');
         }
 
+        $validated['customer_name'] = blank($validated['customer_name'] ?? null) ? __('Guest') : $validated['customer_name'];
         $validated['waktu_pesan'] = now();
+        $validated['status'] = 'menunggu';
 
-        Pesanan::create($validated);
+        $items = $this->normalizeItemsForSave($validated['items']);
+        $totals = $this->calculateTotals(
+            $items,
+            $validated['diskon_id'] ?? null,
+            $validated['pajak_id'] ?? null,
+            $validated['discount_total'] ?? null,
+            $validated['tax_total'] ?? null,
+        );
+
+        DB::transaction(function () use ($validated, $items, $totals) {
+            $pesanan = Pesanan::create([
+                'meja_id' => $validated['meja_id'],
+                'kode_pesanan' => $validated['kode_pesanan'],
+                'customer_name' => $validated['customer_name'],
+                'customer_note' => $validated['customer_note'] ?? null,
+                'subtotal' => $totals['subtotal'],
+                'discount_total' => $totals['discount_total'],
+                'tax_total' => $totals['tax_total'],
+                'total_harga' => $totals['total_harga'],
+                'status' => $validated['status'],
+                'metode_pembayaran' => null,
+                'dibayar' => null,
+                'kembalian' => null,
+                'kasir_id' => null,
+                'chef_id' => $validated['chef_id'] ?? null,
+                'diskon_id' => $validated['diskon_id'] ?? null,
+                'pajak_id' => $validated['pajak_id'] ?? null,
+                'waktu_pesan' => $validated['waktu_pesan'],
+            ]);
+
+            $allAddonIds = collect($items)->pluck('addon_ids')->flatten()->filter()->unique()->values()->all();
+            $addons = Addon::query()
+                ->select(['id', 'harga'])
+                ->whereIn('id', $allAddonIds)
+                ->get()
+                ->keyBy('id');
+
+            foreach ($items as $item) {
+                $detail = $pesanan->details()->create([
+                    'menu_id' => $item['menu_id'],
+                    'qty' => $item['qty'],
+                    'harga' => $item['harga'],
+                    'subtotal' => $item['subtotal'],
+                    'catatan' => $item['catatan'] ?? null,
+                ]);
+
+                $addonIds = $item['addon_ids'] ?? [];
+                if (!empty($addonIds)) {
+                    $sync = [];
+                    foreach ($addonIds as $addonId) {
+                        if ($addons->has($addonId)) {
+                            $sync[$addonId] = ['harga' => (float) $addons[$addonId]->harga];
+                        }
+                    }
+                    if (!empty($sync)) {
+                        $detail->addons()->sync($sync);
+                    }
+                }
+            }
+        });
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-pesanan');
@@ -129,20 +200,22 @@ new class extends Component {
         }
 
         $data = array_merge($this->form, ['items' => $this->orderItems]);
+        foreach (['customer_name', 'customer_note', 'discount_total', 'tax_total', 'metode_pembayaran', 'dibayar', 'kasir_id', 'chef_id', 'diskon_id', 'pajak_id'] as $field) {
+            if (array_key_exists($field, $data) && $data[$field] === '') {
+                $data[$field] = null;
+            }
+        }
 
         $validated = validator($data, [
             'meja_id' => ['required', 'exists:mejas,id'],
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan,' . $this->editingId],
-            'customer_name' => ['required', 'string', 'max:100'],
+            'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
-            'subtotal' => ['required', 'numeric', 'min:0'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'total_harga' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
-            'metode_pembayaran' => ['nullable', 'in:tunai,transfer'],
+            'metode_pembayaran' => ['nullable', 'in:tunai,transfer,qris'],
             'dibayar' => ['nullable', 'numeric', 'min:0'],
-            'kembalian' => ['nullable', 'numeric', 'min:0'],
             'kasir_id' => ['nullable', 'exists:users,id'],
             'chef_id' => ['nullable', 'exists:users,id'],
             'diskon_id' => ['nullable', 'exists:diskons,id'],
@@ -151,14 +224,56 @@ new class extends Component {
             'items.*.id' => ['nullable', 'integer'],
             'items.*.menu_id' => ['required', 'exists:menus,id'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
-            'items.*.harga' => ['required', 'numeric', 'min:0'],
-            'items.*.subtotal' => ['required', 'numeric', 'min:0'],
+            'items.*.addon_ids' => ['nullable', 'array'],
+            'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
             'items.*.catatan' => ['nullable', 'string'],
         ])->validate();
 
         $pesanan = Pesanan::findOrFail($this->editingId);
 
-        if (in_array($validated['status'], ['selesai', 'batal'], true)) {
+        $validated['customer_name'] = blank($validated['customer_name'] ?? null) ? __('Guest') : $validated['customer_name'];
+
+        $items = $this->normalizeItemsForSave($validated['items']);
+        $totals = $this->calculateTotals(
+            $items,
+            $validated['diskon_id'] ?? null,
+            $validated['pajak_id'] ?? null,
+            $validated['discount_total'] ?? null,
+            $validated['tax_total'] ?? null,
+        );
+
+        $status = $validated['status'];
+        $method = $validated['metode_pembayaran'] ?? null;
+
+        if ($status === 'selesai') {
+            if (blank($method)) {
+                $this->dispatch('pesanan-toast', message: __('Payment method is required to complete an order.'));
+                return;
+            }
+        } else {
+            if (!blank($method)) {
+                $this->dispatch('pesanan-toast', message: __('Paid orders must be marked as completed.'));
+                return;
+            }
+        }
+
+        $dibayar = null;
+        $kembalian = null;
+
+        if ($status === 'selesai') {
+            $total = (float) $totals['total_harga'];
+            if (in_array($method, ['transfer', 'qris'], true)) {
+                $dibayar = $total;
+                $kembalian = 0;
+            } else {
+                $dibayar = (float) ($validated['dibayar'] ?? 0);
+                if ($dibayar < $total) {
+                    $this->dispatch('pesanan-toast', message: __('Paid amount is insufficient.'));
+                    return;
+                }
+                $kembalian = max($dibayar - $total, 0);
+            }
+
             if (!$pesanan->waktu_selesai) {
                 $validated['waktu_selesai'] = now();
             }
@@ -166,19 +281,61 @@ new class extends Component {
             if (empty($validated['kasir_id']) && auth()->check()) {
                 $validated['kasir_id'] = auth()->id();
             }
-        } else {
-            $validated['waktu_selesai'] = null;
         }
 
         DB::transaction(function () use ($validated, $pesanan) {
-            $pesananData = collect($validated)->except('items')->toArray();
+            $items = $this->normalizeItemsForSave($validated['items']);
+            $totals = $this->calculateTotals(
+                $items,
+                $validated['diskon_id'] ?? null,
+                $validated['pajak_id'] ?? null,
+                $validated['discount_total'] ?? null,
+                $validated['tax_total'] ?? null,
+            );
+
+            $status = $validated['status'];
+            $method = $validated['metode_pembayaran'] ?? null;
+
+            $dibayar = null;
+            $kembalian = null;
+            if ($status === 'selesai') {
+                $total = (float) $totals['total_harga'];
+                if (in_array($method, ['transfer', 'qris'], true)) {
+                    $dibayar = $total;
+                    $kembalian = 0;
+                } else {
+                    $dibayar = (float) ($validated['dibayar'] ?? 0);
+                    $kembalian = max($dibayar - $total, 0);
+                }
+            } else {
+                $method = null;
+            }
+
+            $pesananData = collect($validated)
+                ->except('items', 'subtotal', 'total_harga', 'kembalian')
+                ->toArray();
+
+            $pesananData['subtotal'] = $totals['subtotal'];
+            $pesananData['discount_total'] = $totals['discount_total'];
+            $pesananData['tax_total'] = $totals['tax_total'];
+            $pesananData['total_harga'] = $totals['total_harga'];
+            $pesananData['metode_pembayaran'] = $method;
+            $pesananData['dibayar'] = $dibayar;
+            $pesananData['kembalian'] = $kembalian;
 
             $pesanan->update($pesananData);
+
+            $allAddonIds = collect($items)->pluck('addon_ids')->flatten()->filter()->unique()->values()->all();
+            $addons = Addon::query()
+                ->select(['id', 'harga'])
+                ->whereIn('id', $allAddonIds)
+                ->get()
+                ->keyBy('id');
 
             $existingDetails = $pesanan->details()->get()->keyBy('id');
             $keptIds = [];
 
-            foreach ($validated['items'] as $item) {
+            foreach ($items as $item) {
                 $payload = [
                     'menu_id' => $item['menu_id'],
                     'qty' => $item['qty'],
@@ -193,6 +350,17 @@ new class extends Component {
                 } else {
                     $detail = $pesanan->details()->create($payload);
                 }
+
+                $addonIds = $item['addon_ids'] ?? [];
+                $sync = [];
+                if (!empty($addonIds)) {
+                    foreach ($addonIds as $addonId) {
+                        if ($addons->has($addonId)) {
+                            $sync[$addonId] = ['harga' => (float) $addons[$addonId]->harga];
+                        }
+                    }
+                }
+                $detail->addons()->sync($sync);
 
                 $keptIds[] = $detail->id;
             }
@@ -235,19 +403,21 @@ new class extends Component {
             'kode_pesanan' => '',
             'customer_name' => '',
             'customer_note' => '',
-            'subtotal' => '',
-            'discount_total' => '',
-            'tax_total' => '',
-            'total_harga' => '',
+            'subtotal' => 0,
+            'discount_total' => 0,
+            'tax_total' => 0,
+            'total_harga' => 0,
             'status' => 'menunggu',
-            'metode_pembayaran' => '',
-            'dibayar' => '',
-            'kembalian' => '',
-            'kasir_id' => '',
-            'chef_id' => '',
-            'diskon_id' => '',
-            'pajak_id' => '',
+            'metode_pembayaran' => null,
+            'dibayar' => null,
+            'kembalian' => null,
+            'kasir_id' => null,
+            'chef_id' => null,
+            'diskon_id' => null,
+            'pajak_id' => null,
         ];
+
+        $this->orderItems = [];
     }
 
     protected function authorizeManage(): void
@@ -263,6 +433,7 @@ new class extends Component {
             'qty' => 1,
             'harga' => 0,
             'subtotal' => 0,
+            'addon_ids' => [],
             'catatan' => '',
         ];
     }
@@ -281,8 +452,21 @@ new class extends Component {
 
     public function updatedOrderItems($value, $name): void
     {
-        if (preg_match('/^(\\d+)\\.(qty|harga)$/', (string) $name, $matches)) {
+        if (preg_match('/^(?:orderItems\\.)?(\\d+)\\.(menu_id|qty|addon_ids)$/', (string) $name, $matches)) {
             $index = (int) $matches[1];
+            $field = $matches[2];
+
+            if ($field === 'menu_id') {
+                $menuId = (int) ($this->orderItems[$index]['menu_id'] ?? 0);
+                $this->orderItems[$index]['addon_ids'] = [];
+                if ($menuId > 0) {
+                    $menu = Menu::find($menuId);
+                    if ($menu) {
+                        $this->orderItems[$index]['harga'] = (float) $menu->harga;
+                    }
+                }
+            }
+
             $this->recalculateItemSubtotal($index);
         }
     }
@@ -301,7 +485,25 @@ new class extends Component {
         }
 
         $qty = (int) ($this->orderItems[$index]['qty'] ?? 0);
-        $harga = (float) ($this->orderItems[$index]['harga'] ?? 0);
+        $menuId = (int) ($this->orderItems[$index]['menu_id'] ?? 0);
+
+        $harga = 0.0;
+        if ($menuId > 0) {
+            $menu = Menu::query()->select(['id', 'harga'])->find($menuId);
+            $base = (float) ($menu?->harga ?? 0);
+
+            $addonIds = array_values(array_filter(array_map('intval', (array) ($this->orderItems[$index]['addon_ids'] ?? []))));
+            if (!empty($addonIds)) {
+                $addonTotal = (float) Addon::query()
+                    ->whereIn('id', $addonIds)
+                    ->where('status', 'tersedia')
+                    ->whereHas('menus', fn ($q) => $q->whereKey($menuId))
+                    ->sum('harga');
+                $harga = $base + $addonTotal;
+            } else {
+                $harga = $base;
+            }
+        }
 
         $this->orderItems[$index]['qty'] = $qty;
         $this->orderItems[$index]['harga'] = $harga;
@@ -324,6 +526,104 @@ new class extends Component {
         $this->form['subtotal'] = $subtotal;
         $this->form['total_harga'] = max($subtotal - $discount + $tax, 0);
     }
+
+    protected function normalizeItemsForSave(array $items): array
+    {
+        $menuIds = collect($items)->pluck('menu_id')->filter()->unique()->values()->all();
+        $menus = Menu::query()
+            ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
+            ->whereIn('id', $menuIds)
+            ->get()
+            ->keyBy('id');
+
+        $normalized = [];
+        foreach ($items as $item) {
+            $menuId = (int) ($item['menu_id'] ?? 0);
+            $qty = (int) ($item['qty'] ?? 0);
+            if ($menuId <= 0 || $qty <= 0 || !$menus->has($menuId)) {
+                continue;
+            }
+
+            $menu = $menus[$menuId];
+            $baseHarga = (float) $menu->harga;
+
+            $addonIds = array_values(array_filter(array_map('intval', (array) ($item['addon_ids'] ?? []))));
+            $allowedAddonIds = $menu->addons->pluck('id')->all();
+            $addonIds = array_values(array_intersect($addonIds, $allowedAddonIds));
+
+            $addonTotal = 0.0;
+            if (!empty($addonIds)) {
+                $addonTotal = (float) $menu->addons->whereIn('id', $addonIds)->sum('harga');
+            }
+
+            $harga = $baseHarga + $addonTotal;
+            $normalized[] = [
+                'id' => $item['id'] ?? null,
+                'menu_id' => $menuId,
+                'qty' => $qty,
+                'harga' => $harga,
+                'subtotal' => $qty * $harga,
+                'addon_ids' => $addonIds,
+                'catatan' => $item['catatan'] ?? null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    protected function calculateTotals(array $items, ?int $diskonId, ?int $pajakId, $discountOverride, $taxOverride): array
+    {
+        $subtotal = 0.0;
+        foreach ($items as $item) {
+            $subtotal += (float) ($item['subtotal'] ?? 0);
+        }
+
+        $discountTotal = is_numeric($discountOverride) ? (float) $discountOverride : 0.0;
+        $taxTotal = is_numeric($taxOverride) ? (float) $taxOverride : 0.0;
+
+        if ($diskonId) {
+            $diskon = Diskon::find($diskonId);
+            if ($diskon && blank($discountOverride)) {
+                $discountTotal = $this->computeDiscount($diskon, $subtotal);
+            }
+        }
+
+        $baseAfterDiscount = max($subtotal - $discountTotal, 0);
+
+        if ($pajakId) {
+            $pajak = Pajak::find($pajakId);
+            if ($pajak && blank($taxOverride)) {
+                $taxTotal = $this->computeTax($pajak, $baseAfterDiscount);
+            }
+        }
+
+        $total = max($subtotal - $discountTotal + $taxTotal, 0);
+
+        return [
+            'subtotal' => $subtotal,
+            'discount_total' => max($discountTotal, 0),
+            'tax_total' => max($taxTotal, 0),
+            'total_harga' => $total,
+        ];
+    }
+
+    protected function computeDiscount(Diskon $diskon, float $subtotal): float
+    {
+        if ($diskon->min_subtotal !== null && $subtotal < (float) $diskon->min_subtotal) {
+            return 0.0;
+        }
+
+        if ($diskon->tipe === 'percent') {
+            return max($subtotal * ((float) $diskon->nilai / 100), 0);
+        }
+
+        return max((float) $diskon->nilai, 0);
+    }
+
+    protected function computeTax(Pajak $pajak, float $base): float
+    {
+        return max($base * ((float) $pajak->persentase / 100), 0);
+    }
 }; ?>
 
 <section class="w-full">
@@ -343,7 +643,9 @@ new class extends Component {
 
         if ($paymentFilter !== 'all') {
             if ($paymentFilter === 'none') {
-                $query->whereNull('metode_pembayaran');
+                $query->where(function ($q) {
+                    $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
+                });
             } else {
                 $query->where('metode_pembayaran', $paymentFilter);
             }
@@ -388,7 +690,11 @@ new class extends Component {
         $diskons = Diskon::orderBy('kode')->get();
         $pajaks  = Pajak::orderBy('nama')->get();
         $users   = User::orderBy('name')->get();
-        $menus   = Menu::orderBy('nama_menu')->get();
+        $menus   = Menu::query()
+            ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
+            ->orderBy('nama_menu')
+            ->get();
+        $menusById = $menus->keyBy('id');
 
         $selectedPesanan = $items->firstWhere('id', $confirmingDeleteId);
         $editingPesanan = $items->firstWhere('id', $editingId);
@@ -515,6 +821,7 @@ new class extends Component {
                     <option value="all">{{ __('All Payments') }}</option>
                     <option value="tunai">{{ __('Cash') }}</option>
                     <option value="transfer">{{ __('Bank Transfer') }}</option>
+                    <option value="qris">{{ __('QRIS') }}</option>
                     <option value="none">{{ __('Unpaid') }}</option>
                 </flux:select>
 
@@ -811,8 +1118,8 @@ new class extends Component {
                             <flux:input
                                 wire:model.defer="form.customer_name"
                                 :label="__('Customer Name')"
-                                required
                                 maxlength="100"
+                                placeholder="{{ __('Guest') }}"
                             />
 
                             <flux:textarea
@@ -823,18 +1130,18 @@ new class extends Component {
                             ></flux:textarea>
 
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:select wire:model.defer="form.status" :label="__('Status')" required>
-                                    <option value="menunggu">{{ __('Waiting') }}</option>
-                                    <option value="diproses">{{ __('In progress') }}</option>
-                                    <option value="siap">{{ __('Ready') }}</option>
-                                    <option value="selesai">{{ __('Completed') }}</option>
-                                    <option value="batal">{{ __('Cancelled') }}</option>
+                                <flux:select wire:model.defer="form.diskon_id" :label="__('Discount')">
+                                    <option value="">{{ __('None') }}</option>
+                                    @foreach ($diskons as $diskon)
+                                        <option value="{{ $diskon->id }}">{{ $diskon->kode }}</option>
+                                    @endforeach
                                 </flux:select>
 
-                                <flux:select wire:model.defer="form.metode_pembayaran" :label="__('Payment Method')">
-                                    <option value="">{{ __('Select') }}</option>
-                                    <option value="tunai">{{ __('Cash') }}</option>
-                                    <option value="transfer">{{ __('Bank Transfer') }}</option>
+                                <flux:select wire:model.defer="form.pajak_id" :label="__('Tax')">
+                                    <option value="">{{ __('None') }}</option>
+                                    @foreach ($pajaks as $pajak)
+                                        <option value="{{ $pajak->id }}">{{ $pajak->nama }} ({{ $pajak->persentase }}%)</option>
+                                    @endforeach
                                 </flux:select>
                             </div>
                         </div>
@@ -847,7 +1154,7 @@ new class extends Component {
                                     step="0.01"
                                     min="0"
                                     :label="__('Subtotal')"
-                                    required
+                                    readonly
                                 />
                                 <flux:input
                                     wire:model.defer="form.discount_total"
@@ -869,51 +1176,11 @@ new class extends Component {
                                     step="0.01"
                                     min="0"
                                     :label="__('Grand Total')"
-                                    required
+                                    readonly
                                 />
                             </div>
 
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input
-                                    wire:model.defer="form.dibayar"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    :label="__('Paid Amount')"
-                                />
-                                <flux:input
-                                    wire:model.defer="form.kembalian"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    :label="__('Change')"
-                                />
-                            </div>
-
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:select wire:model.defer="form.diskon_id" :label="__('Discount')">
-                                    <option value="">{{ __('None') }}</option>
-                                    @foreach ($diskons as $diskon)
-                                        <option value="{{ $diskon->id }}">{{ $diskon->kode }}</option>
-                                    @endforeach
-                                </flux:select>
-
-                                <flux:select wire:model.defer="form.pajak_id" :label="__('Tax')">
-                                    <option value="">{{ __('None') }}</option>
-                                    @foreach ($pajaks as $pajak)
-                                        <option value="{{ $pajak->id }}">{{ $pajak->nama }} ({{ $pajak->persentase }}%)</option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:select wire:model.defer="form.kasir_id" :label="__('Cashier')">
-                                    <option value="">{{ __('Select') }}</option>
-                                    @foreach ($users as $user)
-                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                    @endforeach
-                                </flux:select>
-
                                 <flux:select wire:model.defer="form.chef_id" :label="__('Chef')">
                                     <option value="">{{ __('Select') }}</option>
                                     @foreach ($users as $user)
@@ -926,8 +1193,8 @@ new class extends Component {
                                 <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
                                 <ul class="mt-2 list-disc space-y-1 pl-4">
                                     <li>{{ __('Leave the order code empty to auto-generate it.') }}</li>
-                                    <li>{{ __('Subtotal, discount, tax, and grand total should match the bill on the customer side.') }}</li>
-                                    <li>{{ __('Status and payment method help track which orders are still open or already paid.') }}</li>
+                                    <li>{{ __('Add at least one item. Totals will be calculated automatically.') }}</li>
+                                    <li>{{ __('Payments are handled from the Payments menu.') }}</li>
                                 </ul>
                             </div>
 
@@ -936,6 +1203,185 @@ new class extends Component {
                                     <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
                                 </flux:modal.close>
                                 <flux:button type="submit" form="create-pesanan-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <div class="mt-2 rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 space-y-2">
+                                <div class="flex items-center justify-between gap-2">
+                                    <flux:heading size="sm">{{ __('Order Items') }}</flux:heading>
+                                    <flux:button type="button" size="xs" icon="plus" variant="ghost" class="btn-ghost-accent" wire:click="addItem">
+                                        {{ __('Add Item') }}
+                                    </flux:button>
+                                </div>
+
+                                @if (empty($orderItems))
+                                    <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                                        {{ __('No items for this order yet.') }}
+                                    </p>
+                                @else
+                                    <div class="sm:hidden space-y-3">
+                                        @foreach ($orderItems as $index => $item)
+                                            <div wire:key="create-order-item-mobile-{{ $index }}" class="rounded-xl border border-neutral-200/70 bg-white p-3 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/60">
+                                                <div class="space-y-3">
+                                                    <flux:select wire:model.live="orderItems.{{ $index }}.menu_id" size="sm" class="w-full">
+                                                        <option value="">{{ __('Select') }}</option>
+                                                        @foreach ($menus as $menu)
+                                                            <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
+                                                        @endforeach
+                                                    </flux:select>
+
+                                                    @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
+                                                    @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
+                                                        <flux:checkbox.group
+                                                            wire:model.live="orderItems.{{ $index }}.addon_ids"
+                                                            variant="pills"
+                                                            :label="__('Add-ons (optional)')"
+                                                        >
+                                                            @foreach ($selectedMenu->addons as $addon)
+                                                                <flux:checkbox
+                                                                    variant="pills"
+                                                                    value="{{ $addon->id }}"
+                                                                    :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')'"
+                                                                />
+                                                            @endforeach
+                                                        </flux:checkbox.group>
+                                                    @endif
+
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <flux:input wire:model.live.debounce.250ms="orderItems.{{ $index }}.qty" type="number" min="1" size="sm" :label="__('Qty')" class="w-full" />
+                                                        <flux:input wire:model="orderItems.{{ $index }}.harga" type="number" step="0.01" min="0" size="sm" :label="__('Price')" class="w-full" readonly />
+                                                    </div>
+
+                                                    <div class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-xs dark:bg-neutral-900/40">
+                                                        <span class="text-neutral-500 dark:text-neutral-400">{{ __('Subtotal') }}</span>
+                                                        <span class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}</span>
+                                                    </div>
+
+                                                    <flux:input wire:model.defer="orderItems.{{ $index }}.catatan" size="sm" :label="__('Note')" class="w-full" placeholder="{{ __('Optional') }}" />
+
+                                                    <div class="flex justify-end">
+                                                        <flux:button type="button" size="xs" variant="ghost" icon="trash" class="btn-ghost-danger" wire:click="removeItem({{ $index }})">
+                                                            {{ __('Remove') }}
+                                                        </flux:button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="hidden sm:block overflow-hidden rounded-xl bg-neutral-50/60 dark:bg-neutral-900/40">
+                                        <div class="max-h-60 overflow-y-auto overflow-x-auto">
+                                            <table class="min-w-full text-[11px] table-fixed">
+                                                <thead class="bg-neutral-100/70 dark:bg-neutral-900/70">
+                                                    <tr>
+                                                        <th class="w-4/12 px-2 py-1 text-left font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Menu') }}
+                                                        </th>
+                                                        <th class="w-1/12 px-2 py-1 text-center font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Qty') }}
+                                                        </th>
+                                                        <th class="w-2/12 px-2 py-1 text-right font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Price') }}
+                                                        </th>
+                                                        <th class="w-2/12 px-2 py-1 text-right font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Subtotal') }}
+                                                        </th>
+                                                        <th class="w-2/12 px-2 py-1 text-left font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                                                            {{ __('Note') }}
+                                                        </th>
+                                                        <th class="w-1/12 px-2 py-1"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-neutral-200/60 dark:divide-neutral-800/60">
+                                                    @foreach ($orderItems as $index => $item)
+                                                        <tr class="align-top" wire:key="create-order-item-{{ $index }}">
+	                                                            <td class="px-2 py-2">
+	                                                                <flux:select
+	                                                                    wire:model.live="orderItems.{{ $index }}.menu_id"
+	                                                                    size="sm"
+	                                                                    class="w-full"
+	                                                                >
+                                                                    <option value="">{{ __('Select') }}</option>
+                                                                    @foreach ($menus as $menu)
+                                                                        <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
+                                                                    @endforeach
+                                                                </flux:select>
+
+                                                                @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
+                                                                @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
+                                                                    <flux:checkbox.group
+                                                                        wire:model.live="orderItems.{{ $index }}.addon_ids"
+                                                                        variant="pills"
+                                                                        class="mt-1"
+                                                                    >
+                                                                        @foreach ($selectedMenu->addons as $addon)
+                                                                            <flux:checkbox
+                                                                                variant="pills"
+                                                                                value="{{ $addon->id }}"
+                                                                                :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')'"
+                                                                            />
+                                                                        @endforeach
+                                                                    </flux:checkbox.group>
+                                                                @endif
+                                                            </td>
+	                                                            <td class="px-2 py-2">
+	                                                                <flux:input
+	                                                                    wire:model.live.debounce.250ms="orderItems.{{ $index }}.qty"
+	                                                                    type="number"
+	                                                                    min="1"
+	                                                                    size="sm"
+	                                                                    class="w-full text-center"
+	                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
+                                                                    wire:model="orderItems.{{ $index }}.harga"
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    size="sm"
+                                                                    class="w-full text-right"
+                                                                    readonly
+                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
+                                                                    wire:model="orderItems.{{ $index }}.subtotal"
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    size="sm"
+                                                                    class="w-full text-right"
+                                                                    readonly
+                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
+                                                                    wire:model.defer="orderItems.{{ $index }}.catatan"
+                                                                    size="sm"
+                                                                    class="w-full"
+                                                                    placeholder="{{ __('Optional') }}"
+                                                                />
+                                                            </td>
+                                                            <td class="px-2 py-2 text-right">
+                                                                <flux:button
+                                                                    type="button"
+                                                                    size="xs"
+                                                                    variant="ghost"
+                                                                    icon="trash"
+                                                                    class="btn-ghost-danger"
+                                                                    wire:click="removeItem({{ $index }})"
+                                                                >
+                                                                    {{ __('Remove') }}
+                                                                </flux:button>
+                                                            </td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -952,14 +1398,14 @@ new class extends Component {
             </div>
         </flux:modal>
 
-        <!-- Edit order modal -->
+	        <!-- Edit order modal -->
         <flux:modal name="edit-pesanan" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
-            <div class="flex flex-col max-h-[85vh] overflow-y-auto no-scrollbar">
-                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Order') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this order.') }}</flux:subheading>
-                    </div>
+	            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
+	                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+	                    <div>
+	                        <flux:heading size="lg">{{ __('Edit Order') }}</flux:heading>
+	                        <flux:subheading>{{ __('Update the details for this order.') }}</flux:subheading>
+	                    </div>
                     <flux:modal.close class="hidden sm:block">
                         <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
                     </flux:modal.close>
@@ -985,8 +1431,8 @@ new class extends Component {
                             <flux:input
                                 wire:model.defer="form.customer_name"
                                 :label="__('Customer Name')"
-                                required
                                 maxlength="100"
+                                placeholder="{{ __('Guest') }}"
                             />
 
                             <flux:textarea
@@ -1009,6 +1455,7 @@ new class extends Component {
                                     <option value="">{{ __('Select') }}</option>
                                     <option value="tunai">{{ __('Cash') }}</option>
                                     <option value="transfer">{{ __('Bank Transfer') }}</option>
+                                    <option value="qris">{{ __('QRIS') }}</option>
                                 </flux:select>
                             </div>
                         </div>
@@ -1021,7 +1468,7 @@ new class extends Component {
                                     step="0.01"
                                     min="0"
                                     :label="__('Subtotal')"
-                                    required
+                                    readonly
                                 />
                                 <flux:input
                                     wire:model.defer="form.discount_total"
@@ -1043,7 +1490,7 @@ new class extends Component {
                                     step="0.01"
                                     min="0"
                                     :label="__('Grand Total')"
-                                    required
+                                    readonly
                                 />
                             </div>
 
@@ -1061,6 +1508,7 @@ new class extends Component {
                                     step="0.01"
                                     min="0"
                                     :label="__('Change')"
+                                    readonly
                                 />
                             </div>
 
@@ -1118,7 +1566,57 @@ new class extends Component {
                                         {{ __('No items for this order yet.') }}
                                     </p>
                                 @else
-                                    <div class="overflow-hidden rounded-xl bg-neutral-50/60 dark:bg-neutral-900/40">
+                                    <div class="sm:hidden space-y-3">
+                                        @foreach ($orderItems as $index => $item)
+                                            <div wire:key="edit-order-item-mobile-{{ $index }}" class="rounded-xl border border-neutral-200/70 bg-white p-3 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/60">
+                                                <div class="space-y-3">
+                                                    <flux:select wire:model.live="orderItems.{{ $index }}.menu_id" size="sm" class="w-full">
+                                                        <option value="">{{ __('Select') }}</option>
+                                                        @foreach ($menus as $menu)
+                                                            <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
+                                                        @endforeach
+                                                    </flux:select>
+
+                                                    @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
+                                                    @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
+                                                        <div data-flux-field>
+                                                            <label data-flux-label>{{ __('Add-ons (optional)') }}</label>
+                                                            <select
+                                                                multiple
+                                                                size="4"
+                                                                wire:model.live="orderItems.{{ $index }}.addon_ids"
+                                                                class="mt-1 w-full rounded-lg border border-zinc-200 border-b-zinc-300/80 bg-white px-3 py-2 text-xs text-zinc-700 shadow-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-accent)] dark:border-white/10 dark:bg-white/10 dark:text-zinc-300"
+                                                            >
+                                                                @foreach ($selectedMenu->addons as $addon)
+                                                                    <option value="{{ $addon->id }}">{{ $addon->nama_addon }} (+Rp {{ number_format((float) $addon->harga, 0, ',', '.') }})</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                    @endif
+
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <flux:input wire:model.live.debounce.250ms="orderItems.{{ $index }}.qty" type="number" min="1" size="sm" :label="__('Qty')" class="w-full" />
+                                                        <flux:input wire:model="orderItems.{{ $index }}.harga" type="number" step="0.01" min="0" size="sm" :label="__('Price')" class="w-full" readonly />
+                                                    </div>
+
+                                                    <div class="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2 text-xs dark:bg-neutral-900/40">
+                                                        <span class="text-neutral-500 dark:text-neutral-400">{{ __('Subtotal') }}</span>
+                                                        <span class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}</span>
+                                                    </div>
+
+                                                    <flux:input wire:model.defer="orderItems.{{ $index }}.catatan" size="sm" :label="__('Note')" class="w-full" placeholder="{{ __('Optional') }}" />
+
+                                                    <div class="flex justify-end">
+                                                        <flux:button type="button" size="xs" variant="ghost" icon="trash" class="btn-ghost-danger" wire:click="removeItem({{ $index }})">
+                                                            {{ __('Remove') }}
+                                                        </flux:button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="hidden sm:block overflow-hidden rounded-xl bg-neutral-50/60 dark:bg-neutral-900/40">
                                         <div class="max-h-60 overflow-y-auto overflow-x-auto">
                                             <table class="min-w-full text-[11px] table-fixed">
                                                 <thead class="bg-neutral-100/70 dark:bg-neutral-900/70">
@@ -1143,10 +1641,10 @@ new class extends Component {
                                                 </thead>
                                                 <tbody class="divide-y divide-neutral-100/80 dark:divide-neutral-800/80">
                                                     @foreach ($orderItems as $index => $item)
-                                                        <tr>
+                                                        <tr wire:key="edit-order-item-{{ $index }}">
                                                             <td class="px-2 py-1 align-middle">
                                                                 <select
-                                                                    wire:model.defer="orderItems.{{ $index }}.menu_id"
+                                                                    wire:model="orderItems.{{ $index }}.menu_id"
                                                                     class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                                                                 >
                                                                     <option value="">{{ __('Select') }}</option>
@@ -1154,6 +1652,23 @@ new class extends Component {
                                                                         <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
                                                                     @endforeach
                                                                 </select>
+
+                                                                @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
+                                                                @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
+                                                                    <flux:checkbox.group
+                                                                        wire:model.live="orderItems.{{ $index }}.addon_ids"
+                                                                        variant="pills"
+                                                                        class="mt-2"
+                                                                    >
+                                                                        @foreach ($selectedMenu->addons as $addon)
+                                                                            <flux:checkbox
+                                                                                variant="pills"
+                                                                                value="{{ $addon->id }}"
+                                                                                :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')'"
+                                                                            />
+                                                                        @endforeach
+                                                                    </flux:checkbox.group>
+                                                                @endif
                                                             </td>
                                                             <td class="px-2 py-1 align-middle">
                                                                 <input
@@ -1168,8 +1683,9 @@ new class extends Component {
                                                                     type="number"
                                                                     min="0"
                                                                     step="0.01"
-                                                                    wire:model="orderItems.{{ $index }}.harga"
+                                                                    wire:model.defer="orderItems.{{ $index }}.harga"
                                                                     class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-right text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                    readonly
                                                                 />
                                                             </td>
                                                             <td class="px-2 py-1 align-middle text-right">

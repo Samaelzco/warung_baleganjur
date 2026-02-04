@@ -344,7 +344,7 @@ new class extends Component {
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Rate') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400 text-right">{{ __('Actions') }}</th>
+                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
@@ -376,8 +376,8 @@ new class extends Component {
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-6 py-4 align-middle text-right">
-                                        <div class="flex flex-wrap items-center justify-end gap-2">
+                                    <td class="px-6 py-4 align-middle">
+                                        <div class="flex flex-wrap items-center gap-2">
                                             @can('pajak.manage')
                                                 <flux:button
                                                     size="sm"

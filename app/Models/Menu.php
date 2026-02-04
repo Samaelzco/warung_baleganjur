@@ -27,4 +27,9 @@ class Menu extends Model
     {
         return $this->hasMany(PesananDetail::class);
     }
+
+    public function addons()
+    {
+        return $this->belongsToMany(Addon::class, 'addon_menu');
+    }
 }

@@ -6,6 +6,7 @@ use App\Models\Pajak;
 use App\Models\Pesanan;
 use App\Models\PesananDetail;
 use App\Models\Menu;
+use App\Models\Addon;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
@@ -36,7 +37,7 @@ new class extends Component {
 
     public function mount(Pesanan $pesanan): void
     {
-        $this->pesanan = $pesanan->load(['details.menu']);
+        $this->pesanan = $pesanan->load(['details.menu', 'details.addons']);
 
         $this->form = [
             'meja_id' => $pesanan->meja_id,
@@ -64,6 +65,7 @@ new class extends Component {
                 'qty' => $detail->qty,
                 'harga' => (float) $detail->harga,
                 'subtotal' => (float) $detail->subtotal,
+                'addon_ids' => $detail->addons->pluck('id')->all(),
                 'catatan' => $detail->catatan,
             ];
         })->toArray();
@@ -79,6 +81,7 @@ new class extends Component {
             'qty' => 1,
             'harga' => 0,
             'subtotal' => 0,
+            'addon_ids' => [],
             'catatan' => '',
         ];
     }
@@ -97,8 +100,20 @@ new class extends Component {
 
     public function updatedItems($value, $name): void
     {
-        if (preg_match('/^(\\d+)\\.(qty|harga)$/', (string) $name, $matches)) {
+        if (preg_match('/^(?:items\\.)?(\\d+)\\.(menu_id|qty|addon_ids)$/', (string) $name, $matches)) {
             $index = (int) $matches[1];
+            $field = $matches[2];
+
+            if ($field === 'menu_id') {
+                $menuId = (int) ($this->items[$index]['menu_id'] ?? 0);
+                $this->items[$index]['addon_ids'] = [];
+                if ($menuId > 0) {
+                    $menu = Menu::find($menuId);
+                    if ($menu) {
+                        $this->items[$index]['harga'] = (float) $menu->harga;
+                    }
+                }
+            }
             $this->recalculateItemSubtotal($index);
         }
     }
@@ -117,7 +132,25 @@ new class extends Component {
         }
 
         $qty = (int) ($this->items[$index]['qty'] ?? 0);
-        $harga = (float) ($this->items[$index]['harga'] ?? 0);
+        $menuId = (int) ($this->items[$index]['menu_id'] ?? 0);
+
+        $harga = 0.0;
+        if ($menuId > 0) {
+            $menu = Menu::query()->select(['id', 'harga'])->find($menuId);
+            $base = (float) ($menu?->harga ?? 0);
+
+            $addonIds = array_values(array_filter(array_map('intval', (array) ($this->items[$index]['addon_ids'] ?? []))));
+            if (!empty($addonIds)) {
+                $addonTotal = (float) Addon::query()
+                    ->whereIn('id', $addonIds)
+                    ->where('status', 'tersedia')
+                    ->whereHas('menus', fn ($q) => $q->whereKey($menuId))
+                    ->sum('harga');
+                $harga = $base + $addonTotal;
+            } else {
+                $harga = $base;
+            }
+        }
 
         $this->items[$index]['qty'] = $qty;
         $this->items[$index]['harga'] = $harga;
@@ -144,20 +177,22 @@ new class extends Component {
     public function update(): void
     {
         $data = array_merge($this->form, ['items' => $this->items]);
+        foreach (['customer_name', 'customer_note', 'discount_total', 'tax_total', 'metode_pembayaran', 'dibayar', 'kasir_id', 'chef_id', 'diskon_id', 'pajak_id'] as $field) {
+            if (array_key_exists($field, $data) && $data[$field] === '') {
+                $data[$field] = null;
+            }
+        }
 
         $validated = validator($data, [
             'meja_id' => ['required', 'exists:mejas,id'],
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan,' . $this->pesanan->id],
-            'customer_name' => ['required', 'string', 'max:100'],
+            'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
-            'subtotal' => ['required', 'numeric', 'min:0'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'total_harga' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
-            'metode_pembayaran' => ['nullable', 'in:tunai,transfer'],
+            'metode_pembayaran' => ['nullable', 'in:tunai,transfer,qris'],
             'dibayar' => ['nullable', 'numeric', 'min:0'],
-            'kembalian' => ['nullable', 'numeric', 'min:0'],
             'kasir_id' => ['nullable', 'exists:users,id'],
             'chef_id' => ['nullable', 'exists:users,id'],
             'diskon_id' => ['nullable', 'exists:diskons,id'],
@@ -166,12 +201,52 @@ new class extends Component {
             'items.*.id' => ['nullable', 'integer'],
             'items.*.menu_id' => ['required', 'exists:menus,id'],
             'items.*.qty' => ['required', 'integer', 'min:1'],
-            'items.*.harga' => ['required', 'numeric', 'min:0'],
-            'items.*.subtotal' => ['required', 'numeric', 'min:0'],
+            'items.*.addon_ids' => ['nullable', 'array'],
+            'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
             'items.*.catatan' => ['nullable', 'string'],
         ])->validate();
 
-        if (in_array($validated['status'], ['selesai', 'batal'], true)) {
+        $validated['customer_name'] = blank($validated['customer_name'] ?? null) ? __('Guest') : $validated['customer_name'];
+
+        $items = $this->normalizeItemsForSave($validated['items']);
+        $totals = $this->calculateTotals(
+            $items,
+            $validated['diskon_id'] ?? null,
+            $validated['pajak_id'] ?? null,
+            $validated['discount_total'] ?? null,
+            $validated['tax_total'] ?? null,
+        );
+
+        $status = $validated['status'];
+        $method = $validated['metode_pembayaran'] ?? null;
+
+        if ($status === 'selesai') {
+            if (blank($method)) {
+                session()->flash('pesanan_toast', __('Payment method is required to complete an order.'));
+                return;
+            }
+        } else {
+            if (!blank($method)) {
+                session()->flash('pesanan_toast', __('Paid orders must be marked as completed.'));
+                return;
+            }
+        }
+
+        if ($status === 'selesai') {
+            $total = (float) $totals['total_harga'];
+            if (in_array($method, ['transfer', 'qris'], true)) {
+                $validated['dibayar'] = $total;
+                $validated['kembalian'] = 0;
+            } else {
+                $dibayar = (float) ($validated['dibayar'] ?? 0);
+                if ($dibayar < $total) {
+                    session()->flash('pesanan_toast', __('Paid amount is insufficient.'));
+                    return;
+                }
+                $validated['dibayar'] = $dibayar;
+                $validated['kembalian'] = max($dibayar - $total, 0);
+            }
+
             if (!$this->pesanan->waktu_selesai) {
                 $validated['waktu_selesai'] = now();
             }
@@ -180,18 +255,40 @@ new class extends Component {
                 $validated['kasir_id'] = auth()->id();
             }
         } else {
-            $validated['waktu_selesai'] = null;
+            $validated['metode_pembayaran'] = null;
+            $validated['dibayar'] = null;
+            $validated['kembalian'] = null;
         }
 
         DB::transaction(function () use ($validated) {
-            $pesananData = collect($validated)->except('items')->toArray();
+            $items = $this->normalizeItemsForSave($validated['items']);
+            $totals = $this->calculateTotals(
+                $items,
+                $validated['diskon_id'] ?? null,
+                $validated['pajak_id'] ?? null,
+                $validated['discount_total'] ?? null,
+                $validated['tax_total'] ?? null,
+            );
+
+            $pesananData = collect($validated)->except('items', 'subtotal', 'total_harga')->toArray();
+            $pesananData['subtotal'] = $totals['subtotal'];
+            $pesananData['discount_total'] = $totals['discount_total'];
+            $pesananData['tax_total'] = $totals['tax_total'];
+            $pesananData['total_harga'] = $totals['total_harga'];
 
             $this->pesanan->update($pesananData);
+
+            $allAddonIds = collect($items)->pluck('addon_ids')->flatten()->filter()->unique()->values()->all();
+            $addons = Addon::query()
+                ->select(['id', 'harga'])
+                ->whereIn('id', $allAddonIds)
+                ->get()
+                ->keyBy('id');
 
             $existingDetails = $this->pesanan->details()->get()->keyBy('id');
             $keptIds = [];
 
-            foreach ($validated['items'] as $item) {
+            foreach ($items as $item) {
                 $payload = [
                     'menu_id' => $item['menu_id'],
                     'qty' => $item['qty'],
@@ -207,6 +304,17 @@ new class extends Component {
                     $detail = $this->pesanan->details()->create($payload);
                 }
 
+                $addonIds = $item['addon_ids'] ?? [];
+                $sync = [];
+                if (!empty($addonIds)) {
+                    foreach ($addonIds as $addonId) {
+                        if ($addons->has($addonId)) {
+                            $sync[$addonId] = ['harga' => (float) $addons[$addonId]->harga];
+                        }
+                    }
+                }
+                $detail->addons()->sync($sync);
+
                 $keptIds[] = $detail->id;
             }
 
@@ -220,6 +328,104 @@ new class extends Component {
         session()->flash('pesanan_toast', __('Order updated successfully.'));
         $this->redirectRoute('pesanan.index', navigate: true);
     }
+
+    protected function normalizeItemsForSave(array $items): array
+    {
+        $menuIds = collect($items)->pluck('menu_id')->filter()->unique()->values()->all();
+        $menus = Menu::query()
+            ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
+            ->whereIn('id', $menuIds)
+            ->get()
+            ->keyBy('id');
+
+        $normalized = [];
+        foreach ($items as $item) {
+            $menuId = (int) ($item['menu_id'] ?? 0);
+            $qty = (int) ($item['qty'] ?? 0);
+            if ($menuId <= 0 || $qty <= 0 || !$menus->has($menuId)) {
+                continue;
+            }
+
+            $menu = $menus[$menuId];
+            $baseHarga = (float) $menu->harga;
+
+            $addonIds = array_values(array_filter(array_map('intval', (array) ($item['addon_ids'] ?? []))));
+            $allowedAddonIds = $menu->addons->pluck('id')->all();
+            $addonIds = array_values(array_intersect($addonIds, $allowedAddonIds));
+
+            $addonTotal = 0.0;
+            if (!empty($addonIds)) {
+                $addonTotal = (float) $menu->addons->whereIn('id', $addonIds)->sum('harga');
+            }
+
+            $harga = $baseHarga + $addonTotal;
+            $normalized[] = [
+                'id' => $item['id'] ?? null,
+                'menu_id' => $menuId,
+                'qty' => $qty,
+                'harga' => $harga,
+                'subtotal' => $qty * $harga,
+                'addon_ids' => $addonIds,
+                'catatan' => $item['catatan'] ?? null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    protected function calculateTotals(array $items, ?int $diskonId, ?int $pajakId, $discountOverride, $taxOverride): array
+    {
+        $subtotal = 0.0;
+        foreach ($items as $item) {
+            $subtotal += (float) ($item['subtotal'] ?? 0);
+        }
+
+        $discountTotal = is_numeric($discountOverride) ? (float) $discountOverride : 0.0;
+        $taxTotal = is_numeric($taxOverride) ? (float) $taxOverride : 0.0;
+
+        if ($diskonId) {
+            $diskon = Diskon::find($diskonId);
+            if ($diskon && blank($discountOverride)) {
+                $discountTotal = $this->computeDiscount($diskon, $subtotal);
+            }
+        }
+
+        $baseAfterDiscount = max($subtotal - $discountTotal, 0);
+
+        if ($pajakId) {
+            $pajak = Pajak::find($pajakId);
+            if ($pajak && blank($taxOverride)) {
+                $taxTotal = $this->computeTax($pajak, $baseAfterDiscount);
+            }
+        }
+
+        $total = max($subtotal - $discountTotal + $taxTotal, 0);
+
+        return [
+            'subtotal' => $subtotal,
+            'discount_total' => max($discountTotal, 0),
+            'tax_total' => max($taxTotal, 0),
+            'total_harga' => $total,
+        ];
+    }
+
+    protected function computeDiscount(Diskon $diskon, float $subtotal): float
+    {
+        if ($diskon->min_subtotal !== null && $subtotal < (float) $diskon->min_subtotal) {
+            return 0.0;
+        }
+
+        if ($diskon->tipe === 'percent') {
+            return max($subtotal * ((float) $diskon->nilai / 100), 0);
+        }
+
+        return max((float) $diskon->nilai, 0);
+    }
+
+    protected function computeTax(Pajak $pajak, float $base): float
+    {
+        return max($base * ((float) $pajak->persentase / 100), 0);
+    }
 }; ?>
 
 <section class="w-full space-y-6">
@@ -228,7 +434,11 @@ new class extends Component {
         $diskons = Diskon::orderBy('kode')->get();
         $pajaks = Pajak::orderBy('nama')->get();
         $users = User::orderBy('name')->get();
-        $menus = Menu::orderBy('nama_menu')->get();
+        $menus = Menu::query()
+            ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
+            ->orderBy('nama_menu')
+            ->get();
+        $menusById = $menus->keyBy('id');
     @endphp
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -258,8 +468,8 @@ new class extends Component {
                 <flux:input
                     wire:model="form.customer_name"
                     :label="__('Customer Name')"
-                    required
                     maxlength="100"
+                    placeholder="{{ __('Guest') }}"
                 />
 
                 <div data-flux-field>
@@ -285,6 +495,7 @@ new class extends Component {
                         <option value="">{{ __('Select') }}</option>
                         <option value="tunai">{{ __('Cash') }}</option>
                         <option value="transfer">{{ __('Bank Transfer') }}</option>
+                        <option value="qris">{{ __('QRIS') }}</option>
                     </flux:select>
                 </div>
             </div>
@@ -297,7 +508,7 @@ new class extends Component {
                         step="0.01"
                         min="0"
                         :label="__('Subtotal')"
-                        required
+                        readonly
                     />
                     <flux:input
                         wire:model="form.discount_total"
@@ -319,7 +530,7 @@ new class extends Component {
                         step="0.01"
                         min="0"
                         :label="__('Grand Total')"
-                        required
+                        readonly
                     />
                 </div>
 
@@ -337,6 +548,7 @@ new class extends Component {
                         step="0.01"
                         min="0"
                         :label="__('Change')"
+                        readonly
                     />
                 </div>
 
@@ -431,36 +643,55 @@ new class extends Component {
                                 <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
-                            @foreach ($items as $index => $item)
-                                <tr>
-                                    <td class="px-4 py-3 align-top">
-                                        <flux:select
-                                            wire:model="items.{{ $index }}.menu_id"
-                                            :label="null"
-                                            class="w-full"
-                                        >
-                                            <option value="">{{ __('Select') }}</option>
-                                            @foreach ($menus as $menu)
-                                                <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
-                                            @endforeach
-                                        </flux:select>
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <flux:input
-                                            wire:model="items.{{ $index }}.qty"
-                                            type="number"
-                                            min="1"
-                                            class="w-full text-right"
-                                        />
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <flux:input
-                                            wire:model="items.{{ $index }}.harga"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            class="w-full text-right"
+	                        <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+	                            @foreach ($items as $index => $item)
+	                                <tr wire:key="edit-page-item-{{ $index }}">
+	                                    <td class="px-4 py-3 align-top">
+	                                        <flux:select
+	                                            wire:model.live="items.{{ $index }}.menu_id"
+	                                            :label="null"
+	                                            class="w-full"
+	                                        >
+	                                            <option value="">{{ __('Select') }}</option>
+	                                            @foreach ($menus as $menu)
+	                                                <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
+	                                            @endforeach
+	                                        </flux:select>
+
+	                                        @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
+	                                        @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
+	                                            <div class="mt-2">
+	                                                <flux:checkbox.group
+	                                                    wire:model.live="items.{{ $index }}.addon_ids"
+	                                                    variant="pills"
+	                                                    :label="__('Add-ons (optional)')"
+	                                                >
+	                                                    @foreach ($selectedMenu->addons as $addon)
+	                                                        <flux:checkbox
+	                                                            variant="pills"
+	                                                            value="{{ $addon->id }}"
+	                                                            :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')'"
+	                                                        />
+	                                                    @endforeach
+	                                                </flux:checkbox.group>
+	                                            </div>
+	                                        @endif
+	                                    </td>
+	                                    <td class="px-4 py-3 align-top">
+	                                        <flux:input
+	                                            wire:model.live.debounce.250ms="items.{{ $index }}.qty"
+	                                            type="number"
+	                                            min="1"
+	                                            class="w-full text-right"
+	                                        />
+	                                    </td>
+	                                    <td class="px-4 py-3 align-top">
+	                                        <flux:input
+	                                            wire:model.live.debounce.250ms="items.{{ $index }}.harga"
+	                                            type="number"
+	                                            step="0.01"
+	                                            min="0"
+	                                            class="w-full text-right"
                                         />
                                     </td>
                                     <td class="px-4 py-3 align-top text-right align-middle">

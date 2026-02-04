@@ -46,6 +46,9 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('menu/create', 'menu.create')->middleware('can:menu.manage')->name('menu.create');
     Volt::route('menu/{menu}/edit', 'menu.edit')->middleware('can:menu.manage')->name('menu.edit');
 
+    // Add-ons
+    Volt::route('addon', 'addon.index')->middleware('can:addon.access')->name('addon.index');
+
     // Pajak
     Volt::route('pajak', 'pajak.index')->middleware('can:pajak.access')->name('pajak.index');
     Volt::route('pajak/create', 'pajak.create')->middleware('can:pajak.manage')->name('pajak.create');
@@ -60,6 +63,21 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('pesanan', 'pesanan.index')->middleware('can:pesanan.access')->name('pesanan.index');
     Volt::route('pesanan/create', 'pesanan.create')->middleware('can:pesanan.manage')->name('pesanan.create');
     Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->middleware('can:pesanan.manage')->name('pesanan.edit');
+
+    // Kitchen
+    Volt::route('kitchen', 'kitchen.index')->middleware('can:kitchen.access')->name('kitchen.index');
+
+    // Pembayaran
+    Volt::route('pembayaran', 'pembayaran.index')->middleware('can:pembayaran.access')->name('pembayaran.index');
+    Route::get('pembayaran/{pesanan}/receipt', function (\App\Models\Pesanan $pesanan) {
+        $pesanan->loadMissing(['meja', 'details.menu', 'details.addons', 'kasir']);
+
+        abort_unless($pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran), 404);
+
+        return view('pembayaran.receipt', [
+            'pesanan' => $pesanan,
+        ]);
+    })->middleware('can:pembayaran.access')->name('pembayaran.receipt');
 
     // Users
     Volt::route('users', 'users.index')->middleware('can:users.access')->name('users.index');

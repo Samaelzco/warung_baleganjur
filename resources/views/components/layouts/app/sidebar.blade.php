@@ -25,6 +25,9 @@
                     @can('menu.access')
                         <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
                     @endcan
+                    @can('addon.access')
+                        <flux:navlist.item icon="squares-plus" :href="route('addon.index')" :current="request()->routeIs('addon.*')" wire:navigate>{{ __('Add-ons') }}</flux:navlist.item>
+                    @endcan
                     @can('pajak.access')
                         <flux:navlist.item icon="banknotes" :href="route('pajak.index')" :current="request()->routeIs('pajak.*')" wire:navigate>{{ __('Taxes') }}</flux:navlist.item>
                     @endcan
@@ -33,6 +36,12 @@
                     @endcan
                     @can('pesanan.access')
                         <flux:navlist.item icon="receipt-percent" :href="route('pesanan.index')" :current="request()->routeIs('pesanan.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
+                    @endcan
+                    @can('kitchen.access')
+                        <flux:navlist.item icon="fire" :href="route('kitchen.index')" :current="request()->routeIs('kitchen.*')" wire:navigate>{{ __('Kitchen') }}</flux:navlist.item>
+                    @endcan
+                    @can('pembayaran.access')
+                        <flux:navlist.item icon="credit-card" :href="route('pembayaran.index')" :current="request()->routeIs('pembayaran.*')" wire:navigate>{{ __('Payments') }}</flux:navlist.item>
                     @endcan
                     @can('users.access')
                         <flux:navlist.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>{{ __('Users') }}</flux:navlist.item>

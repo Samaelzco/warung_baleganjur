@@ -163,9 +163,12 @@ new class extends Component {
                 'meja.access',
                 'kategori.access',
                 'menu.access',
+                'addon.access',
                 'pajak.access',
                 'diskon.access',
                 'pesanan.access',
+                'kitchen.access',
+                'pembayaran.access',
                 'users.access',
                 'roles.access',
             ],
@@ -173,9 +176,12 @@ new class extends Component {
                 'meja.manage',
                 'kategori.manage',
                 'menu.manage',
+                'addon.manage',
                 'pajak.manage',
                 'diskon.manage',
                 'pesanan.manage',
+                'kitchen.manage',
+                'pembayaran.manage',
                 'users.manage',
                 'roles.manage',
             ],
@@ -363,7 +369,7 @@ new class extends Component {
                             <tr>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Role') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Permissions') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400 text-right">{{ __('Actions') }}</th>
+                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
@@ -382,7 +388,7 @@ new class extends Component {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center justify-end gap-2">
+                                        <div class="flex flex-wrap items-center gap-2">
                                             @can('roles.manage')
                                                 <flux:button
                                                     size="sm"

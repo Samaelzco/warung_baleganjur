@@ -24,12 +24,18 @@ class GodRoleSeeder extends Seeder
                 'kategori.manage',
                 'menu.access',
                 'menu.manage',
+                'addon.access',
+                'addon.manage',
                 'pajak.access',
                 'pajak.manage',
                 'diskon.access',
                 'diskon.manage',
                 'pesanan.access',
                 'pesanan.manage',
+                'kitchen.access',
+                'kitchen.manage',
+                'pembayaran.access',
+                'pembayaran.manage',
                 'users.access',
                 'users.manage',
                 'roles.access',
@@ -47,4 +53,3 @@ class GodRoleSeeder extends Seeder
         }
     }
 }
-

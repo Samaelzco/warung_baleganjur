@@ -13,36 +13,36 @@ new class extends Component {
         'kode_pesanan' => '',
         'customer_name' => '',
         'customer_note' => '',
-        'subtotal' => '',
-        'discount_total' => '',
-        'tax_total' => '',
-        'total_harga' => '',
+        'subtotal' => 0,
+        'discount_total' => 0,
+        'tax_total' => 0,
+        'total_harga' => 0,
         'status' => 'menunggu',
-        'metode_pembayaran' => '',
-        'dibayar' => '',
-        'kembalian' => '',
-        'kasir_id' => '',
-        'chef_id' => '',
-        'diskon_id' => '',
-        'pajak_id' => '',
+        'metode_pembayaran' => null,
+        'dibayar' => null,
+        'kembalian' => null,
+        'kasir_id' => null,
+        'chef_id' => null,
+        'diskon_id' => null,
+        'pajak_id' => null,
     ];
 
     public function save(): void
     {
-        $validated = validator($this->form, [
+        $data = $this->form;
+        foreach (['customer_name', 'customer_note', 'discount_total', 'tax_total', 'chef_id', 'diskon_id', 'pajak_id'] as $field) {
+            if (array_key_exists($field, $data) && $data[$field] === '') {
+                $data[$field] = null;
+            }
+        }
+
+        $validated = validator($data, [
             'meja_id' => ['required', 'exists:mejas,id'],
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan'],
-            'customer_name' => ['required', 'string', 'max:100'],
+            'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
-            'subtotal' => ['required', 'numeric', 'min:0'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'total_harga' => ['required', 'numeric', 'min:0'],
-            'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
-            'metode_pembayaran' => ['nullable', 'in:tunai,transfer'],
-            'dibayar' => ['nullable', 'numeric', 'min:0'],
-            'kembalian' => ['nullable', 'numeric', 'min:0'],
-            'kasir_id' => ['nullable', 'exists:users,id'],
             'chef_id' => ['nullable', 'exists:users,id'],
             'diskon_id' => ['nullable', 'exists:diskons,id'],
             'pajak_id' => ['nullable', 'exists:pajaks,id'],
@@ -52,7 +52,15 @@ new class extends Component {
             $validated['kode_pesanan'] = 'ORD-' . now()->format('YmdHis');
         }
 
+        $validated['customer_name'] = blank($validated['customer_name'] ?? null) ? __('Guest') : $validated['customer_name'];
         $validated['waktu_pesan'] = now();
+        $validated['status'] = 'menunggu';
+        $validated['subtotal'] = 0;
+        $validated['total_harga'] = 0;
+        $validated['metode_pembayaran'] = null;
+        $validated['dibayar'] = null;
+        $validated['kembalian'] = null;
+        $validated['kasir_id'] = null;
 
         Pesanan::create($validated);
 
@@ -96,8 +104,8 @@ new class extends Component {
                 <flux:input
                     wire:model="form.customer_name"
                     :label="__('Customer Name')"
-                    required
                     maxlength="100"
+                    placeholder="{{ __('Guest') }}"
                 />
 
                 <div data-flux-field>
@@ -111,7 +119,7 @@ new class extends Component {
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:select wire:model="form.status" :label="__('Status')" required>
+                    <flux:select wire:model="form.status" :label="__('Status')">
                         <option value="menunggu">{{ __('Waiting') }}</option>
                         <option value="diproses">{{ __('In progress') }}</option>
                         <option value="siap">{{ __('Ready') }}</option>
@@ -220,4 +228,3 @@ new class extends Component {
         </form>
     </div>
 </section>
-

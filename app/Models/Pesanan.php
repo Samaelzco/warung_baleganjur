@@ -22,6 +22,7 @@ class Pesanan extends Model
         'metode_pembayaran',
         'dibayar',
         'kembalian',
+        'referensi_pembayaran',
         'kasir_id',
         'chef_id',
         'diskon_id',
