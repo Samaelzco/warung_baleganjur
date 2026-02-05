@@ -279,9 +279,6 @@ new class extends Component {
                         </div>
 
                         <div class="mt-4 flex items-center gap-2">
-                            <flux:link class="flex-1" :href="route('meja.qr', ['token' => $m->qr_token, 'download' => 1], false)">
-                                <flux:button size="sm" icon="arrow-down-tray" variant="ghost" class="w-full btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
-                            </flux:link>
                             <flux:link class="flex-1" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
                                 <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
                             </flux:link>
@@ -358,16 +355,6 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <flux:link :href="route('meja.qr', ['token' => $m->qr_token, 'download' => 1], false)" target="_blank">
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="arrow-down-tray"
-                                                    variant="ghost"
-                                                class="btn-ghost-accent rounded-2xl shadow-sm transition"
-                                                >
-                                                    {{ __('Download PNG') }}
-                                                </flux:button>
-                                            </flux:link>
                                             <flux:link :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
                                                 <flux:button
                                                     size="sm"
@@ -470,16 +457,16 @@ new class extends Component {
                             </div>
                         </div>
 
-                        <div class="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                            <div class="flex items-center justify-between">
-                                <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
-                                <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null, 'download' => 1], false)" target="_blank">
-                                    <flux:button size="xs" icon="arrow-down-tray" variant="ghost" class="btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
-                                </flux:link>
-                            </div>
-                            <div class="rounded-xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
-                                @if (!empty($form['qr_token']))
-                                    <img alt="QR" class="mx-auto h-44 w-44" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 320, 'format' => 'svg'], false) }}" />
+                            <div class="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                                <div class="flex items-center justify-between">
+                                    <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
+                                    <flux:link :href="route('meja.print', ['ids' => $editingId], false)" target="_blank">
+                                        <flux:button size="xs" icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
+                                    </flux:link>
+                                </div>
+                                <div class="rounded-xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
+                                    @if (!empty($form['qr_token']))
+                                        <img alt="QR" class="mx-auto h-44 w-44" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 320, 'format' => 'svg'], false) }}" />
                                 @else
                                     <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
                                 @endif
