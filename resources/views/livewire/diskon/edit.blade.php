@@ -74,7 +74,7 @@ new class extends Component {
                             <option value="nominal">{{ __('Nominal') }}</option>
                         </select>
                     </div>
-                    <flux:input wire:model="form.nilai" type="number" step="0.01" min="0" :label="__('Value')" required />
+        <flux:input wire:model="form.nilai" type="number" step="0.01" min="0" inputmode="numeric" placeholder="0" :label="__('Value')" required />
                 </div>
 
                 <flux:input
@@ -113,4 +113,3 @@ new class extends Component {
         </form>
     </div>
 </section>
-

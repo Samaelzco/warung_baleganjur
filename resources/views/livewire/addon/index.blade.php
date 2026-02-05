@@ -120,7 +120,7 @@ new class extends Component {
     {
         $this->form = [
             'nama_addon' => '',
-            'harga' => 0,
+            'harga' => null,
             'status' => 'tersedia',
         ];
     }
@@ -432,6 +432,8 @@ new class extends Component {
                                 type="number"
                                 min="0"
                                 step="100"
+                                inputmode="numeric"
+                                placeholder="0"
                                 :label="__('Price (IDR)')"
                                 required
                                 help="{{ __('Optional add-ons will be added to the menu price automatically.') }}"
@@ -512,6 +514,8 @@ new class extends Component {
                                 type="number"
                                 min="0"
                                 step="100"
+                                inputmode="numeric"
+                                placeholder="0"
                                 :label="__('Price (IDR)')"
                                 required
                             />

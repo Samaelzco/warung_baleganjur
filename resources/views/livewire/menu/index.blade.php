@@ -165,7 +165,7 @@ new class extends Component {
         $this->form = [
             'nama_menu'   => '',
             'kategori_id' => null,
-            'harga'       => 0,
+            'harga'       => null,
             'status'      => 'tersedia',
             'deskripsi'   => '',
             'addon_ids'   => [],
@@ -533,7 +533,7 @@ new class extends Component {
                             </div>
 
                                 <div class="grid gap-4 sm:grid-cols-2">
-                                    <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" :label="__('Price (IDR)')" required />
+                                    <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" inputmode="numeric" placeholder="0" :label="__('Price (IDR)')" required />
                                     @error('form.harga')
                                         <p class="text-xs text-red-500 sm:col-span-2">{{ $message }}</p>
                                     @enderror
@@ -645,7 +645,7 @@ new class extends Component {
                             </div>
 
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" :label="__('Price (IDR)')" required />
+                                <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" inputmode="numeric" placeholder="0" :label="__('Price (IDR)')" required />
                                 @error('form.harga')
                                     <p class="text-xs text-red-500 sm:col-span-2">{{ $message }}</p>
                                 @enderror

@@ -123,7 +123,7 @@ new class extends Component {
         $this->form = [
             'kode'            => '',
             'tipe'            => 'percent',
-            'nilai'           => 0,
+            'nilai'           => null,
             'min_subtotal'    => null,
             'is_active'       => true,
             'tanggal_mulai'   => null,
@@ -602,6 +602,8 @@ new class extends Component {
                                 type="number"
                                 min="0"
                                 step="0.01"
+                                inputmode="numeric"
+                                placeholder="0"
                                 :label="__('Value')"
                                 required
                                 help="{{ __('Percent: 10 = 10% · Nominal: 10000 = Rp 10.000') }}"
@@ -724,6 +726,8 @@ new class extends Component {
                                 type="number"
                                 min="0"
                                 step="0.01"
+                                inputmode="numeric"
+                                placeholder="0"
                                 :label="__('Value')"
                                 required
                                 help="{{ __('Percent: 10 = 10% · Nominal: 10000 = Rp 10.000') }}"
