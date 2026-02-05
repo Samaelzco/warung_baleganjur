@@ -32,7 +32,63 @@ Route::middleware(['auth'])->group(function () {
 
     // Tables (Meja) CRUD
     Volt::route('meja', 'meja.index')->middleware('can:meja.access')->name('meja.index');
-    Volt::route('meja/print', 'meja.print')->middleware('can:meja.access')->name('meja.print');
+    Route::get('meja/print', function (\Illuminate\Http\Request $request) {
+        $ids = [];
+        $q = (string) $request->query('ids', '');
+        if ($q !== '') {
+            $ids = collect(explode(',', $q))
+                ->filter()
+                ->map(fn ($v) => (int) $v)
+                ->filter(fn ($v) => $v > 0)
+                ->values()
+                ->all();
+        }
+
+        $items = empty($ids)
+            ? \App\Models\Meja::orderBy('nomor_meja')->get()
+            : \App\Models\Meja::whereIn('id', $ids)->orderBy('nomor_meja')->get();
+
+        $host = $request->getSchemeAndHttpHost();
+        $qrSize = 600;
+
+        // Use SVG backend to avoid relying on PNG backend availability (GD/Imagick).
+        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle($qrSize),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+        );
+        $writer = new \BaconQrCode\Writer($renderer);
+
+        $pdfItems = $items->map(function ($m) use ($writer, $host) {
+            $url = $host . '/order/' . $m->qr_token;
+            $svg = $writer->writeString($url);
+
+            return [
+                'id' => $m->id,
+                'nomor_meja' => $m->nomor_meja,
+                'qr_data_uri' => 'data:image/svg+xml;base64,' . base64_encode($svg),
+            ];
+        })->all();
+
+        $html = view('meja.print-pdf', ['items' => $pdfItems])->render();
+
+        $dompdf = new \Dompdf\Dompdf([
+            'defaultFont' => 'DejaVu Sans',
+            'isRemoteEnabled' => false,
+        ]);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $filename = 'qr-meja.pdf';
+        if ($request->filled('ids')) {
+            $filename = 'qr-meja-selected.pdf';
+        }
+
+        return response($dompdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
+    })->middleware('can:meja.access')->name('meja.print');
     Volt::route('meja/create', 'meja.create')->middleware('can:meja.manage')->name('meja.create');
     Volt::route('meja/{meja}/edit', 'meja.edit')->middleware('can:meja.manage')->name('meja.edit');
 

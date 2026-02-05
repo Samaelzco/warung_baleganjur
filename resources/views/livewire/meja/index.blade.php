@@ -176,8 +176,8 @@ new class extends Component {
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <flux:heading size="xl" level="1">{{ __('Tables') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
-                <flux:link :href="route('meja.print', [], false)" wire:navigate>
-                    <flux:button icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print All QR') }}</flux:button>
+                <flux:link :href="route('meja.print', [], false)" target="_blank">
+                    <flux:button icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
                 </flux:link>
                 @can('meja.manage')
                     <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
@@ -282,6 +282,9 @@ new class extends Component {
                             <flux:link class="flex-1" :href="route('meja.qr', ['token' => $m->qr_token, 'download' => 1], false)">
                                 <flux:button size="sm" icon="arrow-down-tray" variant="ghost" class="w-full btn-ghost-accent">{{ __('Download PNG') }}</flux:button>
                             </flux:link>
+                            <flux:link class="flex-1" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
+                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
+                            </flux:link>
                             @can('meja.manage')
                                 <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
                                 <flux:modal.trigger name="confirm-delete-meja" class="flex-1">
@@ -363,6 +366,16 @@ new class extends Component {
                                                 class="btn-ghost-accent rounded-2xl shadow-sm transition"
                                                 >
                                                     {{ __('Download PNG') }}
+                                                </flux:button>
+                                            </flux:link>
+                                            <flux:link :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="printer"
+                                                    variant="ghost"
+                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition"
+                                                >
+                                                    {{ __('Print (PDF)') }}
                                                 </flux:button>
                                             </flux:link>
                                             @can('meja.manage')
