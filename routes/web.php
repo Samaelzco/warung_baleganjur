@@ -8,7 +8,7 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::view('dashboard', 'dashboard')
+Volt::route('dashboard', 'dashboard.index')
     ->middleware(['auth', 'verified', 'can:dashboard.access'])
     ->name('dashboard');
 

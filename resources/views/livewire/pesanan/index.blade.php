@@ -911,7 +911,35 @@ new class extends Component {
                             </div>
                         </div>
 
-                        <div class="mt-4 flex items-center gap-2">
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            @php($canPrintReceipt = $item->status === 'selesai' && !blank($item->metode_pembayaran))
+
+                            @can('pembayaran.access')
+                                @if ($canPrintReceipt)
+                                    <flux:link class="flex-1" :href="route('pembayaran.receipt', $item)" target="_blank" rel="noopener">
+                                        <flux:button
+                                            size="sm"
+                                            icon="printer"
+                                            variant="ghost"
+                                            class="w-full btn-ghost-accent"
+                                        >
+                                            {{ __('Receipt') }}
+                                        </flux:button>
+                                    </flux:link>
+                                @else
+                                    <flux:button
+                                        size="sm"
+                                        icon="printer"
+                                        variant="ghost"
+                                        class="flex-1 w-full btn-disabled-muted"
+                                        disabled
+                                        title="{{ __('Receipt is available after the order is completed and paid.') }}"
+                                    >
+                                        {{ __('Receipt') }}
+                                    </flux:button>
+                                @endif
+                            @endcan
+
                             @can('pesanan.manage')
                                 <flux:button
                                     size="sm"
@@ -965,7 +993,7 @@ new class extends Component {
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
                                     {{ __('Status') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400 text-right">
+                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
                                     {{ __('Total') }}
                                 </th>
                                 <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
@@ -974,7 +1002,7 @@ new class extends Component {
                                 <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
                                     {{ __('Order Time') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400 text-right">
+                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
                                     {{ __('Actions') }}
                                 </th>
                             </tr>
@@ -989,9 +1017,6 @@ new class extends Component {
                                             <span class="font-mono text-sm font-semibold text-neutral-900 dark:text-white">
                                                 {{ $item->kode_pesanan }}
                                             </span>
-                                            <span class="text-[11px] text-neutral-500 dark:text-neutral-400">
-                                                #{{ $item->id }}
-                                            </span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 align-middle">
@@ -1000,8 +1025,8 @@ new class extends Component {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
-                                            <span class="text-sm text-neutral-900 dark:text-white">
+                                        <div class="flex min-w-0 flex-col">
+                                            <span class="truncate text-sm text-neutral-900 dark:text-white">
                                                 {{ $item->customer_name ?: __('Guest') }}
                                             </span>
                                             @if ($item->customer_note)
@@ -1017,8 +1042,8 @@ new class extends Component {
                                             {{ $meta['label'] ?? ucfirst($status) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle text-right">
-                                        <span class="font-semibold text-neutral-900 dark:text-white">
+                                    <td class="px-6 py-4 align-middle text-neutral-800 dark:text-neutral-100">
+                                        <span class="font-semibold">
                                             Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}
                                         </span>
                                     </td>
@@ -1044,7 +1069,35 @@ new class extends Component {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center justify-end gap-2">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            @php($canPrintReceipt = $item->status === 'selesai' && !blank($item->metode_pembayaran))
+
+                                            @can('pembayaran.access')
+                                                @if ($canPrintReceipt)
+                                                    <flux:link :href="route('pembayaran.receipt', $item)" target="_blank" rel="noopener">
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="printer"
+                                                            variant="ghost"
+                                                            class="btn-ghost-accent rounded-2xl shadow-sm transition"
+                                                        >
+                                                            {{ __('Receipt') }}
+                                                        </flux:button>
+                                                    </flux:link>
+                                                @else
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="printer"
+                                                        variant="ghost"
+                                                        class="btn-disabled-muted rounded-2xl shadow-sm transition"
+                                                        disabled
+                                                        title="{{ __('Receipt is available after the order is completed and paid.') }}"
+                                                    >
+                                                        {{ __('Receipt') }}
+                                                    </flux:button>
+                                                @endif
+                                            @endcan
+
                                             @can('pesanan.manage')
                                                 <flux:button
                                                     size="sm"
@@ -1071,8 +1124,15 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                                        {{ __('No orders found.') }}
+                                    <td class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400" colspan="8">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div class="h-12 w-12 rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-900/60 dark:text-neutral-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-full w-full p-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4.5h9m-9 6h9m-9 6h9" />
+                                                </svg>
+                                            </div>
+                                            <p>{{ __('No orders found.') }}</p>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforelse

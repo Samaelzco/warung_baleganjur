@@ -112,6 +112,41 @@ select:focus[data-flux-control] {
     background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
 }
 
+/* Dashboard date filter */
+button.date-filter-trigger {
+    background: var(--brand-primary);
+    color: var(--brand-accent);
+    border: 1px solid var(--brand-primary-active);
+}
+button.date-filter-trigger:hover { background: var(--brand-primary-hover); }
+button.date-filter-trigger:active { background: var(--brand-primary-active); }
+
+/* Muted disabled buttons (clear visual difference) */
+button.btn-disabled-muted {
+    background: color-mix(in srgb, var(--color-zinc-600) 6%, #ffffff);
+    color: var(--color-zinc-400);
+    border: 1px solid color-mix(in srgb, var(--color-zinc-600) 16%, transparent);
+    cursor: not-allowed;
+}
+.dark button.btn-disabled-muted {
+    background: color-mix(in srgb, var(--color-zinc-400) 10%, #0a0a0a);
+    color: var(--color-zinc-500);
+    border-color: color-mix(in srgb, var(--color-zinc-400) 22%, transparent);
+}
+
+.date-filter-menu {
+    border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-zinc-200));
+    box-shadow:
+        0 14px 25px -12px color-mix(in srgb, var(--color-accent) 28%, transparent),
+        0 6px 10px -6px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+.dark .date-filter-menu {
+    border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-zinc-600));
+    box-shadow:
+        0 14px 25px -12px color-mix(in srgb, var(--color-accent) 26%, transparent),
+        0 6px 10px -6px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
 /* Brand toast (used on Meja page) */
 .toast-brand {
     border: 1px solid color-mix(in srgb, var(--brand-accent) 30%, transparent);
