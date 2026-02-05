@@ -19,18 +19,15 @@ use Livewire\WithPagination;
 	    ];
 
     public string $search = '';
-    public string $dateFilter = 'all';
     public string $sort = 'oldest';
 
     protected $queryString = [
         'search' => ['except' => ''],
-        'dateFilter' => ['except' => 'all'],
         'sort' => ['except' => 'oldest'],
         'page' => ['except' => 1],
     ];
 
     public function updatingSearch(): void { $this->resetPage(); }
-    public function updatingDateFilter(): void { $this->resetPage(); }
     public function updatingSort(): void { $this->resetPage(); }
 
 	    public function openPayModal(int $id): void
@@ -210,10 +207,6 @@ use Livewire\WithPagination;
             });
         }
 
-        if ($dateFilter === 'today') {
-            $query->whereDate('waktu_pesan', now()->toDateString());
-        }
-
         if ($sort === 'newest') {
             $query->orderByDesc('waktu_pesan')->orderByDesc('id');
         } else {
@@ -348,13 +341,6 @@ use Livewire\WithPagination;
             </div>
             <div class="flex items-center gap-2">
                 <flux:select
-                    wire:model.live="dateFilter"
-                    class="rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
-                >
-                    <option value="all">{{ __('All Dates') }}</option>
-                    <option value="today">{{ __('Today') }}</option>
-                </flux:select>
-                <flux:select
                     wire:model.live="sort"
                     class="rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
                 >
@@ -365,7 +351,7 @@ use Livewire\WithPagination;
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent"
-                    wire:click="$set('search','');$set('dateFilter','all');$set('sort','oldest')"
+                    wire:click="$set('search','');$set('sort','oldest')"
                 >
                     {{ __('Clear') }}
                 </flux:button>
