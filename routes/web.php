@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
+use Illuminate\Support\Carbon;
 
 Route::get('/', function () {
     return view('welcome');
@@ -11,6 +12,123 @@ Route::get('/', function () {
 Volt::route('dashboard', 'dashboard.index')
     ->middleware(['auth', 'verified', 'can:dashboard.access'])
     ->name('dashboard');
+
+Route::get('dashboard/report', function (\Illuminate\Http\Request $request) {
+    $startRaw = (string) $request->query('start', '');
+    $endRaw = (string) $request->query('end', '');
+
+    try {
+        $start = $startRaw !== '' ? Carbon::parse($startRaw)->startOfDay() : now()->startOfDay();
+    } catch (\Throwable) {
+        $start = now()->startOfDay();
+    }
+
+    try {
+        $end = $endRaw !== '' ? Carbon::parse($endRaw)->endOfDay() : now()->endOfDay();
+    } catch (\Throwable) {
+        $end = now()->endOfDay();
+    }
+
+    if ($end->lt($start)) {
+        [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+    }
+
+    $paidQuery = \App\Models\Pesanan::query()
+        ->where('status', 'selesai')
+        ->whereNotNull('metode_pembayaran')
+        ->whereBetween('waktu_selesai', [$start, $end]);
+
+    $paidCount = (int) (clone $paidQuery)->count();
+    $revenue = (float) (clone $paidQuery)->sum('total_harga');
+    $discountTotal = (float) (clone $paidQuery)->sum('discount_total');
+    $taxTotal = (float) (clone $paidQuery)->sum('tax_total');
+    $avgOrder = $paidCount > 0 ? ($revenue / $paidCount) : 0;
+
+    $byMethod = (clone $paidQuery)
+        ->selectRaw('metode_pembayaran as method, COUNT(*) as cnt, COALESCE(SUM(total_harga),0) as total, COALESCE(SUM(dibayar),0) as paid_in, COALESCE(SUM(kembalian),0) as change_out')
+        ->groupBy('method')
+        ->get()
+        ->keyBy('method');
+
+    $methodKeys = ['tunai', 'qris', 'transfer'];
+    $methodLabels = [
+        'tunai' => __('Cash'),
+        'qris' => __('QRIS'),
+        'transfer' => __('Transfer'),
+    ];
+
+    $methodRows = collect($methodKeys)->map(function (string $k) use ($byMethod, $methodLabels) {
+        return [
+            'key' => $k,
+            'label' => $methodLabels[$k] ?? $k,
+            'count' => (int) ($byMethod[$k]->cnt ?? 0),
+            'total' => (float) ($byMethod[$k]->total ?? 0),
+            'paid_in' => (float) ($byMethod[$k]->paid_in ?? 0),
+            'change_out' => (float) ($byMethod[$k]->change_out ?? 0),
+        ];
+    })->all();
+
+    $topMenus = \Illuminate\Support\Facades\DB::table('pesanan_details')
+        ->join('pesanans', 'pesanans.id', '=', 'pesanan_details.pesanan_id')
+        ->join('menus', 'menus.id', '=', 'pesanan_details.menu_id')
+        ->where('pesanans.status', 'selesai')
+        ->whereNotNull('pesanans.metode_pembayaran')
+        ->whereBetween('pesanans.waktu_selesai', [$start, $end])
+        ->groupBy('menus.id', 'menus.nama_menu')
+        ->selectRaw('menus.id, menus.nama_menu, COALESCE(SUM(pesanan_details.qty),0) as qty, COALESCE(SUM(pesanan_details.subtotal),0) as total')
+        ->orderByDesc('qty')
+        ->limit(10)
+        ->get();
+
+    $topAddons = \Illuminate\Support\Facades\DB::table('pesanan_detail_addons')
+        ->join('pesanan_details', 'pesanan_details.id', '=', 'pesanan_detail_addons.pesanan_detail_id')
+        ->join('pesanans', 'pesanans.id', '=', 'pesanan_details.pesanan_id')
+        ->join('addons', 'addons.id', '=', 'pesanan_detail_addons.addon_id')
+        ->where('pesanans.status', 'selesai')
+        ->whereNotNull('pesanans.metode_pembayaran')
+        ->whereBetween('pesanans.waktu_selesai', [$start, $end])
+        ->groupBy('addons.id', 'addons.nama_addon')
+        ->selectRaw('addons.id, addons.nama_addon, COALESCE(SUM(pesanan_details.qty),0) as qty, COALESCE(SUM(pesanan_detail_addons.harga * pesanan_details.qty),0) as total')
+        ->orderByDesc('qty')
+        ->limit(10)
+        ->get();
+
+    $payments = (clone $paidQuery)
+        ->with(['meja', 'kasir'])
+        ->orderBy('waktu_selesai')
+        ->get();
+
+    $html = view('reports.dashboard-report', [
+        'start' => $start,
+        'end' => $end,
+        'generatedAt' => now(),
+        'generatedBy' => auth()->user()?->name,
+        'paidCount' => $paidCount,
+        'revenue' => $revenue,
+        'discountTotal' => $discountTotal,
+        'taxTotal' => $taxTotal,
+        'avgOrder' => $avgOrder,
+        'methodRows' => $methodRows,
+        'topMenus' => $topMenus,
+        'topAddons' => $topAddons,
+        'payments' => $payments,
+    ])->render();
+
+    $dompdf = new \Dompdf\Dompdf([
+        'defaultFont' => 'DejaVu Sans',
+        'isRemoteEnabled' => false,
+    ]);
+    $dompdf->loadHtml($html, 'UTF-8');
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+
+    $filename = 'dashboard-report-' . $start->format('Ymd') . '-' . $end->format('Ymd') . '.pdf';
+
+    return response($dompdf->output(), 200, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' . $filename . '"',
+    ]);
+})->middleware(['auth', 'verified', 'can:dashboard.access'])->name('dashboard.report');
 
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');

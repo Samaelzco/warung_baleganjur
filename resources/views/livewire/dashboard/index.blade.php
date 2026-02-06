@@ -265,8 +265,18 @@ new class extends Component {
             <flux:subheading>{{ $start->format('d M Y') }} — {{ $end->format('d M Y') }}</flux:subheading>
         </div>
 
-        <!-- Minimal date pill + popover -->
-        <flux:dropdown position="bottom" align="end">
+        <div class="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+            <flux:link
+                :href="route('dashboard.report', ['start' => $start->toDateString(), 'end' => $end->toDateString()], false)"
+                target="_blank"
+            >
+                <flux:button size="sm" variant="ghost" icon="printer" class="btn-ghost-accent rounded-full">
+                    {{ __('Report PDF') }}
+                </flux:button>
+            </flux:link>
+
+            <!-- Minimal date pill + popover -->
+            <flux:dropdown position="bottom" align="start">
             <flux:button
                 size="sm"
                 variant="ghost"
@@ -344,6 +354,7 @@ new class extends Component {
                 </div>
             </flux:menu>
         </flux:dropdown>
+        </div>
     </div>
 
         <!-- Mobile KPI chips -->
