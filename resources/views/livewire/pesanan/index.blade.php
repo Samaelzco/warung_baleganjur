@@ -893,6 +893,8 @@ new class extends Component {
                                         {{ __('Cash') }}
                                     @elseif ($item->metode_pembayaran === 'transfer')
                                         {{ __('Bank Transfer') }}
+                                    @elseif ($item->metode_pembayaran === 'qris')
+                                        {{ __('QRIS') }}
                                     @else
                                         <span class="text-neutral-500">{{ __('Unpaid') }}</span>
                                     @endif
@@ -1053,6 +1055,8 @@ new class extends Component {
                                                 <span>{{ __('Cash') }}</span>
                                             @elseif ($item->metode_pembayaran === 'transfer')
                                                 <span>{{ __('Bank Transfer') }}</span>
+                                            @elseif ($item->metode_pembayaran === 'qris')
+                                                <span>{{ __('QRIS') }}</span>
                                             @else
                                                 <span class="text-neutral-500 dark:text-neutral-400">{{ __('Unpaid') }}</span>
                                             @endif
