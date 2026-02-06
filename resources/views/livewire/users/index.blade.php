@@ -254,13 +254,13 @@ new class extends Component {
 
         <!-- Search and filter -->
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
                 <flux:input wire:model.live.debounce.1000ms="search" :placeholder="__('Search name or email')" />
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 min-w-0 sm:justify-end">
                 <flux:select
                     wire:model.live="roleFilter"
-                    class="rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
+                    class="flex-1 min-w-0 sm:flex-none sm:w-44 rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
                 >
                     <option value="all">{{ __('All') }}</option>
                     <option value="none">{{ __('No role') }}</option>
@@ -268,7 +268,7 @@ new class extends Component {
                         <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
                     @endforeach
                 </flux:select>
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','');$set('roleFilter','all')">{{ __('Clear') }}</flux:button>
+                <flux:button size="sm" variant="ghost" class="btn-ghost-accent whitespace-nowrap shrink-0" wire:click="$set('search','');$set('roleFilter','all')">{{ __('Clear') }}</flux:button>
             </div>
         </div>
 
@@ -337,7 +337,7 @@ new class extends Component {
         <div class="hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full md:min-w-[900px] lg:min-w-full text-sm text-left">
                         <thead>
                             <tr>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
@@ -371,20 +371,20 @@ new class extends Component {
                                                 {{ __('No role') }}
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800/60">
+                                            <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800/60 max-w-[18rem] lg:max-w-none">
                                                 <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                                                {{ $roleNames->join(', ') }}
+                                                <span class="truncate">{{ $roleNames->join(', ') }}</span>
                                             </span>
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center gap-2">
+                                        <div class="flex items-center gap-2 flex-nowrap">
                                             @can('users.manage')
                                                 <flux:button
                                                     size="sm"
                                                     icon="pencil-square"
                                                     variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
+                                                    class="btn-accent rounded-2xl shadow-sm transition md:w-24"
                                                     wire:click="openEditModal({{ $user->id }})"
                                                 >
                                                     {{ __('Edit') }}
@@ -394,7 +394,7 @@ new class extends Component {
                                                         size="sm"
                                                         icon="trash"
                                                         variant="danger"
-                                                        class="rounded-2xl shadow-sm transition"
+                                                        class="rounded-2xl shadow-sm transition md:w-24"
                                                         wire:click="confirmDelete({{ $user->id }})"
                                                         :disabled="auth()->id() === $user->id"
                                                     >
@@ -482,7 +482,7 @@ new class extends Component {
     </flux:modal>
 
     <!-- Create user modal -->
-    <flux:modal name="create-user" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl" closable="false">
+    <flux:modal name="create-user" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
         <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
             <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                 <div>
@@ -550,7 +550,7 @@ new class extends Component {
     </flux:modal>
 
     <!-- Edit user modal -->
-    <flux:modal name="edit-user" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl" closable="false">
+    <flux:modal name="edit-user" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
         <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
             <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                 <div>

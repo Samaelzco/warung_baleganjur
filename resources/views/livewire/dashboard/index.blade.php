@@ -399,7 +399,7 @@ new class extends Component {
         </div>
 
         <!-- KPI cards -->
-        <div class="hidden sm:grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="hidden sm:grid gap-2 sm:gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             <div class="{{ $summaryCard }}">
                 <div class="flex items-center gap-2">
                     <span class="h-2 w-2 rounded-full bg-[color:var(--brand-accent)]"></span>
@@ -443,41 +443,41 @@ new class extends Component {
         </div>
 
         <!-- Charts (wire:ignore to avoid canvas diff issues) -->
-        <div
-            wire:key="dashboard-charts-{{ $chartsRevision }}"
-            x-data="dashboardCharts()"
-            data-charts='@json($charts)'
-            data-revenue-label="{{ e(__('Revenue')) }}"
-            data-revenue-per-hour-label="{{ e(__('Revenue per hour')) }}"
-            data-revenue-per-day-label="{{ e(__('Revenue per day')) }}"
-            class="grid gap-3 lg:grid-cols-3"
-        >
-            <div class="{{ $panelCard }} p-4 lg:col-span-2">
+    <div
+        wire:key="dashboard-charts-{{ $chartsRevision }}"
+        x-data="dashboardCharts()"
+        data-charts='@json($charts)'
+        data-revenue-label="{{ e(__('Revenue')) }}"
+        data-revenue-per-hour-label="{{ e(__('Revenue per hour')) }}"
+        data-revenue-per-day-label="{{ e(__('Revenue per day')) }}"
+        class="grid gap-3 md:grid-cols-3"
+    >
+        <div class="{{ $panelCard }} p-3 sm:p-4 md:col-span-2">
                 <div>
                     <flux:heading size="lg">
                         <span x-text="charts?.timeseries?.mode === 'hour' ? options.revenuePerHourLabel : options.revenuePerDayLabel"></span>
                     </flux:heading>
                     <flux:subheading>{{ __('Paid revenue (orders completed).') }}</flux:subheading>
                 </div>
-                <div class="mt-4 h-64">
-                    <canvas wire:ignore x-ref="revenueChart" class="h-full w-full"></canvas>
-                </div>
+            <div class="mt-4 h-56 sm:h-64">
+                <canvas wire:ignore x-ref="revenueChart" class="h-full w-full"></canvas>
             </div>
+        </div>
 
-            <div class="{{ $panelCard }} p-4">
+        <div class="{{ $panelCard }} p-3 sm:p-4">
                 <div>
                     <flux:heading size="lg">{{ __('Payment method') }}</flux:heading>
                     <flux:subheading>{{ __('Distribution by total amount.') }}</flux:subheading>
                 </div>
-                <div class="mt-4 h-64">
-                    <canvas wire:ignore x-ref="paymentChart" class="h-full w-full"></canvas>
-                </div>
+            <div class="mt-4 h-56 sm:h-64">
+                <canvas wire:ignore x-ref="paymentChart" class="h-full w-full"></canvas>
             </div>
         </div>
+    </div>
 
         <!-- Payment snapshot + status -->
-        <div class="grid gap-3 lg:grid-cols-3">
-            <div class="{{ $panelCard }} p-4 lg:col-span-2">
+        <div class="grid gap-3 md:grid-cols-3">
+            <div class="{{ $panelCard }} p-3 sm:p-4 md:col-span-2">
                 <div>
                     <flux:heading size="lg">{{ __('Payment Snapshot') }}</flux:heading>
                     <flux:subheading>{{ __('Cash vs non-cash for paid orders.') }}</flux:subheading>
@@ -519,7 +519,7 @@ new class extends Component {
                 </div>
             </div>
 
-            <div class="{{ $panelCard }} p-4">
+            <div class="{{ $panelCard }} p-3 sm:p-4">
                 <flux:heading size="lg">{{ __('Order Status') }}</flux:heading>
                 <flux:subheading>{{ __('Counts based on order time.') }}</flux:subheading>
 
@@ -555,8 +555,8 @@ new class extends Component {
         </div>
 
     <!-- Top lists + recent -->
-    <div class="grid gap-3 lg:grid-cols-2">
-        <div class="{{ $panelCard }} p-4">
+    <div class="grid gap-3 md:grid-cols-2">
+        <div class="{{ $panelCard }} p-3 sm:p-4">
             <flux:heading size="lg">{{ __('Top Menus') }}</flux:heading>
             <flux:subheading>{{ __('By quantity within the selected range.') }}</flux:subheading>
 
@@ -575,7 +575,7 @@ new class extends Component {
                 </div>
             </div>
 
-            <div class="{{ $panelCard }} p-4">
+            <div class="{{ $panelCard }} p-3 sm:p-4">
             <flux:heading size="lg">{{ __('Recent payments') }}</flux:heading>
             <flux:subheading>{{ __('Last 10 paid orders in range.') }}</flux:subheading>
 

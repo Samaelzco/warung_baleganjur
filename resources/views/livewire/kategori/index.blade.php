@@ -48,7 +48,6 @@ new class extends Component {
         $this->editingId = $kategori->id;
         $this->form = [
             'nama_kategori' => $kategori->nama_kategori,
-            'deskripsi'     => $kategori->deskripsi,
         ];
 
         $this->dispatch('modal-show', name: 'edit-kategori');
@@ -59,7 +58,6 @@ new class extends Component {
         $this->authorizeManage();
         $validated = validator($this->form, [
             'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori'],
-            'deskripsi'     => ['nullable', 'string'],
         ])->validate();
 
         KategoriMenu::create($validated);
@@ -76,7 +74,6 @@ new class extends Component {
 
         $validated = validator($this->form, [
             'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori,' . $this->editingId],
-            'deskripsi'     => ['nullable', 'string'],
         ])->validate();
 
         KategoriMenu::where('id', $this->editingId)->update($validated);
@@ -108,7 +105,6 @@ new class extends Component {
     {
         $this->form = [
             'nama_kategori' => '',
-            'deskripsi'     => '',
         ];
     }
 
@@ -124,31 +120,17 @@ new class extends Component {
 
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {
-                $sub->where('nama_kategori', 'like', '%'.$search.'%')
-                    ->orWhere('deskripsi', 'like', '%'.$search.'%');
+                $sub->where('nama_kategori', 'like', '%'.$search.'%');
             });
         }
 
         $items        = $query->orderBy('nama_kategori')->paginate(10);
         $totalCount   = \App\Models\KategoriMenu::count();
-        $withDesc     = \App\Models\KategoriMenu::whereNotNull('deskripsi')->where('deskripsi', '!=', '')->count();
-        $withoutDesc  = $totalCount - $withDesc;
-
-        $descMeta = [
+        $summaryMeta = [
             [
                 'label' => __('Categories'),
                 'count' => $totalCount,
                 'dot'   => 'bg-neutral-500',
-            ],
-            [
-                'label' => __('Has description'),
-                'count' => $withDesc,
-                'dot'   => 'bg-emerald-500',
-            ],
-            [
-                'label' => __('No description'),
-                'count' => $withoutDesc,
-                'dot'   => 'bg-amber-500',
             ],
         ];
     @endphp
@@ -167,7 +149,7 @@ new class extends Component {
         <!-- Mobile chips (match meja) -->
         <div class="block sm:hidden -mx-4 overflow-x-auto no-scrollbar">
             <div class="flex gap-2 px-4">
-                @foreach($descMeta as $meta)
+                @foreach($summaryMeta as $meta)
                     <div class="whitespace-nowrap rounded-full border border-neutral-200/70 bg-white/85 px-3 py-2 text-[11px] shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/70">
                         <span class="inline-flex items-center gap-2">
                             <span class="h-2 w-2 rounded-full {{ $meta['dot'] }}"></span>
@@ -188,38 +170,21 @@ new class extends Component {
                     <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('records') }}</span>
                 </div>
             </div>
-            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
-                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
-                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    <span>{{ __('Has description') }}</span>
-                </div>
-                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
-                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $withDesc }}</span>
-                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('items') }}</span>
-                </div>
-                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Categories with a short explanation') }}</p>
-            </div>
-            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
-                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
-                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
-                    <span>{{ __('No description') }}</span>
-                </div>
-                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
-                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $withoutDesc }}</span>
-                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('items') }}</span>
-                </div>
-                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('You can fill them later') }}</p>
-            </div>
         </div>
 
-        <!-- Search (match meja) -->
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex-1">
+        <!-- Search (match menu filters) -->
+        <div class="flex items-center gap-2 sm:justify-between">
+            <div class="flex-1 min-w-0">
                 <flux:input wire:model.live.debounce.800ms="search" :placeholder="__('Search name or description')" />
             </div>
-            <div class="flex items-center gap-2">
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','')">{{ __('Clear') }}</flux:button>
-            </div>
+            <flux:button
+                size="sm"
+                variant="ghost"
+                class="btn-ghost-accent whitespace-nowrap shrink-0"
+                wire:click="$set('search','')"
+            >
+                {{ __('Clear') }}
+            </flux:button>
         </div>
 
         <!-- Mobile cards (match meja style) -->
@@ -232,24 +197,7 @@ new class extends Component {
                                 <div class="text-base font-semibold text-neutral-900 dark:text-white">{{ $k->nama_kategori }}</div>
                                 <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $k->created_at?->format('d M Y') }}</div>
                             </div>
-                            @if($k->deskripsi)
-                                <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-100 dark:ring-emerald-800/60">
-                                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                                    {{ __('Has description') }}
-                                </span>
-                            @else
-                                <span class="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                                    <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
-                                    {{ __('No description') }}
-                                </span>
-                            @endif
                         </div>
-
-                        @if($k->deskripsi)
-                            <div class="mt-3 text-sm text-neutral-700 dark:text-neutral-300">
-                                {{ \Illuminate\Support\Str::limit($k->deskripsi, 120) }}
-                            </div>
-                        @endif
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('kategori.manage')
@@ -280,7 +228,6 @@ new class extends Component {
                             <tr>
                                 <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Description') }}</th>
                                 <th class="hidden xl:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Created') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
@@ -296,13 +243,7 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-col">
                                             <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $k->nama_kategori }}</span>
-                                            @if($k->deskripsi)
-                                                <span class="hidden sm:block text-xs text-neutral-500 dark:text-neutral-400">{{ \Illuminate\Support\Str::limit($k->deskripsi, 80) }}</span>
-                                            @endif
                                         </div>
-                                    </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle text-neutral-600 dark:text-neutral-300">
-                                        {{ \Illuminate\Support\Str::limit($k->deskripsi, 120) }}
                                     </td>
                                     <td class="hidden xl:table-cell px-6 py-4 align-middle text-neutral-500 dark:text-neutral-400">
                                         {{ $k->created_at?->format('d M Y') }}
@@ -336,7 +277,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400" colspan="5">
+                                    <td class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400" colspan="4">
                                         <div class="flex flex-col items-center gap-3">
                                             <div class="h-12 w-12 rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-900/60 dark:text-neutral-500">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-full w-full p-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -360,7 +301,7 @@ new class extends Component {
         @php($selectedKategori = $items->firstWhere('id', $confirmingDeleteId))
 
         <!-- Create modal (match meja) -->
-        <flux:modal name="create-kategori" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+        <flux:modal name="create-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
                 <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
                     <div>
@@ -379,13 +320,6 @@ new class extends Component {
                             @error('form.nama_kategori')
                                 <p class="text-xs text-red-500">{{ $message }}</p>
                             @enderror
-
-                            <div>
-                                <flux:textarea wire:model.defer="form.deskripsi" :label="__('Description')" rows="4"  placeholder="{{ __('Optional, short description for this category') }}"></flux:textarea>
-                                @error('form.deskripsi')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
                         </div>
 
                         <div class="space-y-4 md:col-span-2 md:pl-2">
@@ -417,7 +351,7 @@ new class extends Component {
         </flux:modal>
 
         <!-- Edit modal (match meja) -->
-        <flux:modal name="edit-kategori" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+        <flux:modal name="edit-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
                 <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
                     <div>
@@ -436,13 +370,6 @@ new class extends Component {
                             @error('form.nama_kategori')
                                 <p class="text-xs text-red-500">{{ $message }}</p>
                             @enderror
-
-                            <div>
-                                <flux:textarea wire:model.defer="form.deskripsi" :label="__('Description')" rows="4" class="" placeholder="{{ __('Optional') }}"></flux:textarea>
-                                @error('form.deskripsi')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
                         </div>
 
                         <div class="space-y-4 md:col-span-2 md:pl-2">
@@ -490,9 +417,6 @@ new class extends Component {
                 @if ($selectedKategori)
                     <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
                         <p class="font-semibold">{{ $selectedKategori->nama_kategori }}</p>
-                        @if($selectedKategori->deskripsi)
-                            <p class="text-xs opacity-80">{{ \Illuminate\Support\Str::limit($selectedKategori->deskripsi, 120) }}</p>
-                        @endif
                     </div>
                 @endif
 
@@ -520,9 +444,6 @@ new class extends Component {
                 @if ($selectedKategori)
                     <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
                         <p class="font-semibold">{{ $selectedKategori->nama_kategori }}</p>
-                        @if($selectedKategori->deskripsi)
-                            <p class="text-xs opacity-80">{{ \Illuminate\Support\Str::limit($selectedKategori->deskripsi, 140) }}</p>
-                        @endif
                     </div>
                 @endif
 

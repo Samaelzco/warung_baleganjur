@@ -242,16 +242,16 @@ new class extends Component {
 
         <!-- Search & filter -->
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
                 <flux:input
                     wire:model.live.debounce.1000ms="search"
                     :placeholder="__('Search tax name')"
                 />
             </div>
-            <div class="flex items-center gap-2">
+            <div class="grid grid-cols-[1fr_auto] items-center gap-2 sm:flex sm:items-center sm:justify-end sm:gap-2">
                 <flux:select
                     wire:model.live="statusFilter"
-                    class="rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
+                    class="min-w-0 w-full sm:w-44 rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
                 >
                     <option value="all">{{ __('All') }}</option>
                     <option value="active">{{ __('Active') }}</option>
@@ -260,7 +260,7 @@ new class extends Component {
                 <flux:button
                     size="sm"
                     variant="ghost"
-                    class="btn-ghost-accent"
+                    class="btn-ghost-accent whitespace-nowrap justify-self-end"
                     wire:click="$set('search','');$set('statusFilter','all')"
                 >
                     {{ __('Clear') }}
@@ -490,7 +490,7 @@ new class extends Component {
         </flux:modal>
 
         <!-- Create tax modal -->
-        <flux:modal name="create-pajak" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+        <flux:modal name="create-pajak" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
                 <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>
@@ -567,7 +567,7 @@ new class extends Component {
         </flux:modal>
 
         <!-- Edit tax modal -->
-        <flux:modal name="edit-pajak" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+        <flux:modal name="edit-pajak" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
                 <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>

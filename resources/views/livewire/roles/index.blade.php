@@ -310,13 +310,18 @@ new class extends Component {
         </div>
 
         <!-- Search -->
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex-1">
+        <div class="flex items-center gap-2 sm:justify-between">
+            <div class="flex-1 min-w-0">
                 <flux:input wire:model.live.debounce.1000ms="search" :placeholder="__('Search role name')" />
             </div>
-            <div class="flex items-center gap-2">
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','')">{{ __('Clear') }}</flux:button>
-            </div>
+            <flux:button
+                size="sm"
+                variant="ghost"
+                class="btn-ghost-accent whitespace-nowrap shrink-0"
+                wire:click="$set('search','')"
+            >
+                {{ __('Clear') }}
+            </flux:button>
         </div>
 
         <!-- Mobile cards -->
@@ -388,7 +393,7 @@ new class extends Component {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center gap-2">
+                                        <div class="flex items-center gap-2 flex-nowrap">
                                             @can('roles.manage')
                                                 <flux:button
                                                     size="sm"
@@ -487,7 +492,7 @@ new class extends Component {
     </flux:modal>
 
     <!-- Create role modal -->
-    <flux:modal name="create-role" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+    <flux:modal name="create-role" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
         <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
             <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                 <div>
@@ -605,7 +610,7 @@ new class extends Component {
     </flux:modal>
 
     <!-- Edit role modal -->
-    <flux:modal name="edit-role" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-4xl" closable="false">
+    <flux:modal name="edit-role" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
         <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
             <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                 <div>
