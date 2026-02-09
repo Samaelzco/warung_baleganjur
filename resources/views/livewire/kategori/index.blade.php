@@ -301,16 +301,13 @@ new class extends Component {
         @php($selectedKategori = $items->firstWhere('id', $confirmingDeleteId))
 
         <!-- Create modal (match meja) -->
-        <flux:modal name="create-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
+        <flux:modal name="create-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 pr-12 dark:border-neutral-700 dark:bg-neutral-900">
                     <div>
                         <flux:heading size="lg">{{ __('Create Category') }}</flux:heading>
                         <flux:subheading>{{ __('Fill the details below to add a new category.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close class="hidden sm:block">
-                        <flux:button variant="ghost" icon="x-mark" class="inline-flex text-neutral-600 hover:text-neutral-900 dark:text-neutral-200" aria-label="{{ __('Close') }}" />
-                    </flux:modal.close>
                 </div>
 
                 <form id="create-kategori-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+3.25rem)] md:pb-0">
@@ -351,16 +348,13 @@ new class extends Component {
         </flux:modal>
 
         <!-- Edit modal (match meja) -->
-        <flux:modal name="edit-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
+        <flux:modal name="edit-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 pr-12 dark:border-neutral-700 dark:bg-neutral-900">
                     <div>
                         <flux:heading size="lg">{{ __('Edit Category') }}</flux:heading>
                         <flux:subheading>{{ __('Update the details for this category.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close class="hidden sm:block">
-                        <flux:button variant="ghost" icon="x-mark" class="inline-flex text-neutral-600 hover:text-neutral-900 dark:text-neutral-200" aria-label="{{ __('Close') }}" />
-                    </flux:modal.close>
                 </div>
 
                 <form id="edit-kategori-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+3.25rem)] md:pb-0">

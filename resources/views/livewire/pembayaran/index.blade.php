@@ -532,16 +532,13 @@ use Livewire\WithPagination;
         </div>
 
 	        <!-- Pay modal -->
-	        <flux:modal name="pay-pesanan" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-2xl" closable="false">
+	        <flux:modal name="pay-pesanan" focusable class="mx-4 max-w-full sm:mx-auto sm:max-w-2xl">
 	            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>
                         <flux:heading size="lg">{{ __('Payment') }}</flux:heading>
                         <flux:subheading>{{ __('Confirm payment for this order.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close class="hidden sm:block">
-                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
-                    </flux:modal.close>
                 </div>
 
 	                <form id="pay-pesanan-form" wire:submit.prevent="confirmPayment" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">

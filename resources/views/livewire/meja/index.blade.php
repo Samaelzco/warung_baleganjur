@@ -362,7 +362,7 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-col items-start gap-2 lg:flex-row lg:flex-wrap lg:items-center">
-                                            <div class="flex justify-start lg:contents">
+                                            <div class="flex flex-wrap items-center justify-start gap-2 lg:contents">
                                                 <flux:link :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
                                                     <flux:button
                                                         size="sm"
@@ -428,16 +428,13 @@ new class extends Component {
             </div>
         </div>
 
-        <flux:modal name="create-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
+        <flux:modal name="create-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>
                         <flux:heading size="lg">{{ __('Create Table') }}</flux:heading>
                         <flux:subheading>{{ __('Fill the details below to add a new table.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close class="hidden sm:block">
-                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
-                    </flux:modal.close>
                 </div>
 
                 <form id="create-meja-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
@@ -501,16 +498,13 @@ new class extends Component {
                 </div>
             </div>
         </flux:modal>
-        <flux:modal name="edit-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl" closable="false">
+        <flux:modal name="edit-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
             <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
+                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <div>
                         <flux:heading size="lg">{{ __('Edit Table') }}</flux:heading>
                         <flux:subheading>{{ __('Update the details for this table.') }}</flux:subheading>
                     </div>
-                    <flux:modal.close class="hidden sm:block">
-                        <flux:button variant="ghost" icon="x-mark" class="inline-flex btn-ghost-neutral -mt-1" aria-label="{{ __('Close') }}" />
-                    </flux:modal.close>
                 </div>
 
                 <form id="edit-meja-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
@@ -585,6 +579,65 @@ new class extends Component {
                 </div>
             </div>
         </flux:modal>
+
+        {{-- Detail modal (removed) --}}
+        {{--
+        <flux:modal name="detail-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-xl md:max-w-lg lg:max-w-xl">
+            <div class="space-y-4 p-2">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="space-y-1">
+                        <flux:heading size="lg">{{ __('Table') }} {{ $viewing['nomor_meja'] ?? '-' }}</flux:heading>
+                        <flux:subheading class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">
+                                {{ __('Created') }}: {{ $viewing['created_at'] ?? '-' }}
+                            </span>
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">·</span>
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">
+                                {{ __('Updated') }} {{ $viewing['updated_human'] ?? '-' }}
+                            </span>
+                        </flux:subheading>
+                    </div>
+                </div>
+
+                @php($vStatus = $viewing['status'] ?? null)
+                @if ($vStatus)
+                    <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold {{ $statusMeta[$vStatus]['badge'] ?? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200' }}">
+                        <span class="h-2 w-2 rounded-full {{ $statusMeta[$vStatus]['dot'] ?? 'bg-neutral-400' }}"></span>
+                        {{ $statusMeta[$vStatus]['label'] ?? ucfirst((string) $vStatus) }}
+                    </span>
+                @endif
+
+                <div class="rounded-3xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                    <div class="flex flex-col items-center gap-3">
+                        @if (!empty($viewing['qr_token']))
+                            <div class="inline-flex items-center justify-center rounded-2xl border border-neutral-200/70 bg-white p-2 shadow-sm dark:border-neutral-800/60 dark:bg-neutral-950">
+                                <img
+                                    alt="QR"
+                                    class="h-48 w-48 rounded-xl border border-white/70 bg-white object-contain dark:border-neutral-800"
+                                    src="{{ route('meja.qr', ['token' => $viewing['qr_token'], 'size' => 420, 'format' => 'svg'], false) }}"
+                                />
+                            </div>
+                            <div class="w-full rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-700 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-200">
+                                {{ $viewing['qr_token'] }}
+                            </div>
+                        @else
+                            <div class="text-sm text-neutral-500 dark:text-neutral-400">{{ __('No QR token') }}</div>
+                        @endif
+                    </div>
+                </div>
+
+                @if (!empty($viewingId))
+                    <div class="flex items-center justify-end gap-2">
+                        <flux:link :href="route('meja.print', ['ids' => $viewingId], false)" target="_blank">
+                            <flux:button icon="printer" variant="primary" class="btn-brand">
+                                {{ __('Print (PDF)') }}
+                            </flux:button>
+                        </flux:link>
+                    </div>
+                @endif
+            </div>
+        </flux:modal>
+        --}}
         @php($selectedMeja = $items->firstWhere('id', $confirmingDeleteId))
 
         <flux:modal name="confirm-delete-meja" focusable variant="flyout" position="bottom" class="rounded-t-3xl sm:rounded-xl">
