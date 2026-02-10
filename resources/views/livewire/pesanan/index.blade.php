@@ -1637,19 +1637,19 @@ new class extends Component {
 
                                                     @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
                                                     @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
-                                                        <div data-flux-field>
-                                                            <label data-flux-label>{{ __('Add-ons (optional)') }}</label>
-                                                            <select
-                                                                multiple
-                                                                size="4"
-                                                                wire:model.live="orderItems.{{ $index }}.addon_ids"
-                                                                class="mt-1 w-full rounded-lg border border-zinc-200 border-b-zinc-300/80 bg-white px-3 py-2 text-xs text-zinc-700 shadow-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-accent)] dark:border-white/10 dark:bg-white/10 dark:text-zinc-300"
-                                                            >
-                                                                @foreach ($selectedMenu->addons as $addon)
-                                                                    <option value="{{ $addon->id }}">{{ $addon->nama_addon }} (+Rp {{ number_format((float) $addon->harga, 0, ',', '.') }})</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
+                                                        <flux:checkbox.group
+                                                            wire:model.live="orderItems.{{ $index }}.addon_ids"
+                                                            variant="pills"
+                                                            :label="__('Add-ons (optional)')"
+                                                        >
+                                                            @foreach ($selectedMenu->addons as $addon)
+                                                                <flux:checkbox
+                                                                    variant="pills"
+                                                                    value="{{ $addon->id }}"
+                                                                    :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')'"
+                                                                />
+                                                            @endforeach
+                                                        </flux:checkbox.group>
                                                     @endif
 
                                                     <div class="grid grid-cols-2 gap-2">
@@ -1697,26 +1697,27 @@ new class extends Component {
                                                         <th class="w-1/12 px-2 py-1"></th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="divide-y divide-neutral-100/80 dark:divide-neutral-800/80">
+                                                <tbody class="divide-y divide-neutral-200/60 dark:divide-neutral-800/60">
                                                     @foreach ($orderItems as $index => $item)
-                                                        <tr wire:key="edit-order-item-{{ $index }}">
-                                                            <td class="px-2 py-1 align-middle">
-                                                                <select
-                                                                    wire:model="orderItems.{{ $index }}.menu_id"
-                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                        <tr class="align-top" wire:key="edit-order-item-{{ $index }}">
+                                                            <td class="px-2 py-2">
+                                                                <flux:select
+                                                                    wire:model.live="orderItems.{{ $index }}.menu_id"
+                                                                    size="sm"
+                                                                    class="w-full"
                                                                 >
                                                                     <option value="">{{ __('Select') }}</option>
                                                                     @foreach ($menus as $menu)
                                                                         <option value="{{ $menu->id }}">{{ $menu->nama_menu }}</option>
                                                                     @endforeach
-                                                                </select>
+                                                                </flux:select>
 
                                                                 @php($selectedMenu = $menusById[(int) ($item['menu_id'] ?? 0)] ?? null)
                                                                 @if ($selectedMenu && $selectedMenu->addons->isNotEmpty())
                                                                     <flux:checkbox.group
                                                                         wire:model.live="orderItems.{{ $index }}.addon_ids"
                                                                         variant="pills"
-                                                                        class="mt-2"
+                                                                        class="mt-1"
                                                                     >
                                                                         @foreach ($selectedMenu->addons as $addon)
                                                                             <flux:checkbox
@@ -1728,36 +1729,46 @@ new class extends Component {
                                                                     </flux:checkbox.group>
                                                                 @endif
                                                             </td>
-                                                            <td class="px-2 py-1 align-middle">
-                                                                <input
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
+                                                                    wire:model.live.debounce.250ms="orderItems.{{ $index }}.qty"
                                                                     type="number"
                                                                     min="1"
-                                                                    wire:model="orderItems.{{ $index }}.qty"
-                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-right text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                    size="sm"
+                                                                    class="w-full text-center"
                                                                 />
                                                             </td>
-                                                            <td class="px-2 py-1 align-middle">
-                                                                <input
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
+                                                                    wire:model="orderItems.{{ $index }}.harga"
                                                                     type="number"
-                                                                    min="0"
                                                                     step="0.01"
-                                                                    wire:model.defer="orderItems.{{ $index }}.harga"
-                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-right text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                    min="0"
+                                                                    size="sm"
+                                                                    class="w-full text-right"
                                                                     readonly
                                                                 />
                                                             </td>
-                                                            <td class="px-2 py-1 align-middle text-right">
-                                                                Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
+                                                                    wire:model="orderItems.{{ $index }}.subtotal"
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    size="sm"
+                                                                    class="w-full text-right"
+                                                                    readonly
+                                                                />
                                                             </td>
-                                                            <td class="px-2 py-1 align-middle">
-                                                                <input
-                                                                    type="text"
+                                                            <td class="px-2 py-2">
+                                                                <flux:input
                                                                     wire:model.defer="orderItems.{{ $index }}.catatan"
-                                                                    class="h-8 w-full rounded-md border border-neutral-300 bg-white px-2 text-[11px] shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                                                                    size="sm"
+                                                                    class="w-full"
                                                                     placeholder="{{ __('Optional') }}"
                                                                 />
                                                             </td>
-                                                            <td class="px-2 py-1 align-middle text-right">
+                                                            <td class="px-2 py-2 text-right">
                                                                 <flux:button
                                                                     type="button"
                                                                     size="xs"

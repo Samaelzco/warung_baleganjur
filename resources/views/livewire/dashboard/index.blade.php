@@ -39,6 +39,11 @@ new class extends Component {
     public function updatedMonth(): void { $this->filterMode = 'month'; $this->syncDatesFromMode(); $this->refreshCharts(); }
     public function updatedYear(): void { $this->filterMode = 'month'; $this->syncDatesFromMode(); $this->refreshCharts(); }
 
+    public function refreshNow(): void
+    {
+        $this->refreshCharts();
+    }
+
     public function setPreset(string $preset): void
     {
         if ($preset === 'this_month') {
@@ -274,6 +279,18 @@ new class extends Component {
                     {{ __('Report PDF') }}
                 </flux:button>
             </flux:link>
+
+            <flux:button
+                size="sm"
+                variant="ghost"
+                icon="arrow-path"
+                class="btn-ghost-accent rounded-full"
+                wire:click="refreshNow"
+                wire:loading.attr="disabled"
+                wire:target="refreshNow,filterMode,startDate,endDate,month,year,setPreset"
+            >
+                {{ __('Refresh') }}
+            </flux:button>
 
             <!-- Minimal date pill + popover -->
             <flux:dropdown position="bottom" align="start">

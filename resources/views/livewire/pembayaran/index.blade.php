@@ -358,6 +358,7 @@ use Livewire\WithPagination;
             </div>
         </div>
 
+        <div class="space-y-4" @if(!$payingId) wire:poll.5s @endif>
         <!-- Mobile cards -->
         <div class="block sm:hidden">
             <div class="grid gap-3">
@@ -529,6 +530,7 @@ use Livewire\WithPagination;
             <div class="px-4 py-3">
                 {{ $items->links() }}
             </div>
+        </div>
         </div>
 
 	        <!-- Pay modal -->

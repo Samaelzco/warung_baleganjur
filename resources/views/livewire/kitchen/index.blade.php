@@ -211,6 +211,7 @@ new class extends Component {
             </div>
         </div>
 
+        <div wire:poll.5s class="space-y-4">
         <!-- mobile cards -->
         <div class="block sm:hidden">
             <div class="grid gap-3">
@@ -413,6 +414,7 @@ new class extends Component {
             <div class="px-4 py-3">
                 {{ $items->links() }}
             </div>
+        </div>
         </div>
 
         <!-- toast -->
