@@ -6,7 +6,8 @@
     <title>{{ __('Receipt') }} - {{ $pesanan->kode_pesanan }}</title>
     <style>
         :root { color-scheme: light; }
-        body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; padding: 12px; color: #111827; }
+        * { box-sizing: border-box; }
+        body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin: 0; padding: 12px; color: #111827; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .receipt { width: 80mm; max-width: 100%; margin: 0 auto; }
         .center { text-align: center; }
         .muted { color: #6b7280; }
@@ -20,7 +21,10 @@
         .small { font-size: 12px; }
         .xs { font-size: 11px; }
         @media print {
+            @page { size: 80mm auto; margin: 0; }
+            html, body { width: 80mm; }
             body { padding: 0; }
+            .receipt { width: 80mm; max-width: 80mm; margin: 0; padding: 4mm; }
             .no-print { display: none !important; }
         }
     </style>

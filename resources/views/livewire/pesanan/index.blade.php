@@ -918,7 +918,7 @@ new class extends Component {
 
                             @can('pembayaran.access')
                                 @if ($canPrintReceipt)
-                                    <flux:link class="flex-1" :href="route('pembayaran.receipt', $item)" target="_blank" rel="noopener">
+                                    <flux:link class="flex-1" :href="route('pembayaran.receipt', $item) . '?print=1'" target="_blank" rel="noopener">
                                         <flux:button
                                             size="sm"
                                             icon="printer"
@@ -1078,7 +1078,7 @@ new class extends Component {
 
                                             @can('pembayaran.access')
                                                 @if ($canPrintReceipt)
-                                                    <flux:link :href="route('pembayaran.receipt', $item)" target="_blank" rel="noopener">
+                                                    <flux:link :href="route('pembayaran.receipt', $item) . '?print=1'" target="_blank" rel="noopener">
                                                         <flux:button
                                                             size="sm"
                                                             icon="printer"
