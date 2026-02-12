@@ -352,7 +352,14 @@ new class extends Component {
                     </div>
                 @empty
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
-                        {{ __('No discounts found.') }}
+                        <div class="flex flex-col items-center gap-3">
+                            <div class="h-12 w-12 rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-900/60 dark:text-neutral-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-full w-full p-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4.5h9m-9 6h9m-9 6h9" />
+                                </svg>
+                            </div>
+                            <p>{{ __('No data') }}</p>
+                        </div>
                     </div>
                 @endforelse
             </div>
@@ -472,8 +479,15 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
-                                        {{ __('No discounts found.') }}
+                                    <td class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400" colspan="7">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div class="h-12 w-12 rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-900/60 dark:text-neutral-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-full w-full p-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 4.5h9m-9 6h9m-9 6h9" />
+                                                </svg>
+                                            </div>
+                                            <p>{{ __('No data') }}</p>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforelse
@@ -498,7 +512,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this discount?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone.') }}
+                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -532,7 +546,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this discount?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone.') }}
+                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
                     </flux:subheading>
                 </div>
 

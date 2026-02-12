@@ -82,7 +82,7 @@ new class extends Component {
                     @if (!empty($form['qr_token']))
                         <img alt="QR" class="mx-auto" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 256, 'format' => 'svg'], false) }}" />
                     @else
-                        <div class="text-xs text-red-600">QR generation failed</div>
+                        <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
                     @endif
                 </div>
                 <div class="mt-3">

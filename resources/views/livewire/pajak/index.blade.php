@@ -438,7 +438,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this tax?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone.') }}
+                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -467,7 +467,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this tax?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone.') }}
+                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
                     </flux:subheading>
                 </div>
 

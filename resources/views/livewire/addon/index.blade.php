@@ -566,7 +566,7 @@ new class extends Component {
                 </div>
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this add-on?') }}</flux:heading>
-                    <flux:subheading>{{ __('This action cannot be undone.') }}</flux:subheading>
+                    <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
                 </div>
                 @if ($selectedAddon)
                     <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
@@ -591,7 +591,7 @@ new class extends Component {
             <div class="space-y-4 p-2">
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this add-on?') }}</flux:heading>
-                    <flux:subheading>{{ __('This action cannot be undone.') }}</flux:subheading>
+                    <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
                 </div>
                 @if ($selectedAddon)
                     <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">

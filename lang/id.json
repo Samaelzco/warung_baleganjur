@@ -245,7 +245,7 @@
     "Discount deleted successfully.": "Diskon berhasil dihapus.",
     "Total Discounts": "Total Diskon",
     "Search discount code": "Cari kode diskon",
-    "No discounts found.": "Tidak ada diskon.",
+    "No discounts found.": "Tidak ada data",
     "Code": "Kode",
     "Type": "Tipe",
     "Value": "Nilai",
@@ -368,5 +368,257 @@
     "Subtotal, discount, tax, and grand total should match the bill on the customer side.": "Subtotal, diskon, pajak, dan total harga sebaiknya sesuai dengan tagihan di sisi pelanggan.",
     "Status and payment method help track which orders are still open or already paid.": "Status dan metode pembayaran membantu melacak pesanan yang masih berjalan atau sudah dibayar.",
     "Order Info": "Info Pesanan",
-    "Adjust status and payment carefully. Completed or cancelled orders will have their completion time recorded.": "Sesuaikan status dan pembayaran dengan hati-hati. Pesanan yang selesai atau batal akan tercatat waktu selesainya."
+    "Adjust status and payment carefully. Completed or cancelled orders will have their completion time recorded.": "Sesuaikan status dan pembayaran dengan hati-hati. Pesanan yang selesai atau batal akan tercatat waktu selesainya.",
+
+    "Report PDF": "Laporan PDF",
+    "Refresh": "Muat Ulang",
+    "Date Filter": "Filter Tanggal",
+    "Updates instantly for all cards & charts.": "Update instan untuk semua kartu & grafik.",
+    "Range": "Rentang",
+    "Month": "Bulan",
+    "Yesterday": "Kemarin",
+    "Today": "Hari ini",
+    "This Month": "Bulan Ini",
+    "Year": "Tahun",
+    "Start": "Mulai",
+    "End": "Selesai",
+
+    "Revenue": "Pendapatan",
+    "Orders": "Pesanan",
+    "Avg": "Rata-rata",
+    "Avg / Order": "Rata-rata / Pesanan",
+    "Gross average": "Rata-rata kotor",
+    "Paid orders": "Pesanan dibayar",
+    "Ready unpaid": "Siap belum dibayar",
+    "Total discount given": "Total diskon diberikan",
+    "Total tax collected": "Total pajak terkumpul",
+
+    "Revenue per hour": "Pendapatan per jam",
+    "Revenue per day": "Pendapatan per hari",
+    "Paid revenue (orders completed).": "Pendapatan dibayar (pesanan selesai).",
+
+    "Payment method": "Metode pembayaran",
+    "Distribution by total amount.": "Distribusi berdasarkan total nominal.",
+
+    "Payment Snapshot": "Ringkasan Pembayaran",
+    "Cash vs non-cash for paid orders.": "Tunai vs non-tunai untuk pesanan yang dibayar.",
+    "Cash in": "Uang masuk",
+    "Non-cash": "Non-tunai",
+    "Includes QRIS and Transfer.": "Termasuk QRIS dan Transfer.",
+
+    "Order Status": "Status Pesanan",
+    "Counts based on order time.": "Hitung berdasarkan waktu pesanan.",
+    "Processing": "Diproses",
+    "Canceled": "Batal",
+
+    "Top Menus": "Menu Teratas",
+    "By quantity within the selected range.": "Berdasarkan jumlah pada rentang yang dipilih.",
+    "Recent payments": "Pembayaran terbaru",
+    "Last 10 paid orders in range.": "10 pesanan terakhir yang dibayar pada rentang ini.",
+    "No payments found.": "Tidak ada pembayaran.",
+
+    "Dashboard Report": "Laporan Dasbor",
+    "Sales & Payments Report": "Laporan Penjualan & Pembayaran",
+    "Period": "Periode",
+    "Generated": "Dibuat",
+    "By": "Oleh",
+    "Net": "Bersih",
+
+    "Payment Method Breakdown": "Rincian Metode Pembayaran",
+    "Method": "Metode",
+    "Paid In": "Dibayar",
+    "Top Add-ons": "Add-on Teratas",
+    "Transaction Details": "Detail Transaksi",
+    "Time": "Waktu",
+    "Paid": "Dibayar",
+    "No transactions in range.": "Tidak ada transaksi pada rentang ini."
+    ,
+
+    "Print (PDF)": "Cetak (PDF)",
+    "Open Order Page": "Buka Halaman Pesan",
+    "Preview for printing and testing": "Pratinjau untuk cetak dan uji",
+    "Up to 10 characters, e.g. A12": "Maksimal 10 karakter, mis. A12",
+    "Unique code used in the QR link": "Kode unik yang digunakan pada tautan QR",
+    "No QR token": "Tidak ada token QR",
+    "Updated": "Diperbarui",
+    "Scan to open order page": "Pindai untuk membuka halaman pesan",
+    "QR generation failed": "Gagal membuat QR"
+    ,
+
+    "This action cannot be undone.": "Tindakan ini tidak dapat dibatalkan.",
+    "This action cannot be undone. This record will be permanently deleted.": "Tindakan ini tidak dapat dibatalkan. Data ini akan dihapus secara permanen.",
+    "This action cannot be undone. Orders linked to this table will lose their QR link.": "Tindakan ini tidak dapat dibatalkan. Pesanan yang terhubung ke meja ini akan kehilangan tautan QR."
+    ,
+
+    "Add-ons (optional)": "Add-on (opsional)",
+    "No add-ons yet.": "Belum ada add-on.",
+    "Selected add-ons will be selectable when ordering this menu.": "Add-on yang dipilih akan bisa dipilih saat memesan menu ini."
+    ,
+
+    "Add-ons": "Add-on",
+    "Add-on Name": "Nama Add-on",
+    "Total Add-ons": "Total Add-on",
+    "Add-on created successfully.": "Add-on berhasil dibuat.",
+    "Add-on updated successfully.": "Add-on berhasil diperbarui.",
+    "Add-on deleted successfully.": "Add-on berhasil dihapus.",
+    "Available for selection": "Tersedia untuk dipilih",
+    "Can be selected on menus": "Bisa dipilih pada menu",
+    "Create Add-on": "Buat Add-on",
+    "Edit Add-on": "Ubah Add-on",
+    "Delete this add-on?": "Hapus add-on ini?",
+    "Fill the details below to add a new add-on.": "Lengkapi detail di bawah ini untuk menambahkan add-on baru.",
+    "Update the details for this add-on.": "Perbarui detail untuk add-on ini.",
+    "Example: Egg / Extra sambal / Ice tea": "Contoh: Telur / Sambal ekstra / Es teh",
+    "Optional add-ons will be added to the menu price automatically.": "Add-on opsional akan ditambahkan otomatis ke harga menu.",
+    "Set status to \"Out of stock\" to hide this add-on from menu selection.": "Atur status ke \"Out of stock\" agar add-on ini tidak muncul saat memilih menu.",
+    "You can attach add-ons to specific menus from the Menus page.": "Kamu bisa mengaitkan add-on ke menu tertentu dari halaman Menus.",
+    "If a menu already uses this add-on, changing the price will apply to new orders.": "Jika menu sudah memakai add-on ini, perubahan harga akan berlaku untuk pesanan baru.",
+    "Past orders keep a snapshot of add-on prices.": "Pesanan lama menyimpan snapshot harga add-on.",
+    "Linked to Menus": "Terhubung ke Menus",
+    "Used by at least one menu": "Dipakai oleh minimal satu menu",
+    "Hidden from selection": "Disembunyikan dari pilihan",
+    "Search add-on name": "Cari nama add-on",
+    "No add-ons found.": "Tidak ada add-on.",
+    "Out": "Habis"
+    ,
+
+    "Receipt": "Struk",
+    "Receipt is available after the order is completed and paid.": "Struk tersedia setelah pesanan selesai dan dibayar.",
+
+    "Order Items": "Item Pesanan",
+    "Add Item": "Tambah Item",
+    "No items for this order yet.": "Belum ada item untuk pesanan ini.",
+    "Remove": "Hapus",
+
+    "Qty": "Jumlah",
+    "Note": "Catatan",
+    "Menu": "Menu",
+    "Discount": "Diskon",
+    "Tax": "Pajak",
+
+    "Paid amount is insufficient.": "Jumlah bayar tidak mencukupi.",
+    "Payment method is required to complete an order.": "Metode pembayaran wajib diisi untuk menyelesaikan pesanan.",
+    "Paid orders must be marked as completed.": "Pesanan yang sudah dibayar harus ditandai selesai.",
+
+    "Payments are handled from the Payments menu.": "Pembayaran diproses melalui menu Pembayaran.",
+    "Add at least one item. Totals will be calculated automatically.": "Tambahkan minimal satu item. Total akan dihitung otomatis."
+    ,
+    "QRIS": "QRIS"
+    ,
+
+    "Kitchen": "Dapur",
+    "All active kitchen orders": "Semua pesanan dapur aktif",
+    "Queued for preparation": "Antri untuk diproses",
+    "Being prepared right now": "Sedang diproses",
+    "Ready to be served": "Siap disajikan",
+    "Search order code, customer, or table": "Cari kode pesanan, pelanggan, atau meja",
+    "Item note": "Catatan item",
+    "Items": "Item",
+    "Order": "Pesanan",
+    "Mark Ready": "Tandai Siap",
+    "No access": "Tidak ada akses",
+    "No status change needed.": "Tidak ada perubahan status yang diperlukan.",
+    "Order status updated.": "Status pesanan diperbarui."
+    ,
+
+    "Payments": "Pembayaran",
+    "Pay": "Bayar",
+    "Ready & unpaid": "Siap & belum dibayar",
+    "Waiting for cashier payment": "Menunggu pembayaran kasir",
+    "Ready to be paid or served": "Siap dibayar atau disajikan",
+    "Paid today": "Dibayar hari ini",
+    "Completed payments today": "Pembayaran selesai hari ini",
+    "Revenue today": "Pendapatan hari ini",
+    "Kitchen has marked ready": "Dapur sudah menandai siap",
+    "Oldest": "Terlama",
+    "Newest": "Terbaru",
+
+    "Confirm payment for this order.": "Konfirmasi pembayaran untuk pesanan ini.",
+    "Payment saved.": "Pembayaran tersimpan.",
+    "This order is not ready anymore.": "Pesanan ini sudah tidak berstatus siap.",
+    "This order is already paid.": "Pesanan ini sudah dibayar.",
+
+    "Print receipt": "Cetak struk",
+    "Save & Print": "Simpan & Cetak",
+
+    "Paid at": "Waktu bayar",
+    "Payment Receipt": "Struk Pembayaran",
+    "Thank you!": "Terima kasih!",
+
+    "Reference": "Referensi",
+    "Reference No. (optional)": "No. referensi (opsional)",
+    "e.g. transfer/QRIS reference": "mis. referensi transfer/QRIS",
+
+    "Cash Given": "Uang diberikan",
+    "For cash, paid amount must be equal or greater than the grand total.": "Untuk tunai, jumlah bayar harus sama atau lebih besar dari total.",
+    "For transfer/QRIS, paid amount will be set to the grand total automatically.": "Untuk transfer/QRIS, jumlah bayar akan otomatis diset sama dengan total."
+    ,
+    "Item": "Item"
+    ,
+
+    "Users": "Pengguna",
+    "Total Users": "Total Pengguna",
+    "Search name or email": "Cari nama atau email",
+    "No users found.": "Tidak ada pengguna.",
+
+    "Create User": "Buat Pengguna",
+    "Edit User": "Ubah Pengguna",
+    "Delete this user?": "Hapus pengguna ini?",
+
+    "Fill the details below to add a new user.": "Lengkapi detail di bawah ini untuk menambahkan pengguna baru.",
+    "Update the details for this user.": "Perbarui detail untuk pengguna ini.",
+
+    "User created successfully.": "Pengguna berhasil dibuat.",
+    "User updated successfully.": "Pengguna berhasil diperbarui.",
+    "User deleted successfully.": "Pengguna berhasil dihapus.",
+    "You cannot delete your own account.": "Kamu tidak bisa menghapus akunmu sendiri.",
+
+    "Assigned to this role": "Terpasang pada role ini",
+    "No role": "Tanpa role",
+    "Role": "Role",
+    "Assign a role to control access and responsibilities.": "Pilih role untuk mengatur akses dan tanggung jawab.",
+    "Assign a role to match responsibilities.": "Pilih role sesuai tanggung jawab.",
+    "Changing role will replace existing roles (single-role mode).": "Mengubah role akan mengganti role yang ada (mode satu role).",
+    "Role selection will replace existing roles (single-role mode).": "Pemilihan role akan mengganti role yang ada (mode satu role).",
+
+    "New Password": "Password Baru",
+    "Leave password empty to keep the current password.": "Biarkan password kosong untuk mempertahankan password saat ini.",
+    "Use a strong password (min 8 characters).": "Gunakan password yang kuat (min 8 karakter).",
+    "Notes": "Catatan"
+    ,
+
+    "Roles": "Roles",
+    "Create Role": "Buat Role",
+    "Edit Role": "Ubah Role",
+    "Delete this role?": "Hapus role ini?",
+    "No roles found.": "Tidak ada role.",
+    "Search role name": "Cari nama role",
+    "Role created successfully.": "Role berhasil dibuat.",
+    "Role updated successfully.": "Role berhasil diperbarui.",
+    "Role deleted successfully.": "Role berhasil dihapus.",
+
+    "Role name": "Nama role",
+    "Create a role and assign permissions.": "Buat role dan atur permission.",
+    "Update role and its permissions.": "Perbarui role dan permissionnya.",
+
+    "Permissions": "Permission",
+    "No permissions": "Tanpa permission",
+    "With permissions": "Dengan permission",
+    "Roles that have at least one permission": "Role yang memiliki minimal satu permission",
+    "Roles without any permission": "Role tanpa permission",
+    "Total Roles": "Total Role",
+    "Total Permissions": "Total Permission",
+    "Select all": "Pilih semua",
+    "selected": "terpilih",
+
+    "General": "Umum",
+    "Menu Access": "Akses Menu",
+    "Manage": "Kelola",
+    "Other": "Lainnya",
+
+    "Access = can open menu/index. Manage = can create/edit/delete.": "Access = bisa membuka menu/index. Manage = bisa create/edit/delete.",
+    "Keep Roles manage permission limited to trusted users.": "Batasi permission manage pada Roles hanya untuk user yang terpercaya.",
+    "Remove manage permissions for read-only roles.": "Hapus permission manage untuk role yang hanya boleh melihat."
+    ,
+    "Use clear names like \"Kasir\", \"Chef\", or \"Manager\".": "Gunakan nama yang jelas seperti \"Kasir\", \"Chef\", atau \"Manager\"."
 }

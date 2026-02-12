@@ -448,7 +448,7 @@ new class extends Component {
 
             <div class="space-y-2">
                 <flux:heading size="lg">{{ __('Delete this role?') }}</flux:heading>
-                <flux:subheading>{{ __('This action cannot be undone.') }}</flux:subheading>
+                <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
             </div>
 
             @if ($selectedRole)
@@ -472,7 +472,7 @@ new class extends Component {
         <div class="space-y-4 p-2">
             <div class="space-y-2">
                 <flux:heading size="lg">{{ __('Delete this role?') }}</flux:heading>
-                <flux:subheading>{{ __('This action cannot be undone.') }}</flux:subheading>
+                <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
             </div>
 
             @if ($selectedRole)
@@ -551,7 +551,7 @@ new class extends Component {
                                                     <input
                                                         type="checkbox"
                                                         value="{{ $permName }}"
-                                                        wire:model.defer="form.permissions"
+                                                        wire:model.live="form.permissions"
                                                         class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
                                                     />
                                                     <span class="truncate">{{ $permName }}</span>
@@ -570,7 +570,7 @@ new class extends Component {
                                                     <input
                                                         type="checkbox"
                                                         value="{{ $perm->name }}"
-                                                        wire:model.defer="form.permissions"
+                                                        wire:model.live="form.permissions"
                                                         class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
                                                     />
                                                     <span class="truncate">{{ $perm->name }}</span>
@@ -665,7 +665,7 @@ new class extends Component {
                                                     <input
                                                         type="checkbox"
                                                         value="{{ $permName }}"
-                                                        wire:model.defer="form.permissions"
+                                                        wire:model.live="form.permissions"
                                                         class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
                                                     />
                                                     <span class="truncate">{{ $permName }}</span>
@@ -684,7 +684,7 @@ new class extends Component {
                                                     <input
                                                         type="checkbox"
                                                         value="{{ $perm->name }}"
-                                                        wire:model.defer="form.permissions"
+                                                        wire:model.live="form.permissions"
                                                         class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
                                                     />
                                                     <span class="truncate">{{ $perm->name }}</span>
