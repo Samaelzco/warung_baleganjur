@@ -620,5 +620,9 @@
     "Keep Roles manage permission limited to trusted users.": "Batasi permission manage pada Roles hanya untuk user yang terpercaya.",
     "Remove manage permissions for read-only roles.": "Hapus permission manage untuk role yang hanya boleh melihat."
     ,
-    "Use clear names like \"Kasir\", \"Chef\", or \"Manager\".": "Gunakan nama yang jelas seperti \"Kasir\", \"Chef\", atau \"Manager\"."
+    "Use clear names like \"Kasir\", \"Chef\", or \"Manager\".": "Gunakan nama yang jelas seperti \"Kasir\", \"Chef\", atau \"Manager\".",
+
+    "Enable sound": "Aktifkan suara",
+    "Sound: Off": "Suara: Nonaktif",
+    "Sound: On": "Suara: Aktif"
 }

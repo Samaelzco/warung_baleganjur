@@ -9,6 +9,7 @@ new class extends Component {
 
     public string $search = '';
     public string $statusFilter = 'all';
+    public ?int $lastActiveMaxId = null;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -18,6 +19,35 @@ new class extends Component {
 
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
+
+    public function mount(): void
+    {
+        $this->lastActiveMaxId = $this->currentActiveMaxId();
+    }
+
+    public function pollKitchen(): void
+    {
+        $current = $this->currentActiveMaxId();
+
+        if ($this->lastActiveMaxId === null) {
+            $this->lastActiveMaxId = $current;
+            return;
+        }
+
+        if ($current !== null && $current > $this->lastActiveMaxId) {
+            $this->lastActiveMaxId = $current;
+            $this->dispatch('kitchen-new-order', id: $current);
+        }
+    }
+
+    protected function currentActiveMaxId(): ?int
+    {
+        $max = Pesanan::query()
+            ->whereIn('status', ['menunggu', 'diproses', 'siap'])
+            ->max('id');
+
+        return $max ? (int) $max : null;
+    }
 
     public function setStatus(int $id, string $toStatus): void
     {
@@ -127,7 +157,28 @@ new class extends Component {
         <!-- header -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <flux:heading size="xl" level="1">{{ __('Kitchen') }}</flux:heading>
-            <div class="flex flex-wrap items-center gap-2"></div>
+            <div
+                x-data="kitchenSound({ src: '{{ asset('audio/discord-notification.mp3') }}' })"
+                class="flex flex-wrap items-center gap-2"
+            >
+                <audio x-ref="audio" class="hidden" preload="auto"></audio>
+                <template x-if="enabled">
+                    <flux:button size="sm" variant="primary" class="btn-brand" type="button" x-on:click="toggle()">
+                        <span class="inline-flex items-center gap-2">
+                            <flux:icon icon="speaker-wave" />
+                            <span>{{ __('Sound: On') }}</span>
+                        </span>
+                    </flux:button>
+                </template>
+                <template x-if="!enabled">
+                    <flux:button size="sm" variant="ghost" class="btn-ghost-accent" type="button" x-on:click="toggle()">
+                        <span class="inline-flex items-center gap-2">
+                            <flux:icon icon="speaker-x-mark" />
+                            <span>{{ __('Sound: Off') }}</span>
+                        </span>
+                    </flux:button>
+                </template>
+            </div>
         </div>
 
         <!-- mobile chips -->
@@ -211,7 +262,7 @@ new class extends Component {
             </div>
         </div>
 
-        <div wire:poll.5s class="space-y-4">
+        <div wire:poll.5s="pollKitchen" class="space-y-4">
         <!-- mobile cards -->
         <div class="block sm:hidden">
             <div class="grid gap-3">

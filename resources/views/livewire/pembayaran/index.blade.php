@@ -128,8 +128,9 @@ use Livewire\WithPagination;
 
 	        $receiptId = $this->payingId;
 	        $shouldPrint = (bool) ($validated['print_receipt'] ?? false);
+            $saved = false;
 
-	        DB::transaction(function () use ($validated) {
+	        DB::transaction(function () use ($validated, &$saved) {
 	            $pesanan = Pesanan::query()
 	                ->whereKey($this->payingId)
 	                ->lockForUpdate()
@@ -171,12 +172,19 @@ use Livewire\WithPagination;
 	                'status' => 'selesai',
 	                'waktu_selesai' => $pesanan->waktu_selesai ?? now(),
 	            ]);
+
+                $saved = true;
 	        });
+
+            if (!$saved) {
+                return;
+            }
 
 	        $this->payingId = null;
 	        $this->payingOrder = null;
 	        $this->dispatch('modal-close', name: 'pay-pesanan');
 	        $this->dispatch('pembayaran-toast', message: __('Payment saved.'));
+            $this->dispatch('payment-success');
 
 	        if ($shouldPrint && $receiptId) {
 	            $this->dispatch('receipt-print', url: route('pembayaran.receipt', $receiptId) . '?print=1');
@@ -265,8 +273,28 @@ use Livewire\WithPagination;
         <!-- header -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <flux:heading size="xl" level="1">{{ __('Payments') }}</flux:heading>
-            <div class="flex flex-wrap items-center gap-2">
-                {{-- reserved for future actions --}}
+            <div
+                x-data="paymentSound({ src: '{{ asset('audio/google-pay-success.mp3') }}' })"
+                class="flex flex-wrap items-center gap-2"
+            >
+                <audio x-ref="audio" class="hidden" preload="auto"></audio>
+
+                <template x-if="enabled">
+                    <flux:button size="sm" variant="primary" class="btn-brand" type="button" x-on:click="toggle()">
+                        <span class="inline-flex items-center gap-2">
+                            <flux:icon icon="speaker-wave" />
+                            <span>{{ __('Sound: On') }}</span>
+                        </span>
+                    </flux:button>
+                </template>
+                <template x-if="!enabled">
+                    <flux:button size="sm" variant="ghost" class="btn-ghost-accent" type="button" x-on:click="toggle()">
+                        <span class="inline-flex items-center gap-2">
+                            <flux:icon icon="speaker-x-mark" />
+                            <span>{{ __('Sound: Off') }}</span>
+                        </span>
+                    </flux:button>
+                </template>
             </div>
         </div>
 

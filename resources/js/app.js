@@ -163,4 +163,83 @@ document.addEventListener('alpine:init', () => {
             });
         },
     }));
+
+    Alpine.data('kitchenSound', ({ src } = {}) => ({
+        enabled: false,
+        src: src || '',
+        init() {
+            try {
+                this.enabled = JSON.parse(localStorage.getItem('kitchenSoundEnabled') || 'false') === true;
+            } catch (_) {
+                this.enabled = false;
+            }
+
+            this.$refs.audio.src = this.src;
+            try { this.$refs.audio.load?.(); } catch (_) {}
+
+            const onNewOrder = () => {
+                if (!this.enabled) return;
+                this.play();
+            };
+
+            window.addEventListener('kitchen-new-order', onNewOrder);
+            document.addEventListener('kitchen-new-order', onNewOrder);
+        },
+        async toggle() {
+            this.enabled = !this.enabled;
+            localStorage.setItem('kitchenSoundEnabled', JSON.stringify(this.enabled));
+
+            if (this.enabled) {
+                // Try to play once from the user gesture to satisfy autoplay policies.
+                this.play();
+            }
+        },
+        play() {
+            try {
+                const audio = this.$refs.audio;
+                audio.currentTime = 0;
+                const res = audio.play();
+                if (res?.catch) res.catch(() => {});
+            } catch (_) {}
+        },
+    }));
+
+    Alpine.data('paymentSound', ({ src } = {}) => ({
+        enabled: false,
+        src: src || '',
+        init() {
+            try {
+                this.enabled = JSON.parse(localStorage.getItem('paymentSoundEnabled') || 'false') === true;
+            } catch (_) {
+                this.enabled = false;
+            }
+
+            this.$refs.audio.src = this.src;
+            try { this.$refs.audio.load?.(); } catch (_) {}
+
+            const onSuccess = () => {
+                if (!this.enabled) return;
+                this.play();
+            };
+
+            window.addEventListener('payment-success', onSuccess);
+            document.addEventListener('payment-success', onSuccess);
+        },
+        async toggle() {
+            this.enabled = !this.enabled;
+            localStorage.setItem('paymentSoundEnabled', JSON.stringify(this.enabled));
+
+            if (this.enabled) {
+                this.play();
+            }
+        },
+        play() {
+            try {
+                const audio = this.$refs.audio;
+                audio.currentTime = 0;
+                const res = audio.play();
+                if (res?.catch) res.catch(() => {});
+            } catch (_) {}
+        },
+    }));
 });
