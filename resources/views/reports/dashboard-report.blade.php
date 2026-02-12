@@ -68,6 +68,7 @@
         table.simple {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
         table.simple th, table.simple td {
             padding: 2.5mm 2.5mm;
@@ -83,6 +84,13 @@
             background: #f8fafc;
         }
         .right { text-align: left; white-space: nowrap; }
+        table.simple.breakdown th, table.simple.breakdown td {
+            padding: 2mm 1.5mm;
+        }
+        table.simple.breakdown th {
+            font-size: 8px;
+            letter-spacing: 0.12em;
+        }
         .mono { font-family: DejaVu Sans Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
         .pill {
             display: inline-block;
@@ -168,7 +176,14 @@
             <td class="card" style="width: 60%;">
                 <div class="cardInner">
                     <p class="sectionTitle">{{ __('Payment Method Breakdown') }}</p>
-                    <table class="simple">
+                    <table class="simple breakdown">
+                        <colgroup>
+                            <col style="width: 20%;">
+                            <col style="width: 10%;">
+                            <col style="width: 23%;">
+                            <col style="width: 23%;">
+                            <col style="width: 24%;">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>{{ __('Method') }}</th>
