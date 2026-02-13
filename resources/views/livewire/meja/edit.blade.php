@@ -72,7 +72,7 @@ new class extends Component {
                 <flux:input wire:model="form.qr_token" :label="__('QR Token')" readonly />
                 <div class="mt-2">
                     <flux:button type="button" variant="ghost" class="btn-ghost-accent" icon="arrow-path" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
-                    <flux:text variant="subtle" class="text-xs">{{ __('Used in URL: /order/{token}') }}</flux:text>
+                    <flux:text variant="subtle" class="text-xs">{{ __('Used in URL: /{token}') }}</flux:text>
                 </div>
             </div>
 

@@ -463,7 +463,7 @@ new class extends Component {
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
                         <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-                            <span>{{ __('Used in URL: /order/{token}') }}</span>
+                            <span>{{ __('Used in URL: /{token}') }}</span>
                             <div class="inline-flex items-center gap-1">
                                 <flux:button size="xs" variant="ghost" class="btn-ghost-accent" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
                             </div>
@@ -533,7 +533,7 @@ new class extends Component {
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
                         <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-                            <span>{{ __('Used in URL: /order/{token}') }}</span>
+                            <span>{{ __('Used in URL: /{token}') }}</span>
                             <div class="inline-flex items-center gap-1">
                                 <flux:button size="xs" variant="ghost" class="btn-ghost-accent" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
                             </div>
