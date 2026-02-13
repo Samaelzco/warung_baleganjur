@@ -11,7 +11,18 @@ class KategoriMenu extends Model
 
     protected $fillable = [
         'nama_kategori',
+        'nama_kategori_en',
         'deskripsi',
     ];
-}
 
+    public function getNamaKategoriLocalizedAttribute(): string
+    {
+        $en = trim((string) ($this->nama_kategori_en ?? ''));
+
+        if (app()->getLocale() === 'en' && $en !== '') {
+            return $en;
+        }
+
+        return (string) $this->nama_kategori;
+    }
+}

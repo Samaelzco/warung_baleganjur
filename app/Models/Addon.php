@@ -11,6 +11,7 @@ class Addon extends Model
 
     protected $fillable = [
         'nama_addon',
+        'nama_addon_en',
         'harga',
         'status',
     ];
@@ -19,9 +20,19 @@ class Addon extends Model
         'harga' => 'decimal:2',
     ];
 
+    public function getNamaAddonLocalizedAttribute(): string
+    {
+        $en = trim((string) ($this->nama_addon_en ?? ''));
+
+        if (app()->getLocale() === 'en' && $en !== '') {
+            return $en;
+        }
+
+        return (string) $this->nama_addon;
+    }
+
     public function menus()
     {
         return $this->belongsToMany(Menu::class, 'addon_menu');
     }
 }
-

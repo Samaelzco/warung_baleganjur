@@ -378,7 +378,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
         }])
         ->orderBy('kategori_id')
         ->orderBy('nama_menu')
-        ->get(['id', 'nama_menu', 'harga', 'gambar', 'status']);
+        ->get(['id', 'nama_menu', 'nama_menu_en', 'harga', 'gambar', 'status']);
 
     $diskons = \App\Models\Diskon::query()
         ->where('is_active', true)
@@ -598,6 +598,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     });
 
     session()->put('customer_order_submitted_' . $token, true);
+    session()->put('customer_last_order_id_' . $token, $pesananId);
 
     // If JSON request, respond JSON; otherwise redirect.
     if ($request->expectsJson()) {
@@ -650,7 +651,7 @@ Route::get('{token}/status.json', function (string $token) {
         ->firstOrFail();
 
     $active = \App\Models\Pesanan::query()
-        ->with(['details.menu:id,nama_menu', 'details.addons:id,nama_addon'])
+        ->with(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en'])
         ->where('meja_id', $meja->id)
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
         ->where(function ($q) {
@@ -662,17 +663,21 @@ Route::get('{token}/status.json', function (string $token) {
     $paid = false;
     $paidOrder = null;
     if (!$active) {
-        $paidOrder = \App\Models\Pesanan::query()
-            ->select(['id', 'kode_pesanan', 'status', 'metode_pembayaran', 'waktu_selesai'])
-            ->where('meja_id', $meja->id)
-            ->where('status', 'selesai')
-            ->whereNotNull('metode_pembayaran')
-            ->orderByDesc('waktu_selesai')
-            ->orderByDesc('id')
-            ->first();
+        $lastOrderId = session()->get('customer_last_order_id_' . $token);
 
-        if ($paidOrder && !blank($paidOrder->metode_pembayaran)) {
-            $paid = true;
+        if ($lastOrderId) {
+            $paidOrder = \App\Models\Pesanan::query()
+                ->select(['id', 'kode_pesanan', 'status', 'metode_pembayaran', 'waktu_selesai'])
+                ->whereKey((int) $lastOrderId)
+                ->where('meja_id', $meja->id)
+                ->where('status', 'selesai')
+                ->whereNotNull('metode_pembayaran')
+                ->first();
+
+            if ($paidOrder && !blank($paidOrder->metode_pembayaran)) {
+                $paid = true;
+                session()->forget('customer_last_order_id_' . $token);
+            }
         }
     }
 
@@ -692,12 +697,16 @@ Route::get('{token}/status.json', function (string $token) {
             'id' => (int) $active->id,
             'kode_pesanan' => (string) $active->kode_pesanan,
             'status' => (string) $active->status,
+            'subtotal' => (float) ($active->subtotal ?? 0),
+            'discount_total' => (float) ($active->discount_total ?? 0),
+            'tax_total' => (float) ($active->tax_total ?? 0),
+            'total_harga' => (float) ($active->total_harga ?? 0),
             'items' => $active->details->map(function ($d) {
                 return [
                     'menu' => (string) ($d->menu?->nama_menu ?? __('Menu')),
                     'qty' => (int) $d->qty,
                     'subtotal' => (float) $d->subtotal,
-                    'addons' => $d->addons->pluck('nama_addon')->values()->all(),
+                    'addons' => $d->addons->map(fn ($a) => (string) $a->nama_addon_localized)->values()->all(),
                 ];
             })->values()->all(),
         ] : null,
@@ -731,11 +740,11 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
 
     $categories = \App\Models\KategoriMenu::query()
         ->orderBy('nama_kategori')
-        ->get(['id', 'nama_kategori']);
+        ->get(['id', 'nama_kategori', 'nama_kategori_en']);
 
     $menus = \App\Models\Menu::query()
         ->with([
-            'kategori:id,nama_kategori',
+            'kategori:id,nama_kategori,nama_kategori_en',
             'addons' => function ($q) {
                 $q->where('status', 'tersedia')->orderBy('nama_addon');
             },
@@ -743,7 +752,7 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
         ->where('status', 'tersedia')
         ->orderBy('kategori_id')
         ->orderBy('nama_menu')
-        ->get(['id', 'kategori_id', 'nama_menu', 'deskripsi', 'harga', 'gambar', 'status']);
+        ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
 
     return view('customer.order', [
         'token' => $token,

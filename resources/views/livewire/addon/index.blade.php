@@ -43,6 +43,7 @@ new class extends Component {
 
         $this->form = [
             'nama_addon' => $addon->nama_addon,
+            'nama_addon_en' => $addon->nama_addon_en,
             'harga' => $addon->harga,
             'status' => $addon->status,
         ];
@@ -56,6 +57,7 @@ new class extends Component {
 
         $validated = validator($this->form, [
             'nama_addon' => ['required', 'string', 'max:100', 'unique:addons,nama_addon'],
+            'nama_addon_en' => ['nullable', 'string', 'max:100'],
             'harga' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'in:tersedia,habis'],
         ])->validate();
@@ -76,6 +78,7 @@ new class extends Component {
 
         $validated = validator($this->form, [
             'nama_addon' => ['required', 'string', 'max:100', 'unique:addons,nama_addon,' . $this->editingId],
+            'nama_addon_en' => ['nullable', 'string', 'max:100'],
             'harga' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'in:tersedia,habis'],
         ])->validate();
@@ -120,6 +123,7 @@ new class extends Component {
     {
         $this->form = [
             'nama_addon' => '',
+            'nama_addon_en' => '',
             'harga' => null,
             'status' => 'tersedia',
         ];
@@ -136,7 +140,10 @@ new class extends Component {
         $query = Addon::query();
 
         if (!empty($search)) {
-            $query->where('nama_addon', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_addon', 'like', "%{$search}%")
+                    ->orWhere('nama_addon_en', 'like', "%{$search}%");
+            });
         }
 
         if ($statusFilter !== 'all') {
@@ -425,6 +432,17 @@ new class extends Component {
                             @enderror
 
                             <flux:input
+                                wire:model.defer="form.nama_addon_en"
+                                :label="__('Add-on Name (English)')"
+                                maxlength="100"
+                                placeholder="{{ __('Optional') }}"
+                                help="{{ __('Example: Egg / Extra sambal / Ice tea') }}"
+                            />
+                            @error('form.nama_addon_en')
+                                <p class="text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+
+                            <flux:input
                                 wire:model.defer="form.harga"
                                 type="number"
                                 min="0"
@@ -504,6 +522,16 @@ new class extends Component {
                             @enderror
 
                             <flux:input
+                                wire:model.defer="form.nama_addon_en"
+                                :label="__('Add-on Name (English)')"
+                                maxlength="100"
+                                placeholder="{{ __('Optional') }}"
+                            />
+                            @error('form.nama_addon_en')
+                                <p class="text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+
+                            <flux:input
                                 wire:model.defer="form.harga"
                                 type="number"
                                 min="0"
@@ -559,7 +587,7 @@ new class extends Component {
         </flux:modal>
 
         <!-- Delete confirm modal - mobile flyout -->
-        <flux:modal name="confirm-delete-addon" focusable variant="flyout" position="bottom" class="rounded-t-3xl sm:rounded-xl">
+        <flux:modal name="confirm-delete-addon" focusable variant="flyout" position="bottom" :closable="false" class="rounded-t-3xl sm:rounded-xl">
             <div class="space-y-4 p-2 max-h-[60dvh] overflow-y-auto">
                 <div class="flex items-center justify-center">
                     <div class="mx-auto mb-1 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700"></div>

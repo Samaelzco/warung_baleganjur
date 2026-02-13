@@ -48,6 +48,7 @@ new class extends Component {
         $this->editingId = $kategori->id;
         $this->form = [
             'nama_kategori' => $kategori->nama_kategori,
+            'nama_kategori_en' => $kategori->nama_kategori_en,
         ];
 
         $this->dispatch('modal-show', name: 'edit-kategori');
@@ -58,6 +59,7 @@ new class extends Component {
         $this->authorizeManage();
         $validated = validator($this->form, [
             'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori'],
+            'nama_kategori_en' => ['nullable', 'string', 'max:100'],
         ])->validate();
 
         KategoriMenu::create($validated);
@@ -74,6 +76,7 @@ new class extends Component {
 
         $validated = validator($this->form, [
             'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori,' . $this->editingId],
+            'nama_kategori_en' => ['nullable', 'string', 'max:100'],
         ])->validate();
 
         KategoriMenu::where('id', $this->editingId)->update($validated);
@@ -105,6 +108,7 @@ new class extends Component {
     {
         $this->form = [
             'nama_kategori' => '',
+            'nama_kategori_en' => '',
         ];
     }
 
@@ -120,7 +124,9 @@ new class extends Component {
 
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {
-                $sub->where('nama_kategori', 'like', '%'.$search.'%');
+                $sub
+                    ->where('nama_kategori', 'like', '%'.$search.'%')
+                    ->orWhere('nama_kategori_en', 'like', '%'.$search.'%');
             });
         }
 
@@ -317,6 +323,11 @@ new class extends Component {
                             @error('form.nama_kategori')
                                 <p class="text-xs text-red-500">{{ $message }}</p>
                             @enderror
+
+                            <flux:input wire:model.defer="form.nama_kategori_en" :label="__('Category Name (English)')" maxlength="100" placeholder="{{ __('Optional') }}" help="{{ __('e.g. Food, Drinks, Snack') }}" />
+                            @error('form.nama_kategori_en')
+                                <p class="text-xs text-red-500">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="space-y-4 md:col-span-2 md:pl-2">
@@ -364,6 +375,11 @@ new class extends Component {
                             @error('form.nama_kategori')
                                 <p class="text-xs text-red-500">{{ $message }}</p>
                             @enderror
+
+                            <flux:input wire:model.defer="form.nama_kategori_en" :label="__('Category Name (English)')" maxlength="100" placeholder="{{ __('Optional') }}" />
+                            @error('form.nama_kategori_en')
+                                <p class="text-xs text-red-500">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="space-y-4 md:col-span-2 md:pl-2">
@@ -395,7 +411,7 @@ new class extends Component {
         </flux:modal>
 
         <!-- Mobile bottom-sheet delete (match meja) -->
-        <flux:modal name="confirm-delete-kategori" focusable variant="flyout" position="bottom" class="rounded-t-3xl sm:rounded-xl">
+        <flux:modal name="confirm-delete-kategori" focusable variant="flyout" position="bottom" :closable="false" class="rounded-t-3xl sm:rounded-xl">
             <div class="space-y-4 p-2 max-h-[60dvh] overflow-y-auto">
                 <div class="flex items-center justify-center">
                     <div class="mx-auto mb-1 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700"></div>

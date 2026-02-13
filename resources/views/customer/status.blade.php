@@ -132,6 +132,58 @@
                 </div>
             </div>
 
+            <button
+                id="orderTotalToggle"
+                type="button"
+                class="mt-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-neutral-200/70 bg-white/60 px-4 py-3 text-left shadow-sm backdrop-blur hover:bg-white/75 dark:border-neutral-800/70 dark:bg-neutral-950/20 dark:hover:bg-neutral-950/30"
+                aria-expanded="false"
+                aria-controls="orderBreakdown"
+            >
+                <div class="min-w-0">
+                    <div class="text-xs font-semibold tracking-wide text-neutral-500 dark:text-neutral-400">{{ __('Total') }}</div>
+                    <div class="mt-0.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{{ __('Tap to view details') }}</div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <div id="orderTotalText" class="text-sm font-semibold text-neutral-900 dark:text-white">
+                        {{ $idr($order?->total_harga ?? 0) }}
+                    </div>
+                    <span id="orderTotalChevron" class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200/70 bg-white/60 text-neutral-700 shadow-sm backdrop-blur transition-transform duration-200 dark:border-neutral-800/70 dark:bg-neutral-950/20 dark:text-neutral-200">
+                        <flux:icon icon="chevron-down" class="size-4" />
+                    </span>
+                </div>
+            </button>
+
+            <div
+                id="orderBreakdown"
+                class="hidden space-y-3 rounded-2xl border border-neutral-200/70 bg-white/60 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/20"
+            >
+                <div class="space-y-2">
+                    <div class="text-xs font-semibold tracking-wide text-neutral-500 dark:text-neutral-400">{{ __('Order Items') }}</div>
+                    <div id="breakdownItemsList" class="space-y-2"></div>
+                </div>
+
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-neutral-600 dark:text-neutral-300">{{ __('Subtotal') }}</div>
+                        <div id="orderSubtotalText" class="font-semibold text-neutral-900 dark:text-white">{{ $idr($order?->subtotal ?? 0) }}</div>
+                    </div>
+                    <div id="orderDiscountRow" class="@if(((float)($order?->discount_total ?? 0)) <= 0) hidden @endif flex items-center justify-between gap-3">
+                        <div class="text-neutral-600 dark:text-neutral-300">{{ __('Discount') }}</div>
+                        <div id="orderDiscountText" class="font-semibold text-neutral-900 dark:text-white">- {{ $idr($order?->discount_total ?? 0) }}</div>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-neutral-600 dark:text-neutral-300">{{ __('Tax') }}</div>
+                        <div id="orderTaxText" class="font-semibold text-neutral-900 dark:text-white">{{ $idr($order?->tax_total ?? 0) }}</div>
+                    </div>
+                    <div class="h-px bg-neutral-200/70 dark:bg-neutral-800/70"></div>
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="font-semibold text-neutral-900 dark:text-white">{{ __('Total') }}</div>
+                        <div id="orderTotalText2" class="font-semibold text-neutral-900 dark:text-white">{{ $idr($order?->total_harga ?? 0) }}</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="mt-4">
                 <div class="relative flex items-center justify-between gap-3" data-stepper>
                     <div class="absolute left-4 right-4 top-[0.9rem] h-px bg-neutral-200/80 dark:bg-neutral-800/70"></div>
@@ -174,34 +226,6 @@
             </div>
         </div>
 
-        <div id="itemsSection" class="@if(!$order) hidden @endif space-y-3">
-            <div class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ __('Order Items') }}</div>
-            <div id="itemsList" class="space-y-3">
-                @foreach (($order?->details ?? collect()) as $d)
-                    <div class="customer-card-depth rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <div class="truncate text-sm font-semibold text-neutral-900 dark:text-white">
-                                    {{ $d->menu?->nama_menu ?? __('Menu') }}
-                                </div>
-                                @if ($d->addons->isNotEmpty())
-                                    <div class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                        @foreach ($d->addons as $a)
-                                            <div>+ {{ $a->nama_addon }}</div>
-                                        @endforeach
-                                    </div>
-                                @endif
-                                <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Qty') }}: {{ (int) $d->qty }}</div>
-                            </div>
-                            <div class="shrink-0 text-sm font-semibold text-neutral-900 dark:text-white">
-                                {{ $idr($d->subtotal) }}
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
         <div id="pollHint" class="text-center text-xs font-medium text-neutral-500 dark:text-neutral-400"></div>
     </div>
 
@@ -217,14 +241,36 @@
 
             const statusEmpty = document.getElementById('statusEmpty')
             const statusCard = document.getElementById('statusCard')
-            const itemsSection = document.getElementById('itemsSection')
-            const itemsList = document.getElementById('itemsList')
 
             const orderCodeText = document.getElementById('orderCodeText')
             const orderStatusText = document.getElementById('orderStatusText')
+            const orderTotalText = document.getElementById('orderTotalText')
+            const orderTotalText2 = document.getElementById('orderTotalText2')
+            const orderSubtotalText = document.getElementById('orderSubtotalText')
+            const orderDiscountRow = document.getElementById('orderDiscountRow')
+            const orderDiscountText = document.getElementById('orderDiscountText')
+            const orderTaxText = document.getElementById('orderTaxText')
+            const breakdownItemsList = document.getElementById('breakdownItemsList')
             const processingNote = document.getElementById('processingNote')
             const readyNote = document.getElementById('readyNote')
             const pollHint = document.getElementById('pollHint')
+
+            const breakdownEl = document.getElementById('orderBreakdown')
+            const breakdownToggle = document.getElementById('orderTotalToggle')
+            const breakdownChevron = document.getElementById('orderTotalChevron')
+            const setBreakdownOpen = (open) => {
+                if (!breakdownEl || !breakdownToggle) return
+                breakdownEl.classList.toggle('hidden', !open)
+                breakdownToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+                breakdownChevron?.classList.toggle('rotate-180', open)
+            }
+
+            if (breakdownToggle) {
+                breakdownToggle.addEventListener('click', () => {
+                    const expanded = breakdownToggle.getAttribute('aria-expanded') === 'true'
+                    setBreakdownOpen(!expanded)
+                })
+            }
 
             const toast = (message) => {
                 try {
@@ -236,6 +282,9 @@
             if (submitted) {
                 setTimeout(() => toast(@json(__('Order sent to kitchen.'))), 80)
             }
+
+            const labelOrderFailed = @json(__('Order failed. Please place your order again.'));
+            const redirectOrderUrl = @json(route('customer.order', ['token' => $token]));
 
             const labelQty = @json(__('Qty'));
             const labelMenu = @json(__('Menu'));
@@ -253,6 +302,8 @@
 
             let timer = null
             let stopped = false
+            let hadOrderEver = @json((bool) $order) || submitted
+            let failureNotified = false
             const stopPolling = () => {
                 stopped = true
                 if (timer) clearTimeout(timer)
@@ -326,7 +377,6 @@
 
                     statusEmpty?.classList.add('hidden')
                     statusCard?.classList.add('hidden')
-                    itemsSection?.classList.add('hidden')
 
                     const redirectUrl = payload?.redirect || @json(route('customer.order', ['token' => $token]));
                     setTimeout(() => {
@@ -341,39 +391,63 @@
 
                 statusEmpty?.classList.toggle('hidden', hasOrder)
                 statusCard?.classList.toggle('hidden', !hasOrder)
-                itemsSection?.classList.toggle('hidden', !hasOrder)
 
                 if (!hasOrder) {
+                    // If we previously had an order and now it's missing (e.g. deleted/canceled by management),
+                    // notify customer and send them back to the order page.
+                    if (!failureNotified && hadOrderEver) {
+                        failureNotified = true
+                        stopPolling()
+
+                        toast(labelOrderFailed)
+
+                        // Clear draft states to avoid confusion
+                        const cartKey = token ? `customerCart:${token}` : 'customerCart'
+                        const voucherKey = token ? `customerVoucher:${token}` : 'customerVoucher'
+                        const remove = (k) => {
+                            try { sessionStorage.removeItem(k) } catch (e) {}
+                            try { localStorage.removeItem(k) } catch (e) {}
+                        }
+                        remove(cartKey)
+                        remove(voucherKey)
+
+                        setTimeout(() => {
+                            window.location.href = redirectOrderUrl
+                        }, 1200)
+                        return
+                    }
+
                     if (pollHint) pollHint.textContent = ''
                     return
                 }
 
+                hadOrderEver = true
                 if (orderCodeText) orderCodeText.textContent = order.kode_pesanan || ''
                 if (orderStatusText) orderStatusText.textContent = statusLabel(order.status)
+                if (orderTotalText) orderTotalText.textContent = formatIDR(Number(order.total_harga || 0))
+                if (orderTotalText2) orderTotalText2.textContent = formatIDR(Number(order.total_harga || 0))
+                if (orderSubtotalText) orderSubtotalText.textContent = formatIDR(Number(order.subtotal || 0))
+                const discountVal = Number(order.discount_total || 0)
+                if (orderDiscountRow) orderDiscountRow.classList.toggle('hidden', !(discountVal > 0))
+                if (orderDiscountText) orderDiscountText.textContent = `- ${formatIDR(discountVal)}`
+                if (orderTaxText) orderTaxText.textContent = formatIDR(Number(order.tax_total || 0))
                 updateStepper(order.status)
                 if (processingNote) processingNote.classList.toggle('hidden', order.status !== 'diproses')
                 if (readyNote) readyNote.classList.toggle('hidden', order.status !== 'siap')
 
-                if (itemsList) {
+                if (breakdownItemsList) {
                     const rows = Array.isArray(order.items) ? order.items : []
-                    itemsList.innerHTML = rows.map((it) => {
+                    breakdownItemsList.innerHTML = rows.map((it) => {
                         const addons = Array.isArray(it.addons) ? it.addons : []
-                        const addonHtml = addons.length
-                            ? `<div class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">${addons.map(a => `<div>+ ${a}</div>`).join('')}</div>`
-                            : ''
-
+                        const addonLine = addons.length ? `<div class="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">${addons.map(a => `+ ${a}`).join(', ')}</div>` : ''
                         return `
-                            <div class="customer-card-depth rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <div class="truncate text-sm font-semibold text-neutral-900 dark:text-white">${it.menu || labelMenu}</div>
-                                        ${addonHtml}
-                                        <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">${labelQty}: ${Number(it.qty || 0)}</div>
-                                    </div>
-                                    <div class="shrink-0 text-sm font-semibold text-neutral-900 dark:text-white">
-                                        ${formatIDR(Number(it.subtotal || 0))}
-                                    </div>
+                            <div class="flex items-start justify-between gap-3 rounded-2xl border border-neutral-200/70 bg-white/60 p-3 text-sm dark:border-neutral-800/70 dark:bg-neutral-950/20">
+                                <div class="min-w-0">
+                                    <div class="truncate font-semibold text-neutral-900 dark:text-white">${it.menu || labelMenu}</div>
+                                    ${addonLine}
+                                    <div class="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">${labelQty}: ${Number(it.qty || 0)}</div>
                                 </div>
+                                <div class="shrink-0 font-semibold text-neutral-900 dark:text-white">${formatIDR(Number(it.subtotal || 0))}</div>
                             </div>
                         `
                     }).join('')

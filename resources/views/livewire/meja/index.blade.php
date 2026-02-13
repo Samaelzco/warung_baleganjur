@@ -640,7 +640,7 @@ new class extends Component {
         --}}
         @php($selectedMeja = $items->firstWhere('id', $confirmingDeleteId))
 
-        <flux:modal name="confirm-delete-meja" focusable variant="flyout" position="bottom" class="rounded-t-3xl sm:rounded-xl">
+        <flux:modal name="confirm-delete-meja" focusable variant="flyout" position="bottom" :closable="false" class="rounded-t-3xl sm:rounded-xl">
             <div class="space-y-4 p-2 max-h-[60dvh] overflow-y-auto">
                 <div class="flex items-center justify-center">
                     <div class="mx-auto mb-1 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700"></div>

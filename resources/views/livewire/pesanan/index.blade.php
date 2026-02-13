@@ -1818,6 +1818,7 @@ new class extends Component {
             focusable
             variant="flyout"
             position="bottom"
+            :closable="false"
             class="rounded-t-3xl sm:rounded-xl"
         >
             <div class="space-y-4 p-2 max-h-[60dvh] overflow-y-auto">

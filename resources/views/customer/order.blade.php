@@ -21,12 +21,12 @@
         $menuCartIndex = $menus
             ->map(fn ($m) => [
                 'id' => (int) $m->id,
-                'name' => (string) $m->nama_menu,
+                'name' => (string) $m->nama_menu_localized,
                 'price' => (float) $m->harga,
                 'addons' => $m->addons
                     ->map(fn ($a) => [
                         'id' => (int) $a->id,
-                        'name' => (string) $a->nama_addon,
+                        'name' => (string) $a->nama_addon_localized,
                         'price' => (float) $a->harga,
                     ])
                     ->values()
@@ -129,7 +129,7 @@
                             data-cat-link="cat-{{ $c->id }}"
                             class="snap-center shrink-0 rounded-full border border-transparent px-4 py-2 font-semibold text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900/40 dark:hover:text-white"
                         >
-                            {{ $c->nama_kategori }}
+                            {{ $c->nama_kategori_localized }}
                         </a>
                     @endforeach
                 </nav>
@@ -150,7 +150,7 @@
             @forelse ($menus->groupBy('kategori_id') as $kategoriId => $rows)
                 @php
                     $cat = $categories->firstWhere('id', (int) $kategoriId);
-                    $catName = $cat?->nama_kategori ?? __('All Items');
+                    $catName = $cat?->nama_kategori_localized ?? __('All Items');
                 @endphp
 
                 <div id="cat-{{ (int) $kategoriId }}" data-cat-section="cat-{{ (int) $kategoriId }}" class="scroll-mt-24 space-y-3">
@@ -160,14 +160,18 @@
 
                             <div class="-mx-2 space-y-3">
                         @foreach ($rows as $m)
+                            @php
+                                $menuName = (string) $m->nama_menu_localized;
+                                $menuDesc = (string) ($m->deskripsi_localized ?? '');
+                            @endphp
                             <div
                                 class="customer-card-depth flex items-start gap-4 rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur transition-colors dark:border-neutral-800/70 dark:bg-neutral-900/40"
                                 data-menu-group="cat-{{ (int) $kategoriId }}"
                                 data-menu-card
                                 data-menu-id="{{ $m->id }}"
-                                data-menu-name="{{ $m->nama_menu }}"
+                                data-menu-name="{{ $menuName }}"
                                 data-menu-price="{{ (float) $m->harga }}"
-                                data-menu-search="{{ \Illuminate\Support\Str::lower(trim($m->nama_menu . ' ' . ($m->deskripsi ?? ''))) }}"
+                                data-menu-search="{{ \Illuminate\Support\Str::lower(trim($menuName . ' ' . $menuDesc)) }}"
                             >
                                 <div class="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
                                     @if (!empty($m->gambar))
@@ -177,7 +181,7 @@
                                                 ? $img
                                                 : \Illuminate\Support\Facades\Storage::url($img);
                                         @endphp
-                                        <img alt="{{ $m->nama_menu }}" src="{{ $src }}" class="h-full w-full object-cover" />
+                                        <img alt="{{ $menuName }}" src="{{ $src }}" class="h-full w-full object-cover" />
                                     @else
                                         <div class="h-full w-full bg-linear-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900"></div>
                                     @endif
@@ -185,11 +189,11 @@
 
                                 <div class="min-w-0 flex-1">
                                     <div class="line-clamp-1 text-base font-semibold text-neutral-900 dark:text-white">
-                                        {{ $m->nama_menu }}
+                                        {{ $menuName }}
                                     </div>
-                                    @if (!empty($m->deskripsi))
+                                    @if (!empty($menuDesc))
                                         <div class="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
-                                            {{ $m->deskripsi }}
+                                            {{ $menuDesc }}
                                         </div>
                                     @endif
                                     @if ($m->addons->isNotEmpty())

@@ -51,10 +51,12 @@ new class extends Component {
 
         $this->form = [
             'nama_menu'   => $menu->nama_menu,
+            'nama_menu_en' => $menu->nama_menu_en,
             'kategori_id' => $menu->kategori_id,
             'harga'       => $menu->harga,
             'status'      => $menu->status,
             'deskripsi'   => $menu->deskripsi,
+            'deskripsi_en' => $menu->deskripsi_en,
             'addon_ids'   => $menu->addons->pluck('id')->all(),
         ];
 
@@ -69,10 +71,12 @@ new class extends Component {
 
         $validated = validator($data, [
             'nama_menu'   => ['required', 'string', 'max:150', 'unique:menus,nama_menu'],
+            'nama_menu_en' => ['nullable', 'string', 'max:150'],
             'kategori_id' => ['required', 'integer', 'exists:kategori_menus,id'],
             'harga'       => ['required', 'numeric', 'min:0'],
             'status'      => ['required', 'in:tersedia,habis'],
             'deskripsi'   => ['nullable', 'string'],
+            'deskripsi_en' => ['nullable', 'string'],
             'addon_ids'   => ['nullable', 'array'],
             'addon_ids.*' => ['integer', 'exists:addons,id'],
             'gambar'      => ['nullable', 'image', 'max:2048'],
@@ -105,10 +109,12 @@ new class extends Component {
 
         $validated = validator($data, [
             'nama_menu'   => ['required', 'string', 'max:150', 'unique:menus,nama_menu,' . $this->editingId],
+            'nama_menu_en' => ['nullable', 'string', 'max:150'],
             'kategori_id' => ['required', 'integer', 'exists:kategori_menus,id'],
             'harga'       => ['required', 'numeric', 'min:0'],
             'status'      => ['required', 'in:tersedia,habis'],
             'deskripsi'   => ['nullable', 'string'],
+            'deskripsi_en' => ['nullable', 'string'],
             'addon_ids'   => ['nullable', 'array'],
             'addon_ids.*' => ['integer', 'exists:addons,id'],
             'gambar'      => ['nullable', 'image', 'max:2048'],
@@ -164,10 +170,12 @@ new class extends Component {
     {
         $this->form = [
             'nama_menu'   => '',
+            'nama_menu_en' => '',
             'kategori_id' => null,
             'harga'       => null,
             'status'      => 'tersedia',
             'deskripsi'   => '',
+            'deskripsi_en' => '',
             'addon_ids'   => [],
         ];
     }
@@ -185,7 +193,9 @@ new class extends Component {
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
                 $q->where('nama_menu', 'like', "%{$search}%")
-                  ->orWhere('deskripsi', 'like', "%{$search}%");
+                  ->orWhere('nama_menu_en', 'like', "%{$search}%")
+                  ->orWhere('deskripsi', 'like', "%{$search}%")
+                  ->orWhere('deskripsi_en', 'like', "%{$search}%");
             });
         }
         if ($statusFilter !== 'all') {
@@ -517,6 +527,11 @@ new class extends Component {
                                 <p class="text-xs text-red-500">{{ $message }}</p>
                             @enderror
 
+                            <flux:input wire:model.defer="form.nama_menu_en" :label="__('Menu Name (English)')" maxlength="150" placeholder="{{ __('Optional') }}" />
+                            @error('form.nama_menu_en')
+                                <p class="text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+
                             <div data-flux-field>
                                 <flux:select wire:model.defer="form.kategori_id" :label="__('Category')">
                                     <option value="">{{ __('Select category') }}</option>
@@ -567,7 +582,14 @@ new class extends Component {
                                     @error('form.deskripsi')
                                         <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                                     @enderror
-                            </div>
+                                </div>
+
+                                <div>
+                                    <flux:textarea wire:model.defer="form.deskripsi_en" rows="4" :label="__('Description (English)')" placeholder="{{ __('Optional') }}"></flux:textarea>
+                                    @error('form.deskripsi_en')
+                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
                         </div>
 
                         <div class="space-y-4 md:col-span-2 md:pl-2">
@@ -626,6 +648,11 @@ new class extends Component {
                                 <p class="text-xs text-red-500">{{ $message }}</p>
                             @enderror
 
+                            <flux:input wire:model.defer="form.nama_menu_en" :label="__('Menu Name (English)')" maxlength="150" placeholder="{{ __('Optional') }}" />
+                            @error('form.nama_menu_en')
+                                <p class="text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+
                             <div data-flux-field>
                                 <flux:select wire:model.defer="form.kategori_id" :label="__('Category')">
                                     <option value="">{{ __('Select category') }}</option>
@@ -677,6 +704,13 @@ new class extends Component {
                                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>
+
+                            <div>
+                                <flux:textarea wire:model.defer="form.deskripsi_en" rows="4" :label="__('Description (English)')" placeholder="{{ __('Optional') }}"></flux:textarea>
+                                @error('form.deskripsi_en')
+                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         <div class="space-y-4 md:col-span-2 md:pl-2">
@@ -725,7 +759,7 @@ new class extends Component {
         @php($selectedMenu = $items->firstWhere('id', $confirmingDeleteId))
 
         <!-- delete menu mobile -->
-        <flux:modal name="confirm-delete-menu" focusable variant="flyout" position="bottom" class="rounded-t-3xl sm:rounded-xl">
+        <flux:modal name="confirm-delete-menu" focusable variant="flyout" position="bottom" :closable="false" class="rounded-t-3xl sm:rounded-xl">
             <div class="space-y-4 p-2 max-h-[60dvh] overflow-y-auto">
                 <div class="flex items-center justify-center">
                     <div class="mx-auto mb-1 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700"></div>

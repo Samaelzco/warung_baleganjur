@@ -14,13 +14,13 @@
 
                 return [
                     'id' => (int) $m->id,
-                    'name' => (string) $m->nama_menu,
+                    'name' => (string) $m->nama_menu_localized,
                     'price' => (float) $m->harga,
                     'image' => (string) $src,
                     'addons' => $m->addons
                         ->map(fn ($a) => [
                             'id' => (int) $a->id,
-                            'name' => (string) $a->nama_addon,
+                            'name' => (string) $a->nama_addon_localized,
                             'price' => (float) $a->harga,
                         ])
                         ->values()

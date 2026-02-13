@@ -662,6 +662,7 @@
     "Order Items": "Item pesanan",
     "No active order for this table yet.": "Belum ada pesanan aktif untuk meja ini.",
     "Order sent to kitchen.": "Pesanan berhasil dikirim ke dapur.",
+    "Order failed. Please place your order again.": "Pesanan gagal. Silakan pesan ulang.",
     "Refresh": "Refresh",
     "Network issue. Please try again.": "Jaringan bermasalah. Silakan coba lagi.",
     "Network issue. Pull to refresh or try again.": "Jaringan bermasalah. Coba refresh atau ulangi lagi.",
@@ -678,5 +679,11 @@
     "Failed to submit order. Please try again.": "Gagal mengirim pesanan. Silakan coba lagi.",
     "Your order is being prepared. Dishes will be served gradually as they become ready.": "Pesanan sedang disiapkan. Hidangan akan disajikan bertahap begitu siap.",
     "Please go to the cashier to complete payment.": "Silakan menuju kasir untuk proses pembayaran.",
-    "Confirm": "Konfirmasi"
+    "Tap to view details": "Ketuk untuk lihat rincian",
+    "Confirm": "Konfirmasi",
+    "Category Name (English)": "Nama kategori (Inggris)",
+    "Menu Name (English)": "Nama menu (Inggris)",
+    "Description (English)": "Deskripsi (Inggris)",
+    "Add-on Name (English)": "Nama add-on (Inggris)",
+    "e.g. Food, Drinks, Snack": "contoh: Food, Drinks, Snack"
 }
