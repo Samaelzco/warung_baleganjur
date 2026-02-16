@@ -66,7 +66,6 @@ new class extends Component {
                 'harga' => (float) $detail->harga,
                 'subtotal' => (float) $detail->subtotal,
                 'addon_ids' => $detail->addons->pluck('id')->all(),
-                'catatan' => $detail->catatan,
             ];
         })->toArray();
 
@@ -82,7 +81,6 @@ new class extends Component {
             'harga' => 0,
             'subtotal' => 0,
             'addon_ids' => [],
-            'catatan' => '',
         ];
     }
 
@@ -203,7 +201,6 @@ new class extends Component {
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.addon_ids' => ['nullable', 'array'],
             'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
-            'items.*.catatan' => ['nullable', 'string'],
         ])->validate();
 
         $validated['customer_name'] = blank($validated['customer_name'] ?? null) ? __('Guest') : $validated['customer_name'];
@@ -294,7 +291,6 @@ new class extends Component {
                     'qty' => $item['qty'],
                     'harga' => $item['harga'],
                     'subtotal' => $item['subtotal'],
-                    'catatan' => $item['catatan'] ?? null,
                 ];
 
                 if (!empty($item['id']) && $existingDetails->has($item['id'])) {
@@ -366,7 +362,6 @@ new class extends Component {
                 'harga' => $harga,
                 'subtotal' => $qty * $harga,
                 'addon_ids' => $addonIds,
-                'catatan' => $item['catatan'] ?? null,
             ];
         }
 
@@ -637,9 +632,6 @@ new class extends Component {
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
                                     {{ __('Subtotal') }}
                                 </th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-                                    {{ __('Note') }}
-                                </th>
                                 <th class="px-4 py-3"></th>
                             </tr>
                         </thead>
@@ -696,14 +688,6 @@ new class extends Component {
                                     </td>
                                     <td class="px-4 py-3 align-top text-right align-middle">
                                         Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}
-                                    </td>
-                                    <td class="px-4 py-3 align-top">
-                                        <textarea
-                                            wire:model="items.{{ $index }}.catatan"
-                                            rows="2"
-                                            class="w-full rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                                            placeholder="{{ __('Optional') }}"
-                                        ></textarea>
                                     </td>
                                     <td class="px-4 py-3 align-top text-right">
                                         <flux:button

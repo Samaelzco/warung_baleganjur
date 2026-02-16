@@ -1,5 +1,9 @@
 <x-layouts.customer :title="__('Checkout')">
     @php
+        $addMode = (bool) ($addMode ?? false);
+        $backUrl = route('customer.order', ['token' => $token] + ($addMode ? ['add' => 1] : []));
+        $submitUrl = route('customer.checkout.submit', ['token' => $token] + ($addMode ? ['add' => 1] : []));
+
         $idr0 = fn () => 'Rp 0';
 
         $menuIndex = $menus
@@ -60,7 +64,7 @@
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <a
-                        href="{{ route('customer.order', ['token' => $token]) }}"
+                        href="{{ $backUrl }}"
                         class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200/70 bg-white/60 text-neutral-700 shadow-sm backdrop-blur hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60"
                         aria-label="{{ __('Back') }}"
                     >
@@ -125,7 +129,7 @@
             <div id="checkoutEmpty" class="customer-card-depth hidden rounded-3xl border border-neutral-200/70 bg-white/70 p-6 text-center text-sm text-neutral-600 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-300">
                 {{ __('Your cart is empty.') }}
                 <div class="mt-4">
-                    <a href="{{ route('customer.order', ['token' => $token]) }}" class="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]">
+                    <a href="{{ $backUrl }}" class="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]">
                         {{ __('Back to menu') }}
                     </a>
                 </div>
@@ -154,36 +158,56 @@
                 </div>
             </div>
 
-            <div class="customer-card-depth rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
-                <div class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ __('Voucher') }}</div>
-                <div class="mt-3 flex items-center gap-2">
-                    <input
-                        id="voucherInput"
-                        type="text"
-                        inputmode="text"
-                        autocapitalize="characters"
-                        autocomplete="off"
-                        placeholder="{{ __('Enter voucher code') }}"
-                        class="h-12 w-full rounded-2xl border border-neutral-200/70 bg-white/70 px-4 text-sm font-semibold tracking-wide text-neutral-900 shadow-sm outline-none placeholder:font-medium placeholder:tracking-normal placeholder:text-neutral-400 focus:border-[var(--brand-primary)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand-primary)_15%,transparent)] dark:border-neutral-800/70 dark:bg-neutral-950/30 dark:text-white dark:placeholder:text-neutral-500"
-                    />
-                    <button
-                        type="button"
-                        id="clearVoucherBtn"
-                        onclick="window.CustomerCheckout?.clearVoucher?.()"
-                        class="hidden inline-flex h-12 shrink-0 items-center justify-center rounded-2xl border border-neutral-200/70 bg-white/60 px-4 text-sm font-semibold text-neutral-700 shadow-sm backdrop-blur hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60"
-                    >
-                        {{ __('Clear') }}
-                    </button>
-                    <button
-                        type="button"
-                        id="applyVoucherBtn"
-                        onclick="window.CustomerCheckout?.applyVoucher?.()"
-                        class="inline-flex h-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-accent)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[var(--brand-accent-hover)]"
-                    >
-                        {{ __('Apply') }}
-                    </button>
+            @if(!$addMode)
+                <div class="customer-card-depth rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
+                    <div class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ __('Voucher') }}</div>
+                    <div class="mt-3">
+                        <input
+                            id="voucherInput"
+                            type="text"
+                            inputmode="text"
+                            autocapitalize="characters"
+                            autocomplete="off"
+                            placeholder="{{ __('Enter voucher code') }}"
+                            class="h-12 w-full rounded-2xl border border-neutral-200/70 bg-white/70 px-4 text-sm font-semibold tracking-wide text-neutral-900 shadow-sm outline-none placeholder:font-medium placeholder:tracking-normal placeholder:text-neutral-400 focus:border-[var(--brand-primary)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand-primary)_15%,transparent)] dark:border-neutral-800/70 dark:bg-neutral-950/30 dark:text-white dark:placeholder:text-neutral-500"
+                        />
+                        <div class="mt-3 flex items-center gap-2">
+                            <button
+                                type="button"
+                                id="clearVoucherBtn"
+                                onclick="window.CustomerCheckout?.clearVoucher?.()"
+                                class="hidden inline-flex h-12 flex-1 items-center justify-center rounded-2xl border border-neutral-200/70 bg-white/60 px-4 text-sm font-semibold text-neutral-700 shadow-sm backdrop-blur hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60"
+                            >
+                                {{ __('Clear') }}
+                            </button>
+                            <button
+                                type="button"
+                                id="applyVoucherBtn"
+                                onclick="window.CustomerCheckout?.applyVoucher?.()"
+                                class="inline-flex h-12 flex-1 items-center justify-center rounded-2xl bg-[var(--brand-accent)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[var(--brand-accent-hover)]"
+                            >
+                                {{ __('Apply') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div id="voucherHint" class="mt-2 text-xs font-medium text-neutral-500 dark:text-neutral-400"></div>
                 </div>
-                <div id="voucherHint" class="mt-2 text-xs font-medium text-neutral-500 dark:text-neutral-400"></div>
+            @endif
+
+            <div class="customer-card-depth rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ __('Note for kitchen') }}</div>
+                    <div class="text-xs font-semibold text-neutral-500 dark:text-neutral-400">{{ __('Optional') }}</div>
+                </div>
+                <div class="mt-3">
+                    <textarea
+                        id="noteInput"
+                        rows="3"
+                        maxlength="255"
+                        placeholder="{{ __('e.g. Less spicy, no peanuts, separate sauce') }}"
+                        class="w-full resize-none rounded-2xl border border-neutral-200/70 bg-white/70 px-4 py-3 text-sm text-neutral-900 shadow-sm outline-none placeholder:text-neutral-400 focus:border-[var(--brand-primary)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand-primary)_15%,transparent)] dark:border-neutral-800/70 dark:bg-neutral-950/30 dark:text-white dark:placeholder:text-neutral-500"
+                    ></textarea>
+                </div>
             </div>
         </section>
 
@@ -191,7 +215,7 @@
             <button
                 type="button"
                 id="confirmCheckoutBtn"
-                onclick="window.CustomerCheckout?.openNameModal?.()"
+                onclick="window.CustomerCheckout?.confirm?.()"
                 class="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]"
             >
                 {{ __('Confirm order') }}
@@ -258,9 +282,11 @@
             if (!root) return
 
             const token = root.getAttribute('data-table-token') || ''
+            const addMode = @json($addMode);
+            const existingDiskonId = @json($order?->diskon_id);
             const cartKey = token ? `customerCart:${token}` : 'customerCart'
             const voucherKey = token ? `customerVoucher:${token}` : 'customerVoucher'
-            const nameKey = token ? `customerName:${token}` : 'customerName'
+            const noteKey = token ? `customerNote:${token}` : 'customerNote'
 
             const checkoutItems = document.getElementById('checkoutItems')
             const checkoutEmpty = document.getElementById('checkoutEmpty')
@@ -275,6 +301,7 @@
             const voucherInput = document.getElementById('voucherInput')
             const voucherHint = document.getElementById('voucherHint')
             const clearVoucherBtn = document.getElementById('clearVoucherBtn')
+            const noteInput = document.getElementById('noteInput')
 
             const confirmCheckoutBtn = document.getElementById('confirmCheckoutBtn')
             const nameModal = document.getElementById('nameModal')
@@ -295,6 +322,39 @@
                 } catch (e) {
                     return `Rp ${Math.round(Number(value || 0)).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.')}`
                 }
+            }
+
+            const sigFromAddons = (addonIds) => {
+                const ids = (Array.isArray(addonIds) ? addonIds : [])
+                    .map((v) => String(v))
+                    .filter(Boolean)
+                const uniq = Array.from(new Set(ids))
+                uniq.sort((a, b) => Number(a) - Number(b))
+                return uniq.join(',')
+            }
+
+            const makeKey = (menuId, addonIds) => {
+                const mid = String(menuId || '')
+                return `${mid}:${sigFromAddons(addonIds)}`
+            }
+
+            const parseKey = (key, rowAddons = null) => {
+                const raw = String(key || '')
+                let menuId = raw
+                let addons = []
+
+                if (raw.includes(':')) {
+                    const parts = raw.split(':')
+                    menuId = String(parts[0] || '')
+                    const sig = String(parts.slice(1).join(':') || '')
+                    addons = sig ? sig.split(',').map(String).filter(Boolean) : []
+                }
+
+                if (Array.isArray(rowAddons)) {
+                    addons = rowAddons.map((v) => String(v)).filter(Boolean)
+                }
+
+                return { menuId, addons }
             }
 
             const parseJsonScript = (id, fallback) => {
@@ -328,13 +388,27 @@
                 return map
             })()
 
-            const diskonMap = (() => {
+            const diskonIndex = (() => {
                 const list = parseJsonScript('diskonIndexJson', [])
+                return Array.isArray(list) ? list : []
+            })()
+
+            const diskonMap = (() => {
                 const map = new Map()
-                for (const d of (Array.isArray(list) ? list : [])) {
+                for (const d of diskonIndex) {
                     const code = String(d.code || '').toUpperCase()
                     if (!code) continue
                     map.set(code, d)
+                }
+                return map
+            })()
+
+            const diskonById = (() => {
+                const map = new Map()
+                for (const d of diskonIndex) {
+                    const id = String(d.id ?? '')
+                    if (!id) continue
+                    map.set(id, d)
                 }
                 return map
             })()
@@ -358,16 +432,24 @@
                 if (!data || typeof data !== 'object') return {}
                 const normalized = {}
                 for (const [id, v] of Object.entries(data)) {
+                    let qty = 0
+                    let addons = []
+
                     if (typeof v === 'number') {
-                        const qty = Math.max(Number(v || 0), 0)
-                        if (qty > 0) normalized[id] = { qty, addons: [] }
-                        continue
+                        qty = Math.max(Number(v || 0), 0)
+                    } else if (v && typeof v === 'object') {
+                        qty = Math.max(Number(v.qty || 0), 0)
+                        addons = Array.isArray(v.addons) ? v.addons.map(x => String(x)) : []
                     }
-                    if (v && typeof v === 'object') {
-                        const qty = Math.max(Number(v.qty || 0), 0)
-                        const addons = Array.isArray(v.addons) ? v.addons.map(x => String(x)) : []
-                        if (qty > 0) normalized[id] = { qty, addons }
-                    }
+
+                    if (qty <= 0) continue
+
+                    const parsed = parseKey(id, addons.length ? addons : null)
+                    const key = makeKey(parsed.menuId, parsed.addons)
+                    if (!key || !parsed.menuId) continue
+
+                    if (!normalized[key]) normalized[key] = { qty: 0, addons: parsed.addons }
+                    normalized[key].qty = Math.max(Number(normalized[key].qty || 0), 0) + qty
                 }
                 return normalized
             }
@@ -466,6 +548,22 @@
                 } catch (e) {}
             }
 
+            const readNote = () => {
+                try {
+                    return String(sessionStorage.getItem(noteKey) || localStorage.getItem(noteKey) || '')
+                } catch (e) {
+                    return ''
+                }
+            }
+
+            const writeNote = (note) => {
+                try {
+                    const v = String(note || '')
+                    try { sessionStorage.setItem(noteKey, v) } catch (e) {}
+                    try { localStorage.setItem(noteKey, v) } catch (e) {}
+                } catch (e) {}
+            }
+
             const parseYmd = (ymd) => {
                 if (!ymd) return null
                 const [y, m, d] = String(ymd).split('-').map(Number)
@@ -485,17 +583,22 @@
 
             const calc = () => {
                 const cart = readCart()
-                const voucherCode = String(voucherInput?.value || readVoucher() || '').toUpperCase().trim()
+                const voucherCode = addMode ? '' : String(voucherInput?.value || readVoucher() || '').toUpperCase().trim()
 
                 const lines = []
+                const cartPayload = []
                 let subtotal = 0
-                for (const [id, row] of Object.entries(cart)) {
+                for (const [key, row] of Object.entries(cart)) {
                     const qty = Math.max(Number(row?.qty || 0), 0)
-                    const menu = menuMap.get(String(id))
-                    if (!menu || qty <= 0) continue
+                    if (qty <= 0) continue
+
+                    const parsed = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
+                    const menuId = String(parsed.menuId || '')
+                    const menu = menuMap.get(menuId)
+                    if (!menu) continue
 
                     const allowed = new Set(menu.addons.map(a => String(a.id)))
-                    const selectedAddonIds = (Array.isArray(row.addons) ? row.addons : []).map(String).filter(aId => allowed.has(aId))
+                    const selectedAddonIds = (Array.isArray(parsed.addons) ? parsed.addons : []).map(String).filter(aId => allowed.has(aId))
                     const selectedAddons = menu.addons.filter(a => selectedAddonIds.includes(String(a.id)))
                     const addonsTotal = selectedAddons.reduce((sum, a) => sum + Number(a.price || 0), 0)
 
@@ -504,7 +607,7 @@
                     subtotal += line
 
                     lines.push({
-                        id: String(id),
+                        id: String(key),
                         name: menu.name || labelMenu,
                         image: menu.image || '',
                         qty,
@@ -512,22 +615,42 @@
                         line,
                         addons: selectedAddons.map(a => ({ name: a.name, price: a.price })),
                     })
+
+                    cartPayload.push({
+                        menu_id: Number(menuId || 0),
+                        qty,
+                        addons: selectedAddonIds.map((v) => Number(v || 0)).filter((v) => v > 0),
+                    })
                 }
 
                 const code = String(voucherCode || '').toUpperCase().trim()
                 let discount = 0
                 let voucherOk = false
                 let voucherMessage = ''
-                if (code) {
-                    const d = diskonMap.get(code)
-                    const ok = !!d && !!d.active && isTodayWithin(d.start, d.end) && (d.min_subtotal == null || subtotal >= Number(d.min_subtotal))
+
+                const resolveDiskon = () => {
+                    if (addMode && existingDiskonId) {
+                        return diskonById.get(String(existingDiskonId)) || null
+                    }
+                    if (!addMode && code) {
+                        return diskonMap.get(code) || null
+                    }
+                    return null
+                }
+
+                const d = resolveDiskon()
+                if (d) {
+                    const ok = !!d.active && isTodayWithin(d.start, d.end) && (d.min_subtotal == null || subtotal >= Number(d.min_subtotal))
                     if (ok) {
-                        voucherOk = true
                         if (d.type === 'percent') discount = Math.max(subtotal * (Number(d.value || 0) / 100), 0)
                         else discount = Math.max(Number(d.value || 0), 0)
                         discount = Math.min(discount, subtotal)
-                        voucherMessage = labelVoucherApplied
-                    } else {
+
+                        if (!addMode && code) {
+                            voucherOk = true
+                            voucherMessage = labelVoucherApplied
+                        }
+                    } else if (!addMode && code) {
                         voucherOk = false
                         discount = 0
                         voucherMessage = labelInvalidVoucher
@@ -538,7 +661,7 @@
                 const tax = Math.max(taxable * (activeTaxPercent / 100), 0)
                 const total = taxable + tax
 
-                return { cart, voucherCode: code, lines, subtotal, discount, tax, total, voucherOk, voucherMessage }
+                return { cart, cartPayload, voucherCode: code, lines, subtotal, discount, tax, total, voucherOk, voucherMessage }
             }
 
             const render = () => {
@@ -610,10 +733,7 @@
             const openNameModal = () => {
                 checkoutError?.classList.add('hidden')
                 if (nameModal) nameModal.classList.remove('hidden')
-                try {
-                    const saved = (localStorage.getItem(nameKey) || '').trim()
-                    if (saved && customerName && !customerName.value) customerName.value = saved
-                } catch (e) {}
+                if (customerName) customerName.value = ''
                 setTimeout(() => customerName?.focus(), 50)
             }
 
@@ -634,26 +754,28 @@
             const submitOrder = async () => {
                 checkoutError?.classList.add('hidden')
 
-                const { cart, voucherCode, lines } = calc()
+                const { cartPayload, voucherCode, lines } = calc()
                 if (!lines.length) return
 
-                const name = String(customerName?.value || '').trim()
-                if (!name) {
-                    if (checkoutError) {
-                        checkoutError.textContent = @json(__('Please enter your name.'));
-                        checkoutError.classList.remove('hidden')
+                const name = addMode ? '' : String(customerName?.value || '').trim()
+                const note = String(noteInput?.value || readNote() || '').trim()
+                if (!addMode) {
+                    if (!name) {
+                        if (checkoutError) {
+                            checkoutError.textContent = @json(__('Please enter your name.'));
+                            checkoutError.classList.remove('hidden')
+                        }
+                        customerName?.focus()
+                        return
                     }
-                    customerName?.focus()
-                    return
                 }
 
-                try { localStorage.setItem(nameKey, name) } catch (e) {}
-
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                saveNameBtn?.setAttribute('disabled', 'disabled')
+                const busyBtn = addMode ? confirmCheckoutBtn : saveNameBtn
+                busyBtn?.setAttribute('disabled', 'disabled')
 
                 try {
-                    const res = await fetch(@json(route('customer.checkout.submit', ['token' => $token])), {
+                    const res = await fetch(@json($submitUrl), {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {
@@ -662,9 +784,10 @@
                             'X-CSRF-TOKEN': csrf,
                         },
                         body: JSON.stringify({
-                            cart,
+                            cart: cartPayload,
                             voucher: voucherCode,
                             customer_name: name,
+                            customer_note: note,
                         }),
                     })
 
@@ -673,6 +796,7 @@
                     if (res.ok && json && json.ok) {
                         writeCart({})
                         writeVoucher('')
+                        writeNote('')
                         window.location.href = json.redirect || @json(route('customer.status', ['token' => $token]));
                         return
                     }
@@ -682,22 +806,30 @@
                         return
                     }
 
-                    if (checkoutError) {
+                    if (checkoutError && !addMode) {
                         checkoutError.textContent = json?.message || labelSubmitFailed
                         checkoutError.classList.remove('hidden')
                     } else {
                         alert(json?.message || labelSubmitFailed)
                     }
                 } catch (e) {
-                    if (checkoutError) {
+                    if (checkoutError && !addMode) {
                         checkoutError.textContent = labelNetwork
                         checkoutError.classList.remove('hidden')
                     } else {
                         alert(labelNetwork)
                     }
                 } finally {
-                    saveNameBtn?.removeAttribute('disabled')
+                    busyBtn?.removeAttribute('disabled')
                 }
+            }
+
+            const confirm = () => {
+                if (addMode) {
+                    submitOrder()
+                    return
+                }
+                openNameModal()
             }
 
             window.CustomerCheckout = {
@@ -706,6 +838,7 @@
                 openNameModal,
                 closeNameModal,
                 submitOrder,
+                confirm,
             }
 
             voucherInput?.addEventListener('keydown', (e) => {
@@ -721,6 +854,17 @@
                     submitOrder()
                 }
             })
+
+            if (noteInput) {
+                const saved = readNote()
+                if (saved && !noteInput.value) noteInput.value = saved
+
+                let noteTimer = null
+                noteInput.addEventListener('input', () => {
+                    if (noteTimer) clearTimeout(noteTimer)
+                    noteTimer = setTimeout(() => writeNote(noteInput.value || ''), 250)
+                })
+            }
 
             render()
             window.addEventListener('pageshow', () => render())

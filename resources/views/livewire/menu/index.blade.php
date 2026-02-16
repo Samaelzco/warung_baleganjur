@@ -405,8 +405,67 @@ new class extends Component {
             </div>
         </div>
 
+        <!-- Tablet cards -->
+        <div class="hidden sm:block lg:hidden">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @forelse($items as $m)
+                    <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                @if ($m->gambar)
+                                    <img src="{{ Storage::url($m->gambar) }}" alt="img" class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800" />
+                                @else
+                                    <div class="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800"></div>
+                                @endif
+                                <div class="min-w-0">
+                                    <div class="truncate text-base font-semibold text-neutral-900 dark:text-white">{{ $m->nama_menu }}</div>
+                                    <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                        {{ $m->kategori?->nama_kategori ?? __('No category') }}
+                                    </div>
+                                    <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $m->created_at?->format('d M Y') }}</div>
+                                </div>
+                            </div>
+                            <span class="shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold
+                                {{ $m->status === 'tersedia'
+                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800/60'
+                                    : 'bg-red-50 text-red-700 ring-1 ring-red-100 dark:bg-red-900/40 dark:text-red-200 dark:ring-red-800/60' }}">
+                                <span class="h-2 w-2 rounded-full {{ $m->status === 'tersedia' ? 'bg-emerald-500' : 'bg-red-500' }}"></span>
+                                {{ $m->status === 'tersedia' ? __('Available') : __('Out of stock') }}
+                            </span>
+                        </div>
+
+                        <div class="mt-3 text-right text-sm font-semibold text-neutral-900 dark:text-white">
+                            Rp {{ number_format($m->harga, 0, ',', '.') }}
+                        </div>
+
+                        @if($m->deskripsi)
+                            <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                {{ \Illuminate\Support\Str::limit($m->deskripsi, 140) }}
+                            </div>
+                        @endif
+
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            @can('menu.manage')
+                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:modal.trigger name="confirm-delete-menu-desktop">
+                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
+                                </flux:modal.trigger>
+                            @endcan
+                        </div>
+                    </div>
+                @empty
+                    <div class="sm:col-span-2 rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
+                        {{ __('No data') }}
+                    </div>
+                @endforelse
+            </div>
+            <div class="mt-4">
+                {{ $items->links() }}
+            </div>
+        </div>
+
         <!-- desktop table -->
-        <div class="hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
+        <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm text-left">

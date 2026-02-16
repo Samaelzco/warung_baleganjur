@@ -98,6 +98,24 @@ select:focus[data-flux-control] {
 .btn-brand:hover { background: var(--brand-primary-hover); }
 .btn-brand:active { background: var(--brand-primary-active); }
 
+/* Kitchen: Updated badge (same layout as status badge) */
+.kitchen-updated-badge {
+    display: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    color: var(--brand-primary);
+    border: 1px solid color-mix(in srgb, var(--brand-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+}
+
+.kitchen-updated-dot {
+    background: var(--brand-primary);
+}
+
+.kitchen-order[data-kitchen-updated="1"] .kitchen-updated-badge {
+    display: inline-flex;
+}
+
 .btn-accent { background: var(--brand-accent); color: white; }
 .btn-accent:hover { background: var(--brand-accent-hover); }
 

@@ -15,7 +15,6 @@ class PesananDetail extends Model
         'qty',
         'harga',
         'subtotal',
-        'catatan',
     ];
 
     protected $casts = [

@@ -61,7 +61,6 @@ use Livewire\WithPagination;
 	                    'harga' => (float) $detail->harga,
 	                    'subtotal' => (float) $detail->subtotal,
 	                    'addons' => $detail->addons?->pluck('nama_addon')->all() ?? [],
-	                    'catatan' => $detail->catatan,
 	                ];
 	            })->toArray(),
 	        ];
@@ -199,6 +198,19 @@ use Livewire\WithPagination;
 
 <section class="w-full">
     @php
+            $detailGroupKey = function ($d) {
+                $addonSig = ($d->addons ?? collect())
+                    ->pluck('id')
+                    ->map(fn ($v) => (int) $v)
+                    ->filter(fn ($v) => $v > 0)
+                    ->sort()
+                    ->values()
+                    ->implode(',');
+                return (int) $d->menu_id . '|' . $addonSig;
+            };
+
+            $groupDetails = fn ($item) => ($item->details ?? collect())->groupBy($detailGroupKey);
+
 	        $query = Pesanan::with(['meja', 'details.menu', 'details.addons'])
 	            ->where('status', 'siap')
             ->where(function ($q) {
@@ -413,7 +425,7 @@ use Livewire\WithPagination;
                             </span>
                         </div>
 
-                        <div class="mt-3 text-sm text-neutral-700 dark:text-neutral-300">
+                        <div class="mt-3 text-right text-sm font-semibold text-neutral-900 dark:text-white">
                             Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}
                         </div>
 
@@ -427,12 +439,6 @@ use Livewire\WithPagination;
                                                 <div class="mt-0.5 text-xs text-neutral-600 dark:text-neutral-300">
                                                     <span class="text-neutral-500 dark:text-neutral-400">{{ __('Add-ons') }}:</span>
                                                     {{ $detail->addons->pluck('nama_addon')->join(', ') }}
-                                                </div>
-                                            @endif
-                                            @if ($detail->catatan)
-                                                <div class="mt-0.5 text-xs text-neutral-600 dark:text-neutral-300">
-                                                    <span class="text-neutral-500 dark:text-neutral-400">{{ __('Item note') }}:</span>
-                                                    {{ $detail->catatan }}
                                                 </div>
                                             @endif
                                         </div>
@@ -459,8 +465,90 @@ use Livewire\WithPagination;
             </div>
         </div>
 
+        <!-- Tablet cards -->
+        <div class="hidden sm:block lg:hidden">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @forelse ($items as $item)
+                    <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="h-12 w-12 rounded bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                                    <span class="text-xs font-semibold text-neutral-500 dark:text-neutral-300">{{ __('Pay') }}</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="truncate font-mono text-sm font-semibold text-neutral-900 dark:text-white">{{ $item->kode_pesanan }}</div>
+                                    <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                        {{ __('Table') }} {{ optional($item->meja)->nomor_meja ?? '-' }} · {{ $item->customer_name ?: __('Guest') }}
+                                    </div>
+                                    @if ($item->waktu_pesan)
+                                        <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Order Time') }} {{ $item->waktu_pesan->format('d M Y H:i') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <span class="shrink-0 inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100 dark:bg-cyan-900/40 dark:text-cyan-200 dark:ring-cyan-800/60">
+                                <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
+                                {{ __('Ready') }}
+                            </span>
+                        </div>
+
+                        <div class="mt-3 text-right text-sm font-semibold text-neutral-900 dark:text-white">
+                            Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}
+                        </div>
+
+                        <div class="mt-3 flex flex-1 flex-col rounded-xl border border-neutral-200/70 bg-neutral-50/50 p-3 text-sm dark:border-neutral-800/70 dark:bg-neutral-950/30">
+                            <div class="flex items-center justify-between gap-3 text-xs font-semibold tracking-wide text-neutral-500 dark:text-neutral-400">
+                                <span>{{ __('Items') }}</span>
+                                <span class="whitespace-nowrap">{{ (int) ($item->details?->sum('qty') ?? 0) }} {{ __('items') }}</span>
+                            </div>
+
+                            <div class="mt-2 flex-1 space-y-2 overflow-y-auto pr-2">
+                                @php
+                                    $detailGroups = $groupDetails($item);
+                                @endphp
+                                @foreach ($detailGroups as $group)
+                                    @php
+                                        $first = $group->first();
+                                        $qtySum = (int) $group->sum('qty');
+                                        $addonNames = $group->flatMap(fn ($d) => $d->addons?->pluck('nama_addon') ?? collect())->filter()->unique()->values();
+                                    @endphp
+
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="font-medium text-neutral-900 dark:text-white">
+                                                {{ optional($first?->menu)->nama_menu ?? __('Menu') }}
+                                                @if ($addonNames->isNotEmpty())
+                                                    <div class="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
+                                                        + {{ $addonNames->join(', ') }}
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="whitespace-nowrap text-sm font-semibold text-neutral-900 dark:text-white">x{{ $qtySum }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        @can('pembayaran.manage')
+                            <div class="mt-4 flex items-center gap-2">
+                                <flux:button size="sm" variant="primary" class="flex-1 btn-brand" wire:click="openPayModal({{ $item->id }})">{{ __('Pay') }}</flux:button>
+                            </div>
+                        @endcan
+                    </div>
+                @empty
+                    <div class="sm:col-span-2 rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
+                        {{ __('No data') }}
+                    </div>
+                @endforelse
+            </div>
+
+            <div class="mt-4">
+                {{ $items->links() }}
+            </div>
+        </div>
+
         <!-- Desktop table -->
-        <div class="hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
+        <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm text-left">
@@ -468,8 +556,8 @@ use Livewire\WithPagination;
                             <tr>
                                 <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Order') }}</th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Items') }}</th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Table') }}</th>
+                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Items') }}</th>
+                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Table') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Total') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
@@ -494,32 +582,32 @@ use Livewire\WithPagination;
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle">
-                                        <div class="space-y-1 text-sm">
-                                            @foreach (($item->details ?? collect())->take(3) as $detail)
+                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                        @php
+                                            $detailGroups = $groupDetails($item);
+                                        @endphp
+                                        <div class="max-h-28 space-y-1 overflow-y-auto pr-2 text-sm">
+                                            @foreach ($detailGroups as $group)
+                                                @php
+                                                    $first = $group->first();
+                                                    $qtySum = (int) $group->sum('qty');
+                                                    $addonNames = $group->flatMap(fn ($d) => $d->addons?->pluck('nama_addon') ?? collect())->filter()->unique()->values();
+                                                @endphp
                                                 <div class="flex items-start justify-between gap-3">
                                                     <span class="min-w-0 truncate text-neutral-900 dark:text-white">
-                                                        {{ optional($detail->menu)->nama_menu ?? __('Menu') }}
-                                                        @if ($detail->addons->isNotEmpty())
+                                                        {{ optional($first?->menu)->nama_menu ?? __('Menu') }}
+                                                        @if ($addonNames->isNotEmpty())
                                                             <span class="text-xs text-neutral-500 dark:text-neutral-400">
-                                                                (+{{ $detail->addons->pluck('nama_addon')->join(', ') }})
+                                                                (+{{ $addonNames->join(', ') }})
                                                             </span>
                                                         @endif
-                                                        @if ($detail->catatan)
-                                                            <span class="text-xs text-neutral-500 dark:text-neutral-400">({{ $detail->catatan }})</span>
-                                                        @endif
                                                     </span>
-                                                    <span class="whitespace-nowrap font-semibold text-neutral-900 dark:text-white">x{{ (int) $detail->qty }}</span>
+                                                    <span class="whitespace-nowrap font-semibold text-neutral-900 dark:text-white">x{{ $qtySum }}</span>
                                                 </div>
                                             @endforeach
-                                            @if (($item->details?->count() ?? 0) > 3)
-                                                <div class="text-xs text-neutral-500 dark:text-neutral-400">
-                                                    {{ __('and :count more…', ['count' => ($item->details?->count() ?? 0) - 3]) }}
-                                                </div>
-                                            @endif
                                         </div>
                                     </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle text-neutral-600 dark:text-neutral-300">
+                                    <td class="hidden md:table-cell px-6 py-4 align-middle text-neutral-600 dark:text-neutral-300">
                                         {{ optional($item->meja)->nomor_meja ?? '—' }}
                                     </td>
                                     <td class="px-6 py-4 align-middle">
@@ -625,9 +713,6 @@ use Livewire\WithPagination;
 	                                                                <div class="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
 	                                                                    + {{ collect($detail['addons'])->filter()->join(', ') }}
 	                                                                </div>
-	                                                            @endif
-	                                                            @if (!empty($detail['catatan']))
-	                                                                <div class="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">{{ $detail['catatan'] }}</div>
 	                                                            @endif
 	                                                        </td>
 	                                                        <td class="px-3 py-2 text-right text-neutral-700 dark:text-neutral-200">{{ (int) ($detail['qty'] ?? 0) }}</td>

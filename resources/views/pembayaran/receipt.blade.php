@@ -72,9 +72,6 @@
                     @if ($detail->addons->isNotEmpty())
                         <div class="muted xs">+ {{ $detail->addons->pluck('nama_addon')->join(', ') }}</div>
                     @endif
-                    @if(!blank($detail->catatan))
-                        <div class="muted xs">{{ $detail->catatan }}</div>
-                    @endif
                     <div class="muted xs">Rp {{ number_format((float) $detail->harga, 0, ',', '.') }}</div>
                 </td>
                 <td class="num">{{ (int) $detail->qty }}</td>

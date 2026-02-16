@@ -225,8 +225,40 @@ new class extends Component {
             </div>
         </div>
 
+        <!-- Tablet cards -->
+        <div class="hidden sm:block lg:hidden">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @forelse ($items as $k)
+                    <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="truncate text-base font-semibold text-neutral-900 dark:text-white">{{ $k->nama_kategori }}</div>
+                                <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $k->created_at?->format('d M Y') }}</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            @can('kategori.manage')
+                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $k->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:modal.trigger name="confirm-delete-kategori-desktop">
+                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
+                                </flux:modal.trigger>
+                            @endcan
+                        </div>
+                    </div>
+                @empty
+                    <div class="sm:col-span-2 rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
+                        {{ __('No data') }}
+                    </div>
+                @endforelse
+            </div>
+            <div class="mt-4">
+                {{ $items->links() }}
+            </div>
+        </div>
+
         <!-- Desktop table (match meja) -->
-        <div class="hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
+        <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm text-left">

@@ -365,8 +365,49 @@ new class extends Component {
             </div>
         </div>
 
+        <!-- Tablet cards -->
+        <div class="hidden sm:block lg:hidden">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @forelse ($items as $role)
+                    <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="truncate text-base font-semibold text-neutral-900 dark:text-white">{{ $role->name }}</div>
+                                <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                    {{ __('Permissions') }}: {{ (int) $role->permissions_count }}
+                                </div>
+                            </div>
+                            <span class="shrink-0 inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
+                                #{{ str_pad($role->id, 3, '0', STR_PAD_LEFT) }}
+                            </span>
+                        </div>
+
+                        @can('roles.manage')
+                            <div class="mt-4 grid grid-cols-2 gap-2">
+                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $role->id }})">
+                                    {{ __('Edit') }}
+                                </flux:button>
+                                <flux:modal.trigger name="confirm-delete-role-desktop">
+                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $role->id }})">
+                                        {{ __('Delete') }}
+                                    </flux:button>
+                                </flux:modal.trigger>
+                            </div>
+                        @endcan
+                    </div>
+                @empty
+                    <div class="sm:col-span-2 rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
+                        {{ __('No roles found.') }}
+                    </div>
+                @endforelse
+            </div>
+            <div class="mt-4">
+                {{ $items->links() }}
+            </div>
+        </div>
+
         <!-- Desktop table -->
-        <div class="hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
+        <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm text-left">

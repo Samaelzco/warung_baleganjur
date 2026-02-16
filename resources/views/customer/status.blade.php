@@ -226,6 +226,18 @@
             </div>
         </div>
 
+        @if($order && in_array($status, ['menunggu', 'diproses'], true))
+            <div class="flex justify-center">
+                <a
+                    href="{{ route('customer.order', ['token' => $token, 'add' => 1]) }}"
+                    class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]"
+                >
+                    <flux:icon icon="plus" class="size-4" />
+                    {{ __('Add more items') }}
+                </a>
+            </div>
+        @endif
+
         <div id="pollHint" class="text-center text-xs font-medium text-neutral-500 dark:text-neutral-400"></div>
     </div>
 
@@ -282,6 +294,15 @@
             if (submitted) {
                 setTimeout(() => toast(@json(__('Order sent to kitchen.'))), 80)
             }
+
+            try {
+                const url = new URL(window.location.href)
+                if (url.searchParams.get('noop') === '1') {
+                    setTimeout(() => toast(@json(__('No new items were added.'))), 80)
+                    url.searchParams.delete('noop')
+                    window.history.replaceState({}, '', url.toString())
+                }
+            } catch (e) {}
 
             const labelOrderFailed = @json(__('Order failed. Please place your order again.'));
             const redirectOrderUrl = @json(route('customer.order', ['token' => $token]));
@@ -372,8 +393,7 @@
                     }
                     remove(cartKey)
                     remove(voucherKey)
-                    // Keep name (optional) - uncomment if you want to reset name too
-                    // remove(nameKey)
+                    remove(nameKey)
 
                     statusEmpty?.classList.add('hidden')
                     statusCard?.classList.add('hidden')
@@ -404,12 +424,14 @@
                         // Clear draft states to avoid confusion
                         const cartKey = token ? `customerCart:${token}` : 'customerCart'
                         const voucherKey = token ? `customerVoucher:${token}` : 'customerVoucher'
+                        const nameKey = token ? `customerName:${token}` : 'customerName'
                         const remove = (k) => {
                             try { sessionStorage.removeItem(k) } catch (e) {}
                             try { localStorage.removeItem(k) } catch (e) {}
                         }
                         remove(cartKey)
                         remove(voucherKey)
+                        remove(nameKey)
 
                         setTimeout(() => {
                             window.location.href = redirectOrderUrl

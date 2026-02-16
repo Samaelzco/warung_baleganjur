@@ -368,8 +368,99 @@ new class extends Component {
             </div>
         </div>
 
+        <!-- Tablet cards -->
+        <div class="hidden sm:block lg:hidden">
+            <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                @forelse($items as $d)
+                    <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="truncate font-mono text-sm font-semibold text-neutral-900 dark:text-white">
+                                    {{ $d->kode }}
+                                </div>
+                                <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                    @if($d->tipe === 'percent')
+                                        -{{ number_format($d->nilai, 2) }}%
+                                    @else
+                                        -Rp {{ number_format($d->nilai, 0, ',', '.') }}
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="shrink-0">
+                                @if($d->is_active)
+                                    <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-100 dark:ring-emerald-800/60">
+                                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        {{ __('Active') }}
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-semibold text-neutral-600 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-200 dark:ring-neutral-700">
+                                        <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
+                                        {{ __('Inactive') }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="mt-3 space-y-1 text-xs text-neutral-500 dark:text-neutral-400">
+                            @if($d->min_subtotal !== null)
+                                <p>{{ __('Min. subtotal') }}: Rp {{ number_format($d->min_subtotal, 0, ',', '.') }}</p>
+                            @endif
+                            @php
+                                $start = $d->tanggal_mulai;
+                                $end   = $d->tanggal_selesai;
+                            @endphp
+                            <p>
+                                {{ __('Validity') }}:
+                                @if($start && $end)
+                                    {{ $start->format('d M Y') }} - {{ $end->format('d M Y') }}
+                                @elseif($start)
+                                    {{ __('From') }} {{ $start->format('d M Y') }}
+                                @elseif($end)
+                                    {{ __('Until') }} {{ $end->format('d M Y') }}
+                                @else
+                                    {{ __('No date limit') }}
+                                @endif
+                            </p>
+                        </div>
+
+                        @can('diskon.manage')
+                            <div class="mt-4 grid grid-cols-2 gap-2">
+                                <flux:button
+                                    size="sm"
+                                    icon="pencil-square"
+                                    variant="primary"
+                                    class="w-full btn-accent"
+                                    wire:click="openEditModal({{ $d->id }})"
+                                >
+                                    {{ __('Edit') }}
+                                </flux:button>
+                                <flux:modal.trigger name="confirm-delete-diskon-desktop">
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="w-full"
+                                        wire:click="confirmDelete({{ $d->id }})"
+                                    >
+                                        {{ __('Delete') }}
+                                    </flux:button>
+                                </flux:modal.trigger>
+                            </div>
+                        @endcan
+                    </div>
+                @empty
+                    <div class="sm:col-span-2 rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
+                        {{ __('No data') }}
+                    </div>
+                @endforelse
+            </div>
+            <div class="mt-4">
+                {{ $items->links() }}
+            </div>
+        </div>
+
         <!-- Desktop table -->
-        <div class="mt-2 hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
+        <div class="mt-2 hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm text-left">

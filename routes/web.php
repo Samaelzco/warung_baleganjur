@@ -353,6 +353,7 @@ Route::get('{token}/cart', function (\Illuminate\Http\Request $request, string $
 
 Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, string $token) {
     $token = \Illuminate\Support\Str::upper($token);
+    $addMode = (bool) $request->boolean('add');
 
     $meja = \App\Models\Meja::query()
         ->select(['id', 'nomor_meja', 'qr_token'])
@@ -360,6 +361,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
         ->firstOrFail();
 
     $order = \App\Models\Pesanan::query()
+        ->select(['id', 'meja_id', 'status', 'subtotal', 'discount_total', 'tax_total', 'total_harga', 'diskon_id', 'pajak_id', 'customer_name'])
         ->where('meja_id', $meja->id)
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
         ->where(function ($q) {
@@ -368,8 +370,12 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
         ->orderByDesc('waktu_pesan')
         ->first();
 
-    if ($order) {
+    if ($order && !$addMode) {
         return redirect()->route('customer.status', ['token' => $token]);
+    }
+
+    if (!$order) {
+        $addMode = false;
     }
 
     $menus = \App\Models\Menu::query()
@@ -393,6 +399,8 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
     return view('customer.checkout', [
         'token' => $token,
         'meja' => $meja,
+        'order' => $order,
+        'addMode' => $addMode,
         'menus' => $menus,
         'diskons' => $diskons,
         'taxes' => $taxes,
@@ -403,6 +411,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
 
 Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $request, string $token) {
     $token = \Illuminate\Support\Str::upper($token);
+    $addMode = (bool) $request->boolean('add');
 
     $meja = \App\Models\Meja::query()
         ->select(['id', 'nomor_meja', 'qr_token'])
@@ -418,7 +427,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         ->orderByDesc('waktu_pesan')
         ->first();
 
-    if ($existing) {
+    if ($existing && !$addMode) {
         return response()->json([
             'ok' => false,
             'message' => __('An order is already in progress for this table.'),
@@ -430,19 +439,49 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         'cart' => $request->input('cart', null),
         'voucher' => $request->input('voucher', null),
         'customer_name' => $request->input('customer_name', null),
+        'customer_note' => $request->input('customer_note', null),
     ], [
         'cart' => ['required', 'array', 'min:1'],
         'cart.*.qty' => ['required', 'integer', 'min:1'],
         'cart.*.addons' => ['nullable', 'array'],
         'cart.*.addons.*' => ['integer', 'exists:addons,id'],
+        'cart.*.menu_id' => ['nullable', 'integer', 'exists:menus,id'],
         'voucher' => ['nullable', 'string', 'max:50'],
         'customer_name' => ['nullable', 'string', 'max:100'],
+        'customer_note' => ['nullable', 'string', 'max:255'],
     ])->validate();
 
-    $cart = $data['cart'];
+    $rawCart = $data['cart'];
     $voucherCode = strtoupper(trim((string) ($data['voucher'] ?? '')));
 
-    $menuIds = collect(array_keys($cart))->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
+    $cartLines = [];
+    if (is_array($rawCart) && array_is_list($rawCart)) {
+        foreach ($rawCart as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $menuId = (int) ($row['menu_id'] ?? 0);
+            $qty = (int) ($row['qty'] ?? 0);
+            $addons = (array) ($row['addons'] ?? []);
+            if ($menuId > 0 && $qty > 0) {
+                $cartLines[] = ['menu_id' => $menuId, 'qty' => $qty, 'addons' => $addons];
+            }
+        }
+    } else {
+        foreach ((array) $rawCart as $menuIdRaw => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $menuId = (int) $menuIdRaw;
+            $qty = (int) ($row['qty'] ?? 0);
+            $addons = (array) ($row['addons'] ?? []);
+            if ($menuId > 0 && $qty > 0) {
+                $cartLines[] = ['menu_id' => $menuId, 'qty' => $qty, 'addons' => $addons];
+            }
+        }
+    }
+
+    $menuIds = collect($cartLines)->pluck('menu_id')->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
     $menus = \App\Models\Menu::query()
         ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
         ->whereIn('id', $menuIds)
@@ -451,8 +490,8 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         ->keyBy('id');
 
     $items = [];
-    foreach ($cart as $menuIdRaw => $row) {
-        $menuId = (int) $menuIdRaw;
+    foreach ($cartLines as $row) {
+        $menuId = (int) ($row['menu_id'] ?? 0);
         $qty = (int) ($row['qty'] ?? 0);
         if ($menuId <= 0 || $qty <= 0 || !$menus->has($menuId)) {
             continue;
@@ -492,7 +531,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     // Voucher (Diskon)
     $diskon = null;
     $discountTotal = 0.0;
-    if ($voucherCode !== '') {
+    if ($voucherCode !== '' && !($existing && $addMode)) {
         $diskon = \App\Models\Diskon::query()
             ->where('is_active', true)
             ->where('kode', $voucherCode)
@@ -532,8 +571,17 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     $total = max($baseAfterDiscount + $taxTotal, 0);
 
     $customerName = trim((string) ($data['customer_name'] ?? ''));
-    if ($customerName === '') {
+    if ($customerName === '' && !($existing && $addMode)) {
         $customerName = __('Guest');
+    }
+
+    $customerNote = (string) ($data['customer_note'] ?? '');
+    $customerNote = str_replace(["\r\n", "\r"], "\n", $customerNote);
+    $customerNote = trim($customerNote);
+    if ($customerNote !== '') {
+        $customerNote = \Illuminate\Support\Str::substr($customerNote, 0, 255);
+    } else {
+        $customerNote = null;
     }
 
     $pajakId = null;
@@ -542,12 +590,202 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     }
 
     $pesananId = null;
-    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $items, $subtotal, $discountTotal, $taxTotal, $total, $diskon, $pajakId, $customerName, &$pesananId) {
+    $noDelta = false;
+
+    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $existing, $addMode, $items, $subtotal, $discountTotal, $taxes, $taxPercent, $taxTotal, $total, $diskon, $pajakId, $customerName, $customerNote, &$pesananId, &$noDelta) {
+        if ($existing && $addMode) {
+            $pesanan = \App\Models\Pesanan::query()
+                ->whereKey((int) $existing->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $sigFromIds = static function (array $ids): string {
+                $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
+                sort($ids);
+                return implode(',', $ids);
+            };
+
+            $existingDetails = $pesanan->details()->with(['addons:id'])->get();
+            $existingQtyByKey = $existingDetails
+                ->groupBy(function ($d) use ($sigFromIds) {
+                    $addonIds = $d->addons?->pluck('id')?->all() ?? [];
+                    return (int) $d->menu_id . ':' . $sigFromIds($addonIds);
+                })
+                ->map(fn ($rows) => (int) $rows->sum('qty'));
+
+            $deltaItems = [];
+            foreach ($items as $item) {
+                $menuId = (int) $item['menu_id'];
+                $desiredQty = (int) $item['qty'];
+                $addonSig = $sigFromIds($item['addon_ids'] ?? []);
+                $key = $menuId . ':' . $addonSig;
+                $existingQty = (int) ($existingQtyByKey[$key] ?? 0);
+                $deltaQty = max($desiredQty - $existingQty, 0);
+                if ($deltaQty <= 0) {
+                    continue;
+                }
+
+                $deltaItems[] = [
+                    'menu_id' => $menuId,
+                    'qty' => $deltaQty,
+                    'harga' => (float) $item['harga'],
+                    'subtotal' => $deltaQty * (float) $item['harga'],
+                    'addon_ids' => $item['addon_ids'] ?? [],
+                ];
+            }
+
+            if (empty($deltaItems)) {
+                $noDelta = true;
+                $pesananId = $pesanan->id;
+                return;
+            }
+
+            $allAddonIds = collect($deltaItems)->pluck('addon_ids')->flatten()->filter()->unique()->values()->all();
+            $addons = \App\Models\Addon::query()
+                ->select(['id', 'harga'])
+                ->whereIn('id', $allAddonIds)
+                ->get()
+                ->keyBy('id');
+
+            $detailRows = $existingDetails;
+            $sig = static function (array $ids): string {
+                $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
+                sort($ids);
+                return implode(',', $ids);
+            };
+
+            foreach ($deltaItems as $item) {
+                $addonIds = $item['addon_ids'] ?? [];
+                $targetSig = $sig($addonIds);
+
+                $match = $detailRows->first(function ($d) use ($item, $sig, $targetSig) {
+                    if ((int) $d->menu_id !== (int) $item['menu_id']) {
+                        return false;
+                    }
+
+                    $currentSig = $sig($d->addons?->pluck('id')?->all() ?? []);
+                    return $currentSig === $targetSig;
+                });
+
+                if ($match) {
+                    $currentQty = (int) $match->qty;
+                    $deltaQty = (int) $item['qty'];
+                    $unit = (float) ($match->harga ?? 0);
+                    if ($unit <= 0) {
+                        $unit = (float) $item['harga'];
+                    }
+
+                    $nextQty = max($currentQty + $deltaQty, 0);
+                    $match->forceFill([
+                        'qty' => $nextQty,
+                        'harga' => $unit,
+                        'subtotal' => $nextQty * $unit,
+                    ])->save();
+
+                    continue;
+                }
+
+                $detail = $pesanan->details()->create([
+                    'menu_id' => $item['menu_id'],
+                    'qty' => $item['qty'],
+                    'harga' => $item['harga'],
+                    'subtotal' => $item['subtotal'],
+                ]);
+
+                if (!empty($addonIds)) {
+                    $sync = [];
+                    foreach ($addonIds as $addonId) {
+                        if ($addons->has($addonId)) {
+                            $sync[$addonId] = ['harga' => (float) $addons[$addonId]->harga];
+                        }
+                    }
+                    if (!empty($sync)) {
+                        $detail->addons()->sync($sync);
+                    }
+                }
+
+                $detailRows->push($detail);
+            }
+
+            $newSubtotal = (float) $pesanan->details()->sum('subtotal');
+
+            // Keep existing discount rule; recompute amount based on new subtotal.
+            $newDiskonId = $pesanan->diskon_id;
+            $newDiscountTotal = 0.0;
+            if ($newDiskonId) {
+                $diskon = \App\Models\Diskon::query()
+                    ->whereKey((int) $newDiskonId)
+                    ->where('is_active', true)
+                    ->first();
+
+                $today = now()->toDateString();
+                if (
+                    !$diskon ||
+                    ($diskon->tanggal_mulai && $diskon->tanggal_mulai->toDateString() > $today) ||
+                    ($diskon->tanggal_selesai && $diskon->tanggal_selesai->toDateString() < $today) ||
+                    ($diskon->min_subtotal !== null && $newSubtotal < (float) $diskon->min_subtotal)
+                ) {
+                    $diskon = null;
+                }
+
+                if ($diskon) {
+                    if ($diskon->tipe === 'percent') {
+                        $newDiscountTotal = max($newSubtotal * ((float) $diskon->nilai / 100), 0);
+                    } else {
+                        $newDiscountTotal = max((float) $diskon->nilai, 0);
+                    }
+                    $newDiscountTotal = min($newDiscountTotal, $newSubtotal);
+                } else {
+                    $newDiskonId = null;
+                }
+            }
+
+            $baseAfterDiscount = max($newSubtotal - $newDiscountTotal, 0);
+            $newTaxTotal = max($baseAfterDiscount * ($taxPercent / 100), 0);
+            $newTotal = max($baseAfterDiscount + $newTaxTotal, 0);
+
+            $status = (string) $pesanan->status;
+            if ($status === 'siap') {
+                $status = 'diproses';
+            }
+
+            $update = [
+                'subtotal' => $newSubtotal,
+                'discount_total' => max($newDiscountTotal, 0),
+                'tax_total' => max($newTaxTotal, 0),
+                'total_harga' => $newTotal,
+                'diskon_id' => $newDiskonId,
+                'pajak_id' => $pajakId,
+                'status' => $status,
+            ];
+
+            if ($customerName !== '') {
+                $update['customer_name'] = $customerName;
+            }
+
+            if ($customerNote) {
+                $existingNote = trim((string) ($pesanan->customer_note ?? ''));
+                if ($existingNote === '') {
+                    $update['customer_note'] = $customerNote;
+                } else {
+                    $same = mb_strtolower($existingNote) === mb_strtolower($customerNote);
+                    if (!$same && !str_contains($existingNote, $customerNote)) {
+                        $combined = trim($existingNote . "\n\n" . $customerNote);
+                        $update['customer_note'] = \Illuminate\Support\Str::substr($combined, 0, 255);
+                    }
+                }
+            }
+
+            $pesanan->forceFill($update)->save();
+            $pesananId = $pesanan->id;
+            return;
+        }
+
         $pesanan = \App\Models\Pesanan::create([
             'meja_id' => $meja->id,
             'kode_pesanan' => 'ORD-' . now()->format('YmdHis'),
             'customer_name' => $customerName,
-            'customer_note' => null,
+            'customer_note' => $customerNote,
             'subtotal' => $subtotal,
             'discount_total' => max($discountTotal, 0),
             'tax_total' => max($taxTotal, 0),
@@ -579,7 +817,6 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
                 'qty' => $item['qty'],
                 'harga' => $item['harga'],
                 'subtotal' => $item['subtotal'],
-                'catatan' => null,
             ]);
 
             $addonIds = $item['addon_ids'] ?? [];
@@ -596,6 +833,19 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
             }
         }
     });
+
+    if ($existing && $addMode && $noDelta) {
+        // No net changes (user added then reverted). Don't fail silently—return to status with a hint.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'redirect' => route('customer.status', ['token' => $token, 'noop' => 1]),
+                'order_id' => $existing->id,
+            ]);
+        }
+
+        return redirect()->route('customer.status', ['token' => $token, 'noop' => 1]);
+    }
 
     session()->put('customer_order_submitted_' . $token, true);
     session()->put('customer_last_order_id_' . $token, $pesananId);
@@ -693,24 +943,41 @@ Route::get('{token}/status.json', function (string $token) {
             'paid_at' => $paidOrder->waktu_selesai?->toIso8601String(),
         ] : null,
         'redirect' => $paid ? route('customer.order', ['token' => $token]) : null,
-        'order' => $active ? [
-            'id' => (int) $active->id,
-            'kode_pesanan' => (string) $active->kode_pesanan,
-            'status' => (string) $active->status,
-            'subtotal' => (float) ($active->subtotal ?? 0),
-            'discount_total' => (float) ($active->discount_total ?? 0),
-            'tax_total' => (float) ($active->tax_total ?? 0),
-            'total_harga' => (float) ($active->total_harga ?? 0),
-            'items' => $active->details->map(function ($d) {
-                return [
-                    'menu' => (string) ($d->menu?->nama_menu ?? __('Menu')),
-                    'qty' => (int) $d->qty,
-                    'subtotal' => (float) $d->subtotal,
-                    'addons' => $d->addons->map(fn ($a) => (string) $a->nama_addon_localized)->values()->all(),
-                ];
-            })->values()->all(),
-        ] : null,
-    ], 200, [
+         'order' => $active ? [
+             'id' => (int) $active->id,
+             'kode_pesanan' => (string) $active->kode_pesanan,
+             'status' => (string) $active->status,
+             'subtotal' => (float) ($active->subtotal ?? 0),
+             'discount_total' => (float) ($active->discount_total ?? 0),
+             'tax_total' => (float) ($active->tax_total ?? 0),
+             'total_harga' => (float) ($active->total_harga ?? 0),
+             'items' => $active->details
+                ->groupBy(function ($d) {
+                    $ids = $d->addons?->pluck('id')?->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)->unique()->sort()->values()->all() ?? [];
+                    return (int) $d->menu_id . ':' . implode(',', $ids);
+                })
+                ->map(function ($rows) {
+                     $first = $rows->first();
+                     $addons = $first?->addons
+                         ? $first->addons->map(fn ($a) => (string) $a->nama_addon_localized)->filter()->values()->all()
+                         : [];
+ 
+                     return [
+                         'menu' => (string) ($first?->menu?->nama_menu_localized ?? __('Menu')),
+                         'qty' => (int) $rows->sum('qty'),
+                         'subtotal' => (float) $rows->sum('subtotal'),
+                         'addons' => $addons,
+                     ];
+                 })
+                ->sortBy(function ($row) {
+                    $menu = strtolower((string) ($row['menu'] ?? ''));
+                    $addons = strtolower(implode(',', (array) ($row['addons'] ?? [])));
+                    return $menu . '|' . $addons;
+                })
+                 ->values()
+                 ->all(),
+         ] : null,
+     ], 200, [
         'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
     ]);
 })
@@ -719,13 +986,15 @@ Route::get('{token}/status.json', function (string $token) {
 
 Route::get('{token}', function (\Illuminate\Http\Request $request, string $token) {
     $token = \Illuminate\Support\Str::upper($token);
+    $addMode = (bool) $request->boolean('add');
 
     $meja = \App\Models\Meja::query()
         ->select(['id', 'nomor_meja', 'qr_token'])
         ->where('qr_token', $token)
         ->firstOrFail();
 
-    $order = \App\Models\Pesanan::query()
+    $orderQuery = \App\Models\Pesanan::query()
+        ->when($addMode, fn ($q) => $q->with(['details.addons:id']))
         ->where('meja_id', $meja->id)
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
         ->where(function ($q) {
@@ -734,8 +1003,14 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
         ->orderByDesc('waktu_pesan')
         ->first();
 
-    if ($order) {
+    $order = $orderQuery;
+
+    if ($order && !$addMode) {
         return redirect()->route('customer.status', ['token' => $token]);
+    }
+
+    if (!$order) {
+        $addMode = false;
     }
 
     $categories = \App\Models\KategoriMenu::query()
@@ -754,10 +1029,40 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
         ->orderBy('nama_menu')
         ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
 
+    $baselineCart = [];
+    $baselineMinQty = [];
+    if ($order && $addMode) {
+        $sig = static function (\App\Models\PesananDetail $d): string {
+            $ids = $d->addons?->pluck('id')?->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)->unique()->sort()->values()->all() ?? [];
+            return (int) $d->menu_id . ':' . implode(',', $ids);
+        };
+
+        $groups = $order->details->groupBy($sig);
+        foreach ($groups as $key => $rows) {
+            $key = (string) $key;
+            $qty = (int) $rows->sum('qty');
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $first = $rows->first();
+            $addonIds = $first?->addons?->pluck('id')?->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)->unique()->sort()->values()->all() ?? [];
+
+            $baselineCart[$key] = [
+                'qty' => $qty,
+                'addons' => $addonIds,
+            ];
+            $baselineMinQty[$key] = $qty;
+        }
+    }
+
     return view('customer.order', [
         'token' => $token,
         'meja' => $meja,
         'order' => $order,
+        'addMode' => $addMode,
+        'baselineCart' => $baselineCart,
+        'baselineMinQty' => $baselineMinQty,
         'categories' => $categories,
         'menus' => $menus,
     ]);

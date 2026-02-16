@@ -182,8 +182,16 @@ document.addEventListener('alpine:init', () => {
                 this.play();
             };
 
+            const onOrderUpdated = () => {
+                if (!this.enabled) return;
+                this.play();
+            };
+
             window.addEventListener('kitchen-new-order', onNewOrder);
             document.addEventListener('kitchen-new-order', onNewOrder);
+
+            window.addEventListener('kitchen-order-updated', onOrderUpdated);
+            document.addEventListener('kitchen-order-updated', onOrderUpdated);
         },
         async toggle() {
             this.enabled = !this.enabled;
@@ -201,6 +209,130 @@ document.addEventListener('alpine:init', () => {
                 const res = audio.play();
                 if (res?.catch) res.catch(() => {});
             } catch (_) {}
+        },
+    }));
+
+    Alpine.data('kitchenOrderChanges', () => ({
+        fingerprints: new Map(),
+        updatedIds: new Set(),
+        initialized: false,
+        scanQueued: false,
+        lastToastAt: 0,
+        observer: null,
+        init() {
+            try {
+                const raw = sessionStorage.getItem('kitchenUpdatedIds');
+                if (raw) {
+                    JSON.parse(raw).forEach((id) => this.updatedIds.add(String(id)));
+                }
+            } catch (_) {}
+
+            const handler = () => this.queueScan();
+
+            window.addEventListener('kitchen-new-order', handler);
+            document.addEventListener('kitchen-new-order', handler);
+            window.addEventListener('kitchen-poll-tick', handler);
+            document.addEventListener('kitchen-poll-tick', handler);
+
+            this.observer = new MutationObserver(() => this.queueScan());
+            this.observer.observe(this.$el, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                attributeFilter: ['data-order-fp', 'data-order-id', 'data-order-code'],
+            });
+
+            this.queueScan();
+        },
+        toast(message) {
+            const now = Date.now();
+            if (now - this.lastToastAt < 900) return;
+            this.lastToastAt = now;
+            window.dispatchEvent(new CustomEvent('kitchen-toast', { detail: { message } }));
+        },
+        markUpdated(el) {
+            el.setAttribute('data-kitchen-updated', '1');
+        },
+        scan() {
+            const orderEls = this.$el.querySelectorAll('[data-kitchen-order][data-order-id][data-order-fp]');
+            const byId = new Map();
+
+            orderEls.forEach((el) => {
+                const id = String(el.getAttribute('data-order-id') || '');
+                const fp = String(el.getAttribute('data-order-fp') || '');
+                const code = String(el.getAttribute('data-order-code') || '');
+                if (!id || !fp) return;
+
+                const existing = byId.get(id);
+                if (existing) {
+                    existing.els.push(el);
+                    return;
+                }
+
+                byId.set(id, { fp, code, els: [el] });
+            });
+
+            const seen = new Set(byId.keys());
+            const changed = [];
+            const created = [];
+
+            // Re-apply permanent "Updated" badge after Livewire DOM morphs.
+            for (const [id, data] of byId.entries()) {
+                if (this.updatedIds.has(id)) {
+                    data.els.forEach((el) => this.markUpdated(el));
+                }
+            }
+
+            for (const [id, data] of byId.entries()) {
+                const prev = this.fingerprints.get(id);
+                this.fingerprints.set(id, data.fp);
+
+                if (!this.initialized) continue;
+
+                if (prev === undefined) {
+                    created.push(data.code || `#${id}`);
+                    this.updatedIds.add(id);
+                    data.els.forEach((el) => this.markUpdated(el));
+                    continue;
+                }
+
+                if (prev !== data.fp) {
+                    changed.push(data.code || `#${id}`);
+                    this.updatedIds.add(id);
+                    data.els.forEach((el) => this.markUpdated(el));
+                }
+            }
+
+            for (const id of Array.from(this.fingerprints.keys())) {
+                if (!seen.has(id)) this.fingerprints.delete(id);
+            }
+
+            if (!this.initialized) {
+                this.initialized = true;
+                return;
+            }
+
+            try {
+                sessionStorage.setItem('kitchenUpdatedIds', JSON.stringify(Array.from(this.updatedIds)));
+            } catch (_) {}
+
+            if (created.length === 1) this.toast(`${this.$el.dataset.newOrderLabel || 'New order'}: ${created[0]}`);
+            else if (created.length > 1) this.toast(`${created.length} ${this.$el.dataset.newOrdersLabel || 'new orders'}`);
+
+            if (changed.length === 1) this.toast(`${this.$el.dataset.orderUpdatedLabel || 'Order updated'}: ${changed[0]}`);
+            else if (changed.length > 1) this.toast(`${changed.length} ${this.$el.dataset.ordersUpdatedLabel || 'orders updated'}`);
+
+            if (changed.length > 0) {
+                window.dispatchEvent(new CustomEvent('kitchen-order-updated', { detail: { orders: changed } }));
+            }
+        },
+        queueScan() {
+            if (this.scanQueued) return;
+            this.scanQueued = true;
+            requestAnimationFrame(() => {
+                this.scanQueued = false;
+                this.scan();
+            });
         },
     }));
 

@@ -157,7 +157,6 @@
 
             const token = root.getAttribute('data-table-token') || ''
             const storageKey = token ? `customerCart:${token}` : 'customerCart'
-            const nameKey = token ? `customerName:${token}` : 'customerName'
 
             const cartItems = document.getElementById('cartItems')
             const cartFooter = document.getElementById('cartFooter')
@@ -373,9 +372,7 @@
             const openNameModal = () => {
                 nameModal?.classList.remove('hidden')
                 document.body.style.overflow = 'hidden'
-                try {
-                    customerName.value = localStorage.getItem(nameKey) || ''
-                } catch (e) {}
+                if (customerName) customerName.value = ''
                 setTimeout(() => customerName?.focus(), 50)
             }
 
@@ -385,9 +382,6 @@
 
             saveNameBtn?.addEventListener('click', () => {
                 const name = (customerName?.value || '').trim()
-                try {
-                    localStorage.setItem(nameKey, name)
-                } catch (e) {}
 
                 nameModal?.classList.add('hidden')
                 document.body.style.overflow = ''

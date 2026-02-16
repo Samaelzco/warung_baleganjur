@@ -81,7 +81,6 @@ new class extends Component {
                 'harga' => (float) $detail->harga,
                 'subtotal' => (float) $detail->subtotal,
                 'addon_ids' => $detail->addons->pluck('id')->all(),
-                'catatan' => $detail->catatan,
             ];
         })->toArray();
 
@@ -115,7 +114,6 @@ new class extends Component {
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.addon_ids' => ['nullable', 'array'],
             'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
-            'items.*.catatan' => ['nullable', 'string'],
         ])->validate();
 
         if (empty($validated['kode_pesanan'])) {
@@ -169,7 +167,6 @@ new class extends Component {
                     'qty' => $item['qty'],
                     'harga' => $item['harga'],
                     'subtotal' => $item['subtotal'],
-                    'catatan' => $item['catatan'] ?? null,
                 ]);
 
                 $addonIds = $item['addon_ids'] ?? [];
@@ -226,7 +223,6 @@ new class extends Component {
             'items.*.qty' => ['required', 'integer', 'min:1'],
             'items.*.addon_ids' => ['nullable', 'array'],
             'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
-            'items.*.catatan' => ['nullable', 'string'],
         ])->validate();
 
         $pesanan = Pesanan::findOrFail($this->editingId);
@@ -341,7 +337,6 @@ new class extends Component {
                     'qty' => $item['qty'],
                     'harga' => $item['harga'],
                     'subtotal' => $item['subtotal'],
-                    'catatan' => $item['catatan'] ?? null,
                 ];
 
                 if (!empty($item['id']) && $existingDetails->has($item['id'])) {
@@ -434,7 +429,6 @@ new class extends Component {
             'harga' => 0,
             'subtotal' => 0,
             'addon_ids' => [],
-            'catatan' => '',
         ];
     }
 
@@ -564,7 +558,6 @@ new class extends Component {
                 'harga' => $harga,
                 'subtotal' => $qty * $harga,
                 'addon_ids' => $addonIds,
-                'catatan' => $item['catatan'] ?? null,
             ];
         }
 
@@ -1318,8 +1311,6 @@ new class extends Component {
                                                         <span class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}</span>
                                                     </div>
 
-                                                    <flux:input wire:model.defer="orderItems.{{ $index }}.catatan" size="sm" :label="__('Note')" class="w-full" placeholder="{{ __('Optional') }}" />
-
                                                     <div class="flex justify-end">
                                                         <flux:button type="button" size="xs" variant="ghost" icon="trash" class="btn-ghost-danger" wire:click="removeItem({{ $index }})">
                                                             {{ __('Remove') }}
@@ -1346,9 +1337,6 @@ new class extends Component {
                                                         </th>
                                                         <th class="w-2/12 px-2 py-1 text-right font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
                                                             {{ __('Subtotal') }}
-                                                        </th>
-                                                        <th class="w-2/12 px-2 py-1 text-left font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-                                                            {{ __('Note') }}
                                                         </th>
                                                         <th class="w-1/12 px-2 py-1"></th>
                                                     </tr>
@@ -1414,14 +1402,6 @@ new class extends Component {
                                                                     size="sm"
                                                                     class="w-full text-right"
                                                                     readonly
-                                                                />
-                                                            </td>
-                                                            <td class="px-2 py-2">
-                                                                <flux:input
-                                                                    wire:model.defer="orderItems.{{ $index }}.catatan"
-                                                                    size="sm"
-                                                                    class="w-full"
-                                                                    placeholder="{{ __('Optional') }}"
                                                                 />
                                                             </td>
                                                             <td class="px-2 py-2 text-right">
@@ -1662,8 +1642,6 @@ new class extends Component {
                                                         <span class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) ($item['subtotal'] ?? 0), 0, ',', '.') }}</span>
                                                     </div>
 
-                                                    <flux:input wire:model.defer="orderItems.{{ $index }}.catatan" size="sm" :label="__('Note')" class="w-full" placeholder="{{ __('Optional') }}" />
-
                                                     <div class="flex justify-end">
                                                         <flux:button type="button" size="xs" variant="ghost" icon="trash" class="btn-ghost-danger" wire:click="removeItem({{ $index }})">
                                                             {{ __('Remove') }}
@@ -1690,9 +1668,6 @@ new class extends Component {
                                                         </th>
                                                         <th class="w-2/12 px-2 py-1 text-right font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
                                                             {{ __('Subtotal') }}
-                                                        </th>
-                                                        <th class="w-2/12 px-2 py-1 text-left font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-                                                            {{ __('Note') }}
                                                         </th>
                                                         <th class="w-1/12 px-2 py-1"></th>
                                                     </tr>
@@ -1758,14 +1733,6 @@ new class extends Component {
                                                                     size="sm"
                                                                     class="w-full text-right"
                                                                     readonly
-                                                                />
-                                                            </td>
-                                                            <td class="px-2 py-2">
-                                                                <flux:input
-                                                                    wire:model.defer="orderItems.{{ $index }}.catatan"
-                                                                    size="sm"
-                                                                    class="w-full"
-                                                                    placeholder="{{ __('Optional') }}"
                                                                 />
                                                             </td>
                                                             <td class="px-2 py-2 text-right">

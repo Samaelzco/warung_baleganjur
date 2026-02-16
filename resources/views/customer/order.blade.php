@@ -36,7 +36,7 @@
             ->all();
     @endphp
 
-    <div class="space-y-6" data-table-token="{{ $token }}">
+    <div class="space-y-6" data-table-token="{{ $token }}" data-add-mode="{{ !empty($addMode) ? '1' : '0' }}">
         <header class="sticky top-0 z-30 -mx-4 space-y-4 border-b border-neutral-200/70 bg-white/80 px-4 pb-2 pt-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/60">
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
@@ -205,8 +205,20 @@
                                         </div>
                                     @endif
                                     <div class="mt-3 flex items-center justify-between gap-3">
-                                        <div class="text-sm font-semibold text-neutral-900 dark:text-white">
-                                            {{ $idr($m->harga) }}
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-semibold text-neutral-900 dark:text-white">
+                                                {{ $idr($m->harga) }}
+                                            </div>
+                                            @if ($m->addons->isNotEmpty())
+                                                <button
+                                                    type="button"
+                                                    class="mt-1 hidden items-center gap-1 text-xs font-semibold text-[var(--brand-primary)] hover:opacity-90"
+                                                    data-action="customize"
+                                                    aria-label="{{ __('Customize') }}"
+                                                >
+                                                    {{ __('Customize') }}
+                                                </button>
+                                            @endif
                                         </div>
 
                                         <div class="shrink-0 flex w-[8.5rem] justify-end" data-menu-actions>
@@ -307,7 +319,7 @@
                         <button
                             type="button"
                             id="drawerCheckoutBtn"
-                            data-checkout-url="{{ route('customer.checkout', ['token' => $token]) }}"
+                            data-checkout-url="{{ route('customer.checkout', ['token' => $token] + (!empty($addMode) ? ['add' => 1] : [])) }}"
                             class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]"
                         >
                             {{ __('Confirm order') }}
@@ -322,13 +334,48 @@
         </div>
     </div>
 
+    <!-- Customize sheet (per individual item) -->
+    <div id="customizeSheet" class="fixed inset-0 z-50 hidden">
+        <button type="button" class="absolute inset-0 bg-black/30" data-close-customize aria-label="{{ __('Close') }}"></button>
+
+        <div class="absolute inset-x-0 bottom-0">
+            <div class="mx-auto w-full max-w-3xl px-4 sm:px-6">
+                <div class="customer-card-depth rounded-t-3xl border border-neutral-200/70 bg-white/90 p-4 shadow-2xl backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/85">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div id="customizeTitle" class="text-lg font-semibold text-neutral-900 dark:text-white">{{ __('Customize') }}</div>
+                            <div class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">{{ __('Select add-ons for each item.') }}</div>
+                        </div>
+                        <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200/70 bg-white/60 text-neutral-700 shadow-sm backdrop-blur hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60" data-close-customize aria-label="{{ __('Close') }}">
+                            <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 6L6 18"></path>
+                                <path d="M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div id="customizeList" class="mt-4 max-h-[55dvh] space-y-3 overflow-y-auto pr-1 no-scrollbar"></div>
+
+                    <div class="mt-4 flex items-center justify-end gap-2 border-t border-neutral-200/70 pt-4 dark:border-neutral-800/70">
+                        <button type="button" class="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]" data-close-customize>
+                            {{ __('Done') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script id="menuCartJson" type="application/json">@json($menuCartIndex)</script>
     <script id="menuPricingJson" type="application/json">@json($menuPricingIndex)</script>
+    <script id="baselineCartJson" type="application/json">@json($baselineCart ?? [])</script>
+    <script id="baselineMinQtyJson" type="application/json">@json($baselineMinQty ?? [])</script>
 
     <script>
         (() => {
             const root = document.querySelector('[data-table-token]')
             const token = root?.dataset.tableToken || ''
+            const addMode = root?.dataset.addMode === '1'
 
             const storageKey = token ? `customerCart:${token}` : 'customerCart'
             const cartBar = document.getElementById('cartBar')
@@ -338,6 +385,9 @@
             const cartTotal = document.getElementById('cartTotal')
             const checkoutBtn = document.getElementById('checkoutBtn')
             const drawerCheckoutBtn = document.getElementById('drawerCheckoutBtn')
+            const customizeSheet = document.getElementById('customizeSheet')
+            const customizeTitle = document.getElementById('customizeTitle')
+            const customizeList = document.getElementById('customizeList')
 
             const cartMenuMap = (() => {
                 try {
@@ -363,6 +413,159 @@
                     return new Map()
                 }
             })()
+
+            let customizeMenuId = null
+            let customizeUnits = []
+            let customizeLockedCount = 0
+
+            const closeCustomize = () => {
+                customizeMenuId = null
+                customizeUnits = []
+                customizeLockedCount = 0
+                customizeSheet?.classList.add('hidden')
+                document.body.style.overflow = ''
+            }
+
+            const unitsFromCart = (menuId, cart) => {
+                const mid = String(menuId || '')
+                const units = []
+                for (const [key, row] of Object.entries(cart || {})) {
+                    const qty = Math.max(Number(row?.qty || 0), 0)
+                    if (qty <= 0) continue
+                    const parsed = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
+                    if (String(parsed.menuId || '') !== mid) continue
+                    const addons = Array.isArray(parsed.addons) ? parsed.addons.map(String).filter(Boolean) : []
+                    for (let i = 0; i < qty; i++) {
+                        units.push({ addons })
+                    }
+                }
+                return units
+            }
+
+            const baselineUnitsForMenu = (menuId) => {
+                if (!addMode) return []
+                const mid = String(menuId || '')
+                const base = baselineCart && typeof baselineCart === 'object' ? baselineCart : {}
+                const units = []
+                for (const [key, row] of Object.entries(base)) {
+                    const parsed = parseKey(String(key || ''), Array.isArray(row?.addons) ? row.addons : null)
+                    if (String(parsed.menuId || '') !== mid) continue
+                    const qty = Math.max(Number(row?.qty || 0), 0)
+                    const addons = Array.isArray(parsed.addons) ? parsed.addons.map(String).filter(Boolean) : []
+                    for (let i = 0; i < qty; i++) {
+                        units.push({ addons })
+                    }
+                }
+                return units
+            }
+
+            const applyUnitsToCart = (menuId, units) => {
+                const mid = String(menuId || '')
+                if (!mid) return
+                const cart = readCart()
+
+                // Remove existing keys for menu
+                for (const key of Object.keys(cart)) {
+                    const parsed = parseKey(key, Array.isArray(cart[key]?.addons) ? cart[key].addons : null)
+                    if (String(parsed.menuId || '') === mid) {
+                        delete cart[key]
+                    }
+                }
+
+                // Rebuild by addon signature
+                const counts = new Map()
+                for (const u of (Array.isArray(units) ? units : [])) {
+                    const addons = Array.isArray(u?.addons) ? u.addons.map(String).filter(Boolean) : []
+                    const key = makeKey(mid, addons)
+                    if (!key) continue
+                    counts.set(key, (counts.get(key) || 0) + 1)
+                }
+
+                for (const [key, qty] of counts.entries()) {
+                    cart[key] = { qty, addons: parseKey(key, null).addons }
+                }
+
+                writeCart(cart)
+                recompute()
+            }
+
+            const renderCustomize = () => {
+                if (!customizeMenuId || !customizeList) return
+                const menu = cartMenuMap.get(String(customizeMenuId))
+                const addons = Array.isArray(menu?.addons) ? menu.addons : []
+                const labelNoAddons = @json(__('No add-ons'));
+                const labelLocked = @json(__('Locked'));
+
+                customizeList.innerHTML = customizeUnits.map((u, idx) => {
+                    const locked = idx < customizeLockedCount
+                    const selected = new Set((u.addons || []).map(String))
+                    const picked = addons.filter(a => selected.has(String(a.id)))
+                    const pickedLabel = picked.length ? picked.map(a => a.name).join(', ') : labelNoAddons
+
+                    const addonButtons = addons.length
+                        ? `
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                ${addons.map((a) => {
+                                    const aid = String(a.id || '')
+                                    const aName = String(a.name || '')
+                                    const aPrice = Number(a.price || 0)
+                                    const on = selected.has(aid)
+                                    const cls = on
+                                        ? 'border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_12%,transparent)] text-neutral-900 dark:text-white'
+                                        : 'border-neutral-200/70 bg-white/60 text-neutral-700 hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60'
+                                    return `
+                                        <button type="button"
+                                            class="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm backdrop-blur ${cls}"
+                                            data-addon-toggle="1"
+                                            data-unit-index="${idx}"
+                                            data-addon-id="${aid}"
+                                            ${locked ? 'disabled' : ''}>
+                                            <span>${aName}</span>
+                                            <span class="font-semibold text-neutral-500 dark:text-neutral-400">+${formatIDR(aPrice)}</span>
+                                        </button>
+                                    `
+                                }).join('')}
+                            </div>
+                        `
+                        : ''
+
+                    return `
+                        <div class="rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold text-neutral-900 dark:text-white">${menu?.name || ''} <span class="text-neutral-400">#${idx + 1}</span></div>
+                                    <div class="mt-1 text-xs font-semibold text-neutral-600 dark:text-neutral-300">${pickedLabel}</div>
+                                    ${addonButtons}
+                                </div>
+                                ${locked ? `<div class="shrink-0 text-xs font-semibold text-neutral-500 dark:text-neutral-400">${labelLocked}</div>` : ''}
+                            </div>
+                        </div>
+                    `
+                }).join('')
+            }
+
+            const openCustomize = (menuId) => {
+                const id = String(menuId || '')
+                if (!id || !customizeSheet || !customizeList) return
+                const menu = cartMenuMap.get(id)
+                if (!menu || !(Array.isArray(menu.addons) && menu.addons.length)) return
+
+                const cart = readCart()
+                const units = unitsFromCart(id, cart)
+                if (!units.length) return
+
+                const baseUnits = baselineUnitsForMenu(id)
+                const lockedCount = baseUnits.length
+                customizeMenuId = id
+                customizeLockedCount = lockedCount
+                customizeUnits = [...baseUnits, ...units.slice(lockedCount)]
+
+                if (customizeTitle) customizeTitle.textContent = menu?.name || @json(__('Customize'));
+                renderCustomize()
+
+                customizeSheet.classList.remove('hidden')
+                document.body.style.overflow = 'hidden'
+            }
 
             const pricingMap = (() => {
                 try {
@@ -394,6 +597,39 @@
                 }
             }
 
+            const sigFromAddons = (addonIds) => {
+                const ids = (Array.isArray(addonIds) ? addonIds : [])
+                    .map((v) => String(v))
+                    .filter(Boolean)
+                const uniq = Array.from(new Set(ids))
+                uniq.sort((a, b) => Number(a) - Number(b))
+                return uniq.join(',')
+            }
+
+            const makeKey = (menuId, addonIds) => {
+                const mid = String(menuId || '')
+                return `${mid}:${sigFromAddons(addonIds)}`
+            }
+
+            const parseKey = (key, rowAddons = null) => {
+                const raw = String(key || '')
+                let menuId = raw
+                let addons = []
+
+                if (raw.includes(':')) {
+                    const parts = raw.split(':')
+                    menuId = String(parts[0] || '')
+                    const sig = String(parts.slice(1).join(':') || '')
+                    addons = sig ? sig.split(',').map(String).filter(Boolean) : []
+                }
+
+                if (Array.isArray(rowAddons)) {
+                    addons = rowAddons.map((v) => String(v)).filter(Boolean)
+                }
+
+                return { menuId, addons }
+            }
+
             const readCart = () => {
                 try {
                     const raw =
@@ -403,18 +639,27 @@
                     const data = JSON.parse(raw)
                     if (!data || typeof data !== 'object') return {}
 
-                    // Normalize legacy format: { [id]: number }
+                    // Normalize legacy format: { [id]: number } and v1 object rows into composite keys { [menuId:addonSig]: {qty, addons} }
                     const normalized = {}
                     for (const [id, v] of Object.entries(data)) {
+                        let qty = 0
+                        let addons = []
+
                         if (typeof v === 'number') {
-                            normalized[id] = { qty: Math.max(v, 0), addons: [] }
-                            continue
+                            qty = Math.max(Number(v || 0), 0)
+                        } else if (v && typeof v === 'object') {
+                            qty = Math.max(Number(v.qty || 0), 0)
+                            addons = Array.isArray(v.addons) ? v.addons.map(x => String(x)) : []
                         }
-                        if (v && typeof v === 'object') {
-                            const qty = Math.max(Number(v.qty || 0), 0)
-                            const addons = Array.isArray(v.addons) ? v.addons.map(x => String(x)) : []
-                            normalized[id] = { qty, addons }
-                        }
+
+                        if (qty <= 0) continue
+
+                        const parsed = parseKey(id, addons.length ? addons : null)
+                        const key = makeKey(parsed.menuId, parsed.addons)
+                        if (!key || !parsed.menuId) continue
+
+                        if (!normalized[key]) normalized[key] = { qty: 0, addons: parsed.addons }
+                        normalized[key].qty = Math.max(Number(normalized[key].qty || 0), 0) + qty
                     }
                     return normalized
                 } catch (e) {
@@ -429,6 +674,71 @@
                     try { sessionStorage.setItem(storageKey, json) } catch (e) {}
                     try { localStorage.setItem(storageKey, json) } catch (e) {}
                 } catch (e) {}
+            }
+
+            const baselineCart = (() => {
+                try {
+                    const raw = document.getElementById('baselineCartJson')?.textContent || '{}'
+                    const data = JSON.parse(raw)
+                    return data && typeof data === 'object' ? data : {}
+                } catch (e) {
+                    return {}
+                }
+            })()
+
+            const baselineMinQty = (() => {
+                try {
+                    const raw = document.getElementById('baselineMinQtyJson')?.textContent || '{}'
+                    const data = JSON.parse(raw)
+                    return data && typeof data === 'object' ? data : {}
+                } catch (e) {
+                    return {}
+                }
+            })()
+
+            const getMinQty = (id) => {
+                if (!addMode) return 0
+                return Math.max(Number(baselineMinQty[String(id)] || 0), 0)
+            }
+
+            const seedBaseline = () => {
+                if (!addMode) return
+                const base = baselineCart && typeof baselineCart === 'object' ? baselineCart : {}
+                const entries = Object.entries(base)
+                if (!entries.length) return
+
+                const cart = readCart()
+                let changed = false
+
+                for (const [idRaw, row] of entries) {
+                    const baseQty = Math.max(Number(row?.qty || 0), 0)
+                    const baseAddons = Array.isArray(row?.addons) ? row.addons.map(x => String(x)) : []
+                    if (baseQty <= 0) continue
+
+                    const parsed = parseKey(String(idRaw || ''), baseAddons.length ? baseAddons : null)
+                    const id = makeKey(parsed.menuId, parsed.addons)
+                    if (!id) continue
+
+                    if (!cart[id] || typeof cart[id] !== 'object') {
+                        cart[id] = { qty: baseQty, addons: baseAddons }
+                        changed = true
+                        continue
+                    }
+
+                    const currentQty = Math.max(Number(cart[id].qty || 0), 0)
+                    if (currentQty < baseQty) {
+                        cart[id].qty = baseQty
+                        changed = true
+                    }
+
+                    const currentAddons = Array.isArray(cart[id].addons) ? cart[id].addons.map(x => String(x)) : []
+                    if (!currentAddons.length && baseAddons.length) {
+                        cart[id].addons = baseAddons
+                        changed = true
+                    }
+                }
+
+                if (changed) writeCart(cart)
             }
 
             const getMenuIndex = () => {
@@ -447,13 +757,20 @@
                 return index
             }
 
-            const updateCardUI = (menu, qty) => {
+            const updateCardUI = (menu, qty, hasAddons = false) => {
                 const host = menu.card.querySelector('[data-menu-actions]')
                 if (!host) return
+                const customizeBtn = menu.card.querySelector('[data-action="customize"]')
 
                 // Selected state (border primary)
                 menu.card.classList.toggle('customer-menu-card--selected', qty > 0)
                 menu.card.classList.toggle('shadow-md', qty > 0)
+
+                if (customizeBtn) {
+                    const show = hasAddons && qty > 0
+                    customizeBtn.classList.toggle('hidden', !show)
+                    customizeBtn.toggleAttribute('disabled', !show)
+                }
 
                 if (qty <= 0) {
                     host.innerHTML = `
@@ -491,15 +808,19 @@
                 const menuIndex = getMenuIndex()
 
                 let total = 0
-                for (const [id, row] of Object.entries(cart)) {
+                for (const [key, row] of Object.entries(cart)) {
                     const q = Math.max(Number(row?.qty || 0), 0)
-                    const menu = menuIndex.get(String(id))
-                    if (!menu || q <= 0) continue
+                    if (q <= 0) continue
 
-                    const pricing = pricingMap.get(String(id))
+                    const parsed = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
+                    const menuId = String(parsed.menuId || '')
+                    const menu = menuIndex.get(menuId)
+                    if (!menu) continue
+
+                    const pricing = pricingMap.get(menuId)
                     const base = Number(pricing?.price ?? menu.price ?? 0)
                     const allowedAddons = Array.isArray(pricing?.addons) ? pricing.addons : []
-                    const selected = new Set((row.addons || []).map(String))
+                    const selected = new Set((parsed.addons || []).map(String))
                     const addonsTotal = allowedAddons
                         .filter(a => selected.has(String(a.id)))
                         .reduce((sum, a) => sum + Number(a.price || 0), 0)
@@ -508,25 +829,46 @@
                 }
 
                 // Clean invalid entries
-                for (const id of Object.keys(cart)) {
-                    const row = cart[id]
+                for (const oldKey of Object.keys(cart)) {
+                    const row = cart[oldKey]
                     const q = Math.max(Number(row?.qty || 0), 0)
-                    if (q <= 0 || !menuIndex.has(String(id))) {
-                        delete cart[id]
+                    const parsed = parseKey(oldKey, Array.isArray(row?.addons) ? row.addons : null)
+                    const menuId = String(parsed.menuId || '')
+                    if (q <= 0 || !menuIndex.has(menuId)) {
+                        delete cart[oldKey]
                         continue
                     }
 
-                    const pricing = pricingMap.get(String(id))
+                    const pricing = pricingMap.get(menuId)
                     const allowed = new Set((pricing?.addons || []).map(a => String(a.id)))
-                    row.addons = (Array.isArray(row.addons) ? row.addons : [])
+                    const filteredAddons = (Array.isArray(row.addons) ? row.addons : [])
                         .map(String)
                         .filter(aId => allowed.has(aId))
+
+                    const nextKey = makeKey(menuId, filteredAddons)
+                    row.addons = filteredAddons
+
+                    if (nextKey !== oldKey) {
+                        if (!cart[nextKey]) cart[nextKey] = { qty: 0, addons: filteredAddons }
+                        cart[nextKey].qty = Math.max(Number(cart[nextKey].qty || 0), 0) + q
+                        delete cart[oldKey]
+                    }
                 }
                 writeCart(cart)
 
+                const qtyByMenu = new Map()
+                for (const [key, row] of Object.entries(cart)) {
+                    const qty = Math.max(Number(row?.qty || 0), 0)
+                    if (qty <= 0) continue
+                    const { menuId } = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
+                    if (!menuId) continue
+                    qtyByMenu.set(menuId, (qtyByMenu.get(menuId) || 0) + qty)
+                }
+
                 for (const menu of menuIndex.values()) {
-                    const qty = Math.max(Number(cart[menu.id]?.qty || 0), 0)
-                    updateCardUI(menu, qty)
+                    const qty = Math.max(Number(qtyByMenu.get(menu.id) || 0), 0)
+                    const hasAddons = (cartMenuMap.get(String(menu.id))?.addons || []).length > 0
+                    updateCardUI(menu, qty, hasAddons)
                 }
 
                 const hasItems = Object.keys(cart).length > 0
@@ -540,8 +882,20 @@
             const renderDrawer = (cart) => {
                 if (!cartItems) return
 
-                const ids = Object.keys(cart)
-                if (!ids.length) {
+                const entries = Object.entries(cart)
+                    .map(([key, row]) => {
+                        const qty = Math.max(Number(row?.qty || 0), 0)
+                        const parsed = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
+                        return {
+                            key: String(key || ''),
+                            qty,
+                            menuId: String(parsed.menuId || ''),
+                            addons: Array.isArray(parsed.addons) ? parsed.addons.map(String).filter(Boolean) : [],
+                        }
+                    })
+                    .filter((x) => x.key && x.menuId && x.qty > 0)
+
+                if (!entries.length) {
                     cartItems.innerHTML = `
                         <div class="rounded-3xl border border-neutral-200/70 bg-white/70 p-6 text-center text-sm text-neutral-600 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-300">
                             {{ __('Your cart is empty.') }}
@@ -550,42 +904,42 @@
                     return
                 }
 
-                cartItems.innerHTML = ids.map((id) => {
-                    const row = cart[id] || { qty: 0, addons: [] }
-                    const qty = Math.max(Number(row.qty || 0), 0)
-                    const menu = cartMenuMap.get(String(id))
+                entries.sort((a, b) => {
+                    const am = cartMenuMap.get(a.menuId)?.name || ''
+                    const bm = cartMenuMap.get(b.menuId)?.name || ''
+                    return am.localeCompare(bm)
+                })
+
+                cartItems.innerHTML = entries.map((e) => {
+                    const menu = cartMenuMap.get(e.menuId)
                     const name = menu?.name || 'Item'
                     const base = Number(menu?.price || 0)
                     const addons = Array.isArray(menu?.addons) ? menu.addons : []
-                    const selected = new Set((row.addons || []).map(String))
-                    const addonsTotal = addons
-                        .filter(a => selected.has(String(a.id)))
-                        .reduce((sum, a) => sum + Number(a.price || 0), 0)
+                    const selected = new Set((e.addons || []).map(String))
+                    const picked = addons.filter(a => selected.has(String(a.id)))
+                    const addonsTotal = picked.reduce((sum, a) => sum + Number(a.price || 0), 0)
 
                     const unit = base + addonsTotal
-                    const line = qty * unit
+                    const line = e.qty * unit
 
-                    const addonChips = !addons.length
-                        ? `<div class="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons') }}</div>`
-                        : `
+                    const addonChips = (() => {
+                        if (!addons.length) return ''
+                        if (!picked.length) {
+                            return `<div class="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons') }}</div>`
+                        }
+                        return `
                             <div class="mt-3 flex flex-wrap gap-2">
-                                ${addons.map((a) => {
-                                    const aid = String(a.id)
-                                    const checked = selected.has(aid)
-                                    const cls = checked
-                                        ? 'border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_12%,transparent)] text-neutral-900 dark:text-white'
-                                        : 'border-neutral-200/70 bg-white/60 text-neutral-700 dark:border-neutral-800/70 dark:bg-neutral-950/20 dark:text-neutral-200'
-
+                                ${picked.map((a) => {
                                     return `
-                                        <label class="inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm backdrop-blur ${cls}">
-                                            <input type="checkbox" class="sr-only" data-addon-checkbox data-id="${id}" data-addon-id="${aid}" ${checked ? 'checked' : ''} />
+                                        <span class="inline-flex items-center gap-2 rounded-full border border-[var(--brand-primary)] bg-[color-mix(in_srgb,var(--brand-primary)_12%,transparent)] px-3 py-1.5 text-xs font-semibold text-neutral-900 shadow-sm backdrop-blur dark:text-white">
                                             <span>${a.name}</span>
                                             <span class="font-semibold text-neutral-500 dark:text-neutral-400">(+${formatIDR(Number(a.price || 0))})</span>
-                                        </label>
+                                        </span>
                                     `
                                 }).join('')}
                             </div>
                         `
+                    })()
 
                     return `
                         <div class="rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-900/40">
@@ -593,16 +947,16 @@
                                 <div class="min-w-0">
                                     <div class="truncate text-sm font-semibold text-neutral-900 dark:text-white">${name}</div>
                                     <div class="mt-1 text-sm font-semibold text-neutral-900 dark:text-white">${formatIDR(line)}</div>
-                                    <div class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">${formatIDR(unit)} × ${qty}</div>
+                                    <div class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">${formatIDR(unit)} × ${e.qty}</div>
                                     ${addonChips}
                                 </div>
                                 <div class="shrink-0">
                                     <div class="inline-flex items-center gap-2 rounded-2xl border border-neutral-200/70 bg-white/70 px-2 py-2 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/30">
-                                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200/70 bg-white/60 text-neutral-700 hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60" data-cart-action="dec" data-id="${id}">
+                                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-neutral-200/70 bg-white/60 text-neutral-700 hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60" data-cart-action="dec" data-id="${e.key}">
                                             <span class="text-lg font-semibold">−</span>
                                         </button>
-                                        <div class="min-w-[1.5rem] text-center text-sm font-semibold text-neutral-900 dark:text-white">${qty}</div>
-                                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand-primary)] text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]" data-cart-action="inc" data-id="${id}">
+                                        <div class="min-w-[1.5rem] text-center text-sm font-semibold text-neutral-900 dark:text-white">${e.qty}</div>
+                                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand-primary)] text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]" data-cart-action="inc" data-id="${e.key}">
                                             <span class="text-lg font-semibold">+</span>
                                         </button>
                                     </div>
@@ -615,29 +969,58 @@
 
             const setQty = (id, nextQty) => {
                 const cart = readCart()
-                const q = Math.max(Number(nextQty || 0), 0)
-                if (!cart[id]) cart[id] = { qty: 0, addons: [] }
+                const minQty = getMinQty(id)
+                const q = Math.max(Number(nextQty || 0), minQty, 0)
+                if (!cart[id]) {
+                    const parsed = parseKey(id, null)
+                    cart[id] = { qty: 0, addons: parsed.addons || [] }
+                }
                 cart[id].qty = q
                 if (q <= 0) delete cart[id]
                 writeCart(cart)
                 recompute()
             }
 
-            const toggleAddon = (menuId, addonId) => {
-                const id = String(menuId || '')
-                const aId = String(addonId || '')
-                if (!id || !aId) return
-
+            const incMenu = (menuId) => {
+                const mid = String(menuId || '')
+                if (!mid) return
+                const key = makeKey(mid, [])
                 const cart = readCart()
-                if (!cart[id]) cart[id] = { qty: 0, addons: [] }
+                const current = Math.max(Number(cart[key]?.qty || 0), 0)
+                setQty(key, current + 1)
+            }
 
-                const current = new Set((cart[id].addons || []).map(String))
-                if (current.has(aId)) current.delete(aId)
-                else current.add(aId)
+            const decMenu = (menuId) => {
+                const mid = String(menuId || '')
+                if (!mid) return
+                const cart = readCart()
 
-                cart[id].addons = Array.from(current.values())
-                writeCart(cart)
-                recompute()
+                const candidates = Object.keys(cart)
+                    .map((key) => {
+                        const row = cart[key]
+                        const qty = Math.max(Number(row?.qty || 0), 0)
+                        const parsed = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
+                        const sameMenu = String(parsed.menuId || '') === mid
+                        return { key: String(key), qty, sameMenu }
+                    })
+                    .filter((x) => x.sameMenu && x.qty > 0)
+
+                if (!candidates.length) return
+
+                // Prefer decrementing default variant (no add-ons). If it doesn't exist, decrement any other variant.
+                const defaultKey = makeKey(mid, [])
+                let chosen = candidates.find((c) => c.key === defaultKey) || null
+                if (!chosen) chosen = candidates[0]
+
+                // Respect minQty lock in add-mode.
+                const minQty = getMinQty(chosen.key)
+                if (chosen.qty <= minQty) {
+                    // Try find another variant that can be decremented.
+                    chosen = candidates.find((c) => c.qty > getMinQty(c.key)) || null
+                    if (!chosen) return
+                }
+
+                setQty(chosen.key, chosen.qty - 1)
             }
 
             document.addEventListener('click', (e) => {
@@ -647,10 +1030,24 @@
                     const id = String(card?.dataset.menuId || '')
                     if (!id) return
                     const action = btn.dataset.action
+                    const hasAddons = (cartMenuMap.get(id)?.addons || []).length > 0
+
+                    if (action === 'customize') {
+                        openCustomize(id)
+                        return
+                    }
+
+                    if (hasAddons) {
+                        if (action === 'add' || action === 'inc') incMenu(id)
+                        if (action === 'dec') decMenu(id)
+                        return
+                    }
+
+                    const key = makeKey(id, [])
                     const cart = readCart()
-                    const current = Math.max(Number(cart[id]?.qty || 0), 0)
-                    if (action === 'add' || action === 'inc') setQty(id, current + 1)
-                    if (action === 'dec') setQty(id, current - 1)
+                    const current = Math.max(Number(cart[key]?.qty || 0), 0)
+                    if (action === 'add' || action === 'inc') setQty(key, current + 1)
+                    if (action === 'dec') setQty(key, current - 1)
                     return
                 }
 
@@ -670,14 +1067,32 @@
                     document.body.style.overflow = ''
                     return
                 }
+
+                if (e.target.closest('[data-close-customize]')) {
+                    if (customizeMenuId) {
+                        applyUnitsToCart(customizeMenuId, customizeUnits)
+                    }
+                    closeCustomize()
+                    return
+                }
             })
 
-            document.addEventListener('change', (e) => {
-                const checkbox = e.target.closest('[data-addon-checkbox]')
-                if (!checkbox) return
-                const id = String(checkbox.dataset.id || '')
-                const aId = String(checkbox.dataset.addonId || '')
-                toggleAddon(id, aId)
+            document.addEventListener('click', (e) => {
+                const t = e.target.closest('[data-addon-toggle]')
+                if (!t) return
+                if (!customizeMenuId) return
+                const idx = Number(t.dataset.unitIndex || -1)
+                const aid = String(t.dataset.addonId || '')
+                if (!Number.isFinite(idx) || idx < 0) return
+                if (!aid) return
+                if (idx < customizeLockedCount) return
+                if (!customizeUnits[idx]) return
+
+                const current = new Set((customizeUnits[idx].addons || []).map(String))
+                if (current.has(aid)) current.delete(aid)
+                else current.add(aid)
+                customizeUnits[idx] = { addons: Array.from(current.values()) }
+                renderCustomize()
             })
 
             checkoutBtn?.addEventListener('click', () => {
@@ -694,6 +1109,7 @@
             })
 
             // Init cart UI
+            seedBaseline()
             recompute()
 
             // Search (debounced 2s)
