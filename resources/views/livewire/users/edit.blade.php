@@ -67,7 +67,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full space-y-6">
-    @php($roles = Role::query()->orderBy('name')->get())
+    @php($roles = Role::query()->select(['id', 'name'])->orderBy('name')->get())
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <flux:heading size="xl" level="1">{{ __('Edit User') }}</flux:heading>

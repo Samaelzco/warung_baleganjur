@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Pesanan;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -44,13 +45,22 @@ new class extends Component {
         $this->dispatch('kitchen-poll-tick');
     }
 
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->statusFilter = 'all';
+        $this->resetPage();
+    }
+
     protected function currentActiveMaxId(): ?int
     {
-        $max = Pesanan::query()
-            ->whereIn('status', ['menunggu', 'diproses', 'siap'])
-            ->max('id');
+        return Cache::remember('kitchen:active_max_id', 5, function () {
+            $max = Pesanan::query()
+                ->whereIn('status', ['menunggu', 'diproses', 'siap'])
+                ->max('id');
 
-        return $max ? (int) $max : null;
+            return $max ? (int) $max : null;
+        });
     }
 
     public function setStatus(int $id, string $toStatus): void
@@ -62,7 +72,7 @@ new class extends Component {
             return;
         }
 
-        $pesanan = Pesanan::query()->whereKey($id)->firstOrFail();
+        $pesanan = Pesanan::query()->select(['id', 'status'])->whereKey($id)->firstOrFail();
 
         $allowedTargets = match ($pesanan->status) {
             'menunggu' => ['diproses'],
@@ -134,7 +144,23 @@ new class extends Component {
             return hash('sha1', json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         };
 
-        $query = Pesanan::with(['meja', 'details.menu', 'details.addons'])
+        $query = Pesanan::query()
+            ->select([
+                'id',
+                'meja_id',
+                'kode_pesanan',
+                'status',
+                'customer_name',
+                'customer_note',
+                'waktu_pesan',
+                'updated_at',
+            ])
+            ->with([
+                'meja:id,nomor_meja',
+                'details:id,pesanan_id,menu_id,qty',
+                'details.menu:id,nama_menu',
+                'details.addons:id,nama_addon',
+            ])
             ->whereIn('status', $activeStatuses);
 
         if (!empty($search)) {
@@ -156,18 +182,28 @@ new class extends Component {
             ->orderBy('id')
             ->paginate(10);
 
-        $statusCounts = Pesanan::query()
-            ->whereIn('status', $activeStatuses)
-            ->select('status')
-            ->selectRaw('count(*) as agg')
-            ->groupBy('status')
-            ->pluck('agg', 'status');
+        $counts = Cache::remember('kitchen:status_counts', 10, function () use ($activeStatuses) {
+            $rows = Pesanan::query()
+                ->whereIn('status', $activeStatuses)
+                ->select('status')
+                ->selectRaw('count(*) as agg')
+                ->groupBy('status')
+                ->pluck('agg', 'status')
+                ->all();
 
-        $totalCount = Pesanan::query()->whereIn('status', $activeStatuses)->count();
+            $total = array_sum(array_map('intval', (array) $rows));
 
-        $waitingCount = (int) $statusCounts->get('menunggu', 0);
-        $inProgressCount = (int) $statusCounts->get('diproses', 0);
-        $readyCount = (int) $statusCounts->get('siap', 0);
+            return [
+                'rows' => (array) $rows,
+                'total' => (int) $total,
+            ];
+        });
+
+        $statusCounts = (array) ($counts['rows'] ?? []);
+        $totalCount = (int) ($counts['total'] ?? 0);
+        $waitingCount = (int) ($statusCounts['menunggu'] ?? 0);
+        $inProgressCount = (int) ($statusCounts['diproses'] ?? 0);
+        $readyCount = (int) ($statusCounts['siap'] ?? 0);
 
         $statusMeta = [
             'all' => [
@@ -305,7 +341,7 @@ new class extends Component {
                     <option value="diproses">{{ __('In progress') }}</option>
                     <option value="siap">{{ __('Ready') }}</option>
                 </flux:select>
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="$set('search','');$set('statusFilter','all')">{{ __('Clear') }}</flux:button>
+                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" wire:click="clearFilters">{{ __('Clear') }}</flux:button>
             </div>
         </div>
 
@@ -316,9 +352,27 @@ new class extends Component {
             data-new-orders-label="{{ __('new orders') }}"
             data-order-updated-label="{{ __('Order updated') }}"
             data-orders-updated-label="{{ __('orders updated') }}"
-            wire:poll.5s="pollKitchen"
             class="space-y-4"
         >
+            <div
+                x-data="{
+                    active: !document.hidden,
+                    modalOpen: false,
+                    init() {
+                        const sync = () => { this.active = !document.hidden }
+                        document.addEventListener('visibilitychange', sync)
+                        window.addEventListener('modal-show', () => { this.modalOpen = true })
+                        window.addEventListener('modal-close', () => { this.modalOpen = false })
+                        sync()
+                    },
+                }"
+                x-init="init()"
+                x-show="active && !modalOpen"
+                wire:poll.visible.5s="pollKitchen"
+                class="fixed left-0 top-0 h-1 w-1 opacity-0 pointer-events-none"
+                aria-hidden="true"
+            ></div>
+
         <!-- mobile cards -->
         <div class="block sm:hidden">
             <div class="grid gap-3">
@@ -348,7 +402,7 @@ new class extends Component {
                                         <span class="h-2 w-2 rounded-full {{ $meta['dot'] ?? 'bg-neutral-400' }}"></span>
                                         {{ $meta['label'] ?? ucfirst($item->status) }}
                                     </span>
-                                    <span class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold">
+                                    <span wire:ignore class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold">
                                         <span class="h-2 w-2 rounded-full kitchen-updated-dot"></span>
                                         {{ __('Updated') }}
                                     </span>
@@ -459,7 +513,7 @@ new class extends Component {
                                             <span class="h-2 w-2 rounded-full {{ $meta['dot'] ?? 'bg-neutral-400' }}"></span>
                                             {{ $meta['label'] ?? ucfirst($item->status) }}
                                         </span>
-                                        <span class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold">
+                                        <span wire:ignore class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold">
                                             <span class="h-2 w-2 rounded-full kitchen-updated-dot"></span>
                                             {{ __('Updated') }}
                                         </span>
@@ -585,7 +639,7 @@ new class extends Component {
                                         <div class="flex flex-col">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $item->kode_pesanan }}</span>
-                                                <span class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold">
+                                                <span wire:ignore class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold">
                                                     <span class="h-2 w-2 rounded-full kitchen-updated-dot"></span>
                                                     {{ __('Updated') }}
                                                 </span>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Diskon;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -37,7 +38,18 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $diskon = Diskon::findOrFail($id);
+        $diskon = Diskon::query()
+            ->select([
+                'id',
+                'kode',
+                'tipe',
+                'nilai',
+                'min_subtotal',
+                'tanggal_mulai',
+                'tanggal_selesai',
+                'is_active',
+            ])
+            ->findOrFail($id);
         $this->editingId = $diskon->id;
 
         $this->form = [
@@ -69,6 +81,7 @@ new class extends Component {
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
 
         Diskon::create($validated);
+        Cache::forget('admin:diskon:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-diskon');
@@ -93,6 +106,7 @@ new class extends Component {
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
 
         Diskon::where('id', $this->editingId)->update($validated);
+        Cache::forget('admin:diskon:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-diskon');
@@ -110,6 +124,7 @@ new class extends Component {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
             Diskon::where('id', $this->confirmingDeleteId)->delete();
+            Cache::forget('admin:diskon:stats:v1');
             $this->confirmingDeleteId = null;
 
             $this->dispatch('modal-close', name: 'confirm-delete-diskon');
@@ -139,7 +154,16 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $query = \App\Models\Diskon::query();
+        $query = Diskon::query()->select([
+            'id',
+            'kode',
+            'tipe',
+            'nilai',
+            'min_subtotal',
+            'tanggal_mulai',
+            'tanggal_selesai',
+            'is_active',
+        ]);
 
         if (!empty($search)) {
             $query->where('kode', 'like', "%{$search}%");
@@ -153,11 +177,19 @@ new class extends Component {
 
         $items = $query->orderBy('kode')->paginate(10);
 
-        $totalCount    = \App\Models\Diskon::count();
-        $activeCount   = \App\Models\Diskon::where('is_active', true)->count();
-        $inactiveCount = \App\Models\Diskon::where('is_active', false)->count();
-        $percentCount  = \App\Models\Diskon::where('tipe', 'percent')->count();
-        $nominalCount  = \App\Models\Diskon::where('tipe', 'nominal')->count();
+        $stats = Cache::remember('admin:diskon:stats:v1', 10, fn () => [
+            'total'    => Diskon::query()->count(),
+            'active'   => Diskon::query()->where('is_active', true)->count(),
+            'inactive' => Diskon::query()->where('is_active', false)->count(),
+            'percent'  => Diskon::query()->where('tipe', 'percent')->count(),
+            'nominal'  => Diskon::query()->where('tipe', 'nominal')->count(),
+        ]);
+
+        $totalCount    = (int) ($stats['total'] ?? 0);
+        $activeCount   = (int) ($stats['active'] ?? 0);
+        $inactiveCount = (int) ($stats['inactive'] ?? 0);
+        $percentCount  = (int) ($stats['percent'] ?? 0);
+        $nominalCount  = (int) ($stats['nominal'] ?? 0);
     @endphp
 
     <div class="space-y-6">
@@ -263,7 +295,7 @@ new class extends Component {
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent"
-                    wire:click="$set('search','');$set('statusFilter','all')"
+                    wire:click="$wire.set('search','');$wire.set('statusFilter','all')"
                 >
                     {{ __('Clear') }}
                 </flux:button>
@@ -622,7 +654,7 @@ new class extends Component {
 
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
@@ -656,7 +688,7 @@ new class extends Component {
 
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}

@@ -3,6 +3,8 @@
 use App\Models\Menu;
 use App\Models\KategoriMenu;
 use App\Models\Addon;
+use App\Services\MenuImageService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -13,6 +15,7 @@ new class extends Component {
 
     public ?int $confirmingDeleteId = null;
     public ?int $editingId = null;
+    public ?string $editingImagePath = null;
     public array $form = [];
     public $gambar = null;
     public string $search = '';
@@ -40,14 +43,30 @@ new class extends Component {
         $this->authorizeManage();
         $this->resetCreateForm();
         $this->gambar = null;
+        $this->editingImagePath = null;
         $this->dispatch('modal-show', name: 'create-menu');
     }
 
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $menu = Menu::with('addons')->findOrFail($id);
+        $menu = Menu::query()
+            ->select([
+                'id',
+                'nama_menu',
+                'nama_menu_en',
+                'kategori_id',
+                'harga',
+                'status',
+                'deskripsi',
+                'deskripsi_en',
+            ])
+            ->with([
+                'addons' => fn ($q) => $q->select(['addons.id']),
+            ])
+            ->findOrFail($id);
         $this->editingId = $menu->id;
+        $this->editingImagePath = $menu->gambar;
 
         $this->form = [
             'nama_menu'   => $menu->nama_menu,
@@ -88,12 +107,15 @@ new class extends Component {
         if ($this->gambar) {
             $path = $this->gambar->store('menus', 'public');
             $validated['gambar'] = $path;
+            MenuImageService::generateThumbnails($path);
         } else {
             unset($validated['gambar']);
         }
 
         $menu = Menu::create($validated);
         $menu->addons()->sync($addonIds);
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:menu:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-menu');
@@ -123,20 +145,25 @@ new class extends Component {
         $addonIds = $validated['addon_ids'] ?? [];
         unset($validated['addon_ids']);
 
-        $menu = Menu::findOrFail($this->editingId);
+        $menu = Menu::query()->select(['id', 'gambar'])->findOrFail($this->editingId);
 
         if ($this->gambar) {
             if ($menu->gambar) {
                 Storage::disk('public')->delete($menu->gambar);
+                MenuImageService::deleteThumbnails($menu->gambar);
             }
             $path = $this->gambar->store('menus', 'public');
             $validated['gambar'] = $path;
+            $this->editingImagePath = $path;
+            MenuImageService::generateThumbnails($path);
         } else {
             unset($validated['gambar']);
         }
 
         $menu->update($validated);
         $menu->addons()->sync($addonIds);
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:menu:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-menu');
@@ -153,12 +180,15 @@ new class extends Component {
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
-            $menu = Menu::find($this->confirmingDeleteId);
+            $menu = Menu::query()->select(['id', 'gambar'])->find($this->confirmingDeleteId);
             if ($menu && $menu->gambar) {
                 Storage::disk('public')->delete($menu->gambar);
+                MenuImageService::deleteThumbnails($menu->gambar);
             }
 
             Menu::where('id', $this->confirmingDeleteId)->delete();
+            Cache::forget('customer:menus_available:v1');
+            Cache::forget('admin:menu:stats:v1');
             $this->confirmingDeleteId = null;
             $this->dispatch('modal-close', name: 'confirm-delete-menu');
             $this->dispatch('modal-close', name: 'confirm-delete-menu-desktop');
@@ -178,6 +208,7 @@ new class extends Component {
             'deskripsi_en' => '',
             'addon_ids'   => [],
         ];
+        $this->editingImagePath = null;
     }
 
     protected function authorizeManage(): void
@@ -188,7 +219,21 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $query = Menu::query()->with('kategori');
+        $query = Menu::query()
+            ->select([
+                'id',
+                'kategori_id',
+                'nama_menu',
+                'harga',
+                'status',
+                'deskripsi',
+                'gambar',
+                'created_at',
+                'updated_at',
+            ])
+            ->with([
+                'kategori' => fn ($q) => $q->select(['id', 'nama_kategori']),
+            ]);
 
         if (!empty($search)) {
             $query->where(function($q) use ($search) {
@@ -207,11 +252,44 @@ new class extends Component {
 
         $items = $query->orderBy('nama_menu')->paginate(10);
 
-        $totalCount     = Menu::count();
-        $availableCount = Menu::where('status', 'tersedia')->count();
-        $outCount       = Menu::where('status', 'habis')->count();
-        $kategories     = KategoriMenu::orderBy('nama_kategori')->get();
-        $addons         = Addon::orderBy('nama_addon')->get();
+        $imageMeta = function (?string $img, int $sizePx): ?array {
+            $img = trim((string) $img);
+            if ($img === '') {
+                return null;
+            }
+
+            $isExternal = \Illuminate\Support\Str::startsWith($img, ['http://', 'https://', '/']);
+            $src = $isExternal ? $img : \Illuminate\Support\Facades\Storage::url($img);
+
+            if ($isExternal) {
+                return ['src' => $src, 'srcset' => null, 'sizes' => null, 'size' => $sizePx];
+            }
+
+            $thumbs = MenuImageService::thumbnailPaths($img, [160, 320, 480, 640]);
+            $thumb160 = \Illuminate\Support\Facades\Storage::url($thumbs[160] ?? '');
+            $thumb320 = \Illuminate\Support\Facades\Storage::url($thumbs[320] ?? '');
+            $thumb480 = \Illuminate\Support\Facades\Storage::url($thumbs[480] ?? '');
+            $thumb640 = \Illuminate\Support\Facades\Storage::url($thumbs[640] ?? '');
+
+            return [
+                'src' => $src,
+                'srcset' => trim($thumb160 . ' 160w, ' . $thumb320 . ' 320w, ' . $thumb480 . ' 480w, ' . $thumb640 . ' 640w'),
+                'sizes' => $sizePx . 'px',
+                'size' => $sizePx,
+            ];
+        };
+
+        $stats = Cache::remember('admin:menu:stats:v1', 10, fn () => [
+            'total'     => Menu::query()->count(),
+            'available' => Menu::query()->where('status', 'tersedia')->count(),
+            'out'       => Menu::query()->where('status', 'habis')->count(),
+        ]);
+
+        $totalCount     = (int) ($stats['total'] ?? 0);
+        $availableCount = (int) ($stats['available'] ?? 0);
+        $outCount       = (int) ($stats['out'] ?? 0);
+        $kategories     = KategoriMenu::query()->select(['id', 'nama_kategori'])->orderBy('nama_kategori')->get();
+        $addons         = Addon::query()->select(['id', 'nama_addon', 'harga', 'status'])->orderBy('nama_addon')->get();
         $kategoriCount  = $kategories->count();
 
         $statusMeta = [
@@ -339,7 +417,7 @@ new class extends Component {
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent whitespace-nowrap shrink-0"
-                    wire:click="$set('search','');$set('statusFilter','all');$set('kategoriFilter', null)"
+                    wire:click="$wire.set('search','');$wire.set('statusFilter','all');$wire.set('kategoriFilter', null)"
                 >
                     {{ __('Clear') }}
                 </flux:button>
@@ -351,13 +429,27 @@ new class extends Component {
             <div class="grid gap-3">
                 @forelse($items as $m)
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex items-center gap-3">
-                                @if ($m->gambar)
-                                    <img src="{{ Storage::url($m->gambar) }}" alt="img" class="h-14 w-14 rounded object-cover border" />
-                                @else
-                                    <div class="h-14 w-14 rounded bg-neutral-100 dark:bg-neutral-800"></div>
-                                @endif
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    @if ($m->gambar)
+                                        @php($im = $imageMeta($m->gambar, 56))
+                                        <img
+                                            src="{{ $im['src'] }}"
+                                            @if (!empty($im['srcset']))
+                                                srcset="{{ $im['srcset'] }}"
+                                                sizes="{{ $im['sizes'] }}"
+                                            @endif
+                                            alt="{{ $m->nama_menu }}"
+                                            class="h-14 w-14 rounded object-cover border"
+                                            width="56"
+                                            height="56"
+                                            loading="lazy"
+                                            decoding="async"
+                                            fetchpriority="low"
+                                        />
+                                    @else
+                                        <div class="h-14 w-14 rounded bg-neutral-100 dark:bg-neutral-800"></div>
+                                    @endif
                                 <div>
                                     <div class="text-base font-semibold text-neutral-900 dark:text-white">{{ $m->nama_menu }}</div>
                                     <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
@@ -413,7 +505,21 @@ new class extends Component {
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex min-w-0 items-center gap-3">
                                 @if ($m->gambar)
-                                    <img src="{{ Storage::url($m->gambar) }}" alt="img" class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800" />
+                                    @php($im = $imageMeta($m->gambar, 48))
+                                    <img
+                                        src="{{ $im['src'] }}"
+                                        @if (!empty($im['srcset']))
+                                            srcset="{{ $im['srcset'] }}"
+                                            sizes="{{ $im['sizes'] }}"
+                                        @endif
+                                        alt="{{ $m->nama_menu }}"
+                                        class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800"
+                                        width="48"
+                                        height="48"
+                                        loading="lazy"
+                                        decoding="async"
+                                        fetchpriority="low"
+                                    />
                                 @else
                                     <div class="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800"></div>
                                 @endif
@@ -490,7 +596,21 @@ new class extends Component {
                                     </td>
                                     <td class="px-6 py-4 align-middle">
                                         @if($m->gambar)
-                                            <img src="{{ Storage::url($m->gambar) }}" alt="img" class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800" />
+                                            @php($im = $imageMeta($m->gambar, 48))
+                                            <img
+                                                src="{{ $im['src'] }}"
+                                                @if (!empty($im['srcset']))
+                                                    srcset="{{ $im['srcset'] }}"
+                                                    sizes="{{ $im['sizes'] }}"
+                                                @endif
+                                                alt="{{ $m->nama_menu }}"
+                                                class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800"
+                                                width="48"
+                                                height="48"
+                                                loading="lazy"
+                                                decoding="async"
+                                                fetchpriority="low"
+                                            />
                                         @else
                                             <div class="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800"></div>
                                         @endif
@@ -779,12 +899,11 @@ new class extends Component {
                                 @error('gambar')
                                     <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                                 @enderror
-                                @php($editingMenu = $editingId ? \App\Models\Menu::find($editingId) : null)
                                 <div class="mt-2">
                                     @if ($gambar)
                                         <img src="{{ $gambar->temporaryUrl() }}" alt="preview" class="h-24 w-24 rounded object-cover border" />
-                                    @elseif ($editingMenu?->gambar)
-                                        <img src="{{ Storage::url($editingMenu->gambar) }}" alt="current" class="h-24 w-24 rounded object-cover border" />
+                                    @elseif ($editingImagePath)
+                                        <img src="{{ Storage::url($editingImagePath) }}" alt="current" class="h-24 w-24 rounded object-cover border" />
                                     @endif
                                 </div>
                             </div>
@@ -840,7 +959,7 @@ new class extends Component {
 
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
@@ -868,7 +987,7 @@ new class extends Component {
 
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}

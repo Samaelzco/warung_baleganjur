@@ -177,11 +177,34 @@
                                     @if (!empty($m->gambar))
                                         @php
                                             $img = (string) $m->gambar;
-                                            $src = \Illuminate\Support\Str::startsWith($img, ['http://', 'https://', '/'])
-                                                ? $img
-                                                : \Illuminate\Support\Facades\Storage::url($img);
+                                            $isExternal = \Illuminate\Support\Str::startsWith($img, ['http://', 'https://', '/']);
+                                            $src = $isExternal ? $img : \Illuminate\Support\Facades\Storage::url($img);
+
+                                            $thumb160 = null;
+                                            $thumb320 = null;
+
+                                            if (!$isExternal) {
+                                                $thumbPaths = \App\Services\MenuImageService::thumbnailPaths($img, [160, 320, 480, 640]);
+                                                $thumb160 = \Illuminate\Support\Facades\Storage::url($thumbPaths[160] ?? '');
+                                                $thumb320 = \Illuminate\Support\Facades\Storage::url($thumbPaths[320] ?? '');
+                                                $thumb480 = \Illuminate\Support\Facades\Storage::url($thumbPaths[480] ?? '');
+                                                $thumb640 = \Illuminate\Support\Facades\Storage::url($thumbPaths[640] ?? '');
+                                            }
                                         @endphp
-                                        <img alt="{{ $menuName }}" src="{{ $src }}" class="h-full w-full object-cover" />
+                                        <img
+                                            alt="{{ $menuName }}"
+                                            src="{{ $thumb160 ?: $src }}"
+                                            @if ($thumb160 && $thumb320 && $thumb480 && $thumb640)
+                                                srcset="{{ $thumb160 }} 160w, {{ $thumb320 }} 320w, {{ $thumb480 }} 480w, {{ $thumb640 }} 640w"
+                                                sizes="80px"
+                                            @endif
+                                            class="h-full w-full object-cover"
+                                            width="80"
+                                            height="80"
+                                            loading="lazy"
+                                            decoding="async"
+                                            fetchpriority="low"
+                                        />
                                     @else
                                         <div class="h-full w-full bg-linear-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900"></div>
                                     @endif

@@ -221,7 +221,7 @@ document.addEventListener('alpine:init', () => {
         observer: null,
         init() {
             try {
-                const raw = sessionStorage.getItem('kitchenUpdatedIds');
+                const raw = sessionStorage.getItem('kitchenUpdatedIds:v2');
                 if (raw) {
                     JSON.parse(raw).forEach((id) => this.updatedIds.add(String(id)));
                 }
@@ -251,7 +251,10 @@ document.addEventListener('alpine:init', () => {
             window.dispatchEvent(new CustomEvent('kitchen-toast', { detail: { message } }));
         },
         markUpdated(el) {
-            el.setAttribute('data-kitchen-updated', '1');
+            el.querySelectorAll('.kitchen-updated-badge').forEach((badge) => badge.setAttribute('data-updated', '1'));
+        },
+        clearUpdated(el) {
+            el.querySelectorAll('.kitchen-updated-badge').forEach((badge) => badge.removeAttribute('data-updated'));
         },
         scan() {
             const orderEls = this.$el.querySelectorAll('[data-kitchen-order][data-order-id][data-order-fp]');
@@ -276,13 +279,6 @@ document.addEventListener('alpine:init', () => {
             const changed = [];
             const created = [];
 
-            // Re-apply permanent "Updated" badge after Livewire DOM morphs.
-            for (const [id, data] of byId.entries()) {
-                if (this.updatedIds.has(id)) {
-                    data.els.forEach((el) => this.markUpdated(el));
-                }
-            }
-
             for (const [id, data] of byId.entries()) {
                 const prev = this.fingerprints.get(id);
                 this.fingerprints.set(id, data.fp);
@@ -291,20 +287,23 @@ document.addEventListener('alpine:init', () => {
 
                 if (prev === undefined) {
                     created.push(data.code || `#${id}`);
-                    this.updatedIds.add(id);
-                    data.els.forEach((el) => this.markUpdated(el));
                     continue;
                 }
 
                 if (prev !== data.fp) {
                     changed.push(data.code || `#${id}`);
                     this.updatedIds.add(id);
-                    data.els.forEach((el) => this.markUpdated(el));
                 }
             }
 
             for (const id of Array.from(this.fingerprints.keys())) {
                 if (!seen.has(id)) this.fingerprints.delete(id);
+            }
+
+            // Keep the UI in sync after Livewire DOM morphs.
+            for (const [id, data] of byId.entries()) {
+                if (this.updatedIds.has(id)) data.els.forEach((el) => this.markUpdated(el));
+                else data.els.forEach((el) => this.clearUpdated(el));
             }
 
             if (!this.initialized) {
@@ -313,7 +312,7 @@ document.addEventListener('alpine:init', () => {
             }
 
             try {
-                sessionStorage.setItem('kitchenUpdatedIds', JSON.stringify(Array.from(this.updatedIds)));
+                sessionStorage.setItem('kitchenUpdatedIds:v2', JSON.stringify(Array.from(this.updatedIds)));
             } catch (_) {}
 
             if (created.length === 1) this.toast(`${this.$el.dataset.newOrderLabel || 'New order'}: ${created[0]}`);
@@ -329,10 +328,15 @@ document.addEventListener('alpine:init', () => {
         queueScan() {
             if (this.scanQueued) return;
             this.scanQueued = true;
-            requestAnimationFrame(() => {
+            // Use a microtask so we can re-apply the badge before the next paint
+            // (prevents a visible flicker after Livewire DOM morphs).
+            const run = () => {
                 this.scanQueued = false;
                 this.scan();
-            });
+            };
+
+            if (typeof queueMicrotask === 'function') queueMicrotask(run);
+            else Promise.resolve().then(run);
         },
     }));
 

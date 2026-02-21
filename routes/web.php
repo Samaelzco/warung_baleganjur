@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 Route::get('/', function () {
     return view('welcome');
@@ -378,13 +379,19 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
         $addMode = false;
     }
 
-    $menus = \App\Models\Menu::query()
-        ->with(['addons' => function ($q) {
-            $q->where('status', 'tersedia')->orderBy('nama_addon');
-        }])
-        ->orderBy('kategori_id')
-        ->orderBy('nama_menu')
-        ->get(['id', 'nama_menu', 'nama_menu_en', 'harga', 'gambar', 'status']);
+    $menus = Cache::remember('customer:menus_available:v1', 900, function () {
+        return \App\Models\Menu::query()
+            ->with([
+                'kategori:id,nama_kategori,nama_kategori_en',
+                'addons' => function ($q) {
+                    $q->where('status', 'tersedia')->orderBy('nama_addon');
+                },
+            ])
+            ->where('status', 'tersedia')
+            ->orderBy('kategori_id')
+            ->orderBy('nama_menu')
+            ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
+    });
 
     $diskons = \App\Models\Diskon::query()
         ->where('is_active', true)
@@ -1013,21 +1020,25 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
         $addMode = false;
     }
 
-    $categories = \App\Models\KategoriMenu::query()
-        ->orderBy('nama_kategori')
-        ->get(['id', 'nama_kategori', 'nama_kategori_en']);
+    $categories = Cache::remember('customer:categories:v1', 900, function () {
+        return \App\Models\KategoriMenu::query()
+            ->orderBy('nama_kategori')
+            ->get(['id', 'nama_kategori', 'nama_kategori_en']);
+    });
 
-    $menus = \App\Models\Menu::query()
-        ->with([
-            'kategori:id,nama_kategori,nama_kategori_en',
-            'addons' => function ($q) {
-                $q->where('status', 'tersedia')->orderBy('nama_addon');
-            },
-        ])
-        ->where('status', 'tersedia')
-        ->orderBy('kategori_id')
-        ->orderBy('nama_menu')
-        ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
+    $menus = Cache::remember('customer:menus_available:v1', 900, function () {
+        return \App\Models\Menu::query()
+            ->with([
+                'kategori:id,nama_kategori,nama_kategori_en',
+                'addons' => function ($q) {
+                    $q->where('status', 'tersedia')->orderBy('nama_addon');
+                },
+            ])
+            ->where('status', 'tersedia')
+            ->orderBy('kategori_id')
+            ->orderBy('nama_menu')
+            ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
+    });
 
     $baselineCart = [];
     $baselineMinQty = [];

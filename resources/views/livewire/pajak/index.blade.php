@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Pajak;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -37,7 +38,9 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $pajak = Pajak::findOrFail($id);
+        $pajak = Pajak::query()
+            ->select(['id', 'nama', 'persentase', 'is_active'])
+            ->findOrFail($id);
         $this->editingId = $pajak->id;
 
         $this->form = [
@@ -61,6 +64,7 @@ new class extends Component {
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
 
         Pajak::create($validated);
+        Cache::forget('admin:pajak:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-pajak');
@@ -81,6 +85,7 @@ new class extends Component {
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
 
         Pajak::where('id', $this->editingId)->update($validated);
+        Cache::forget('admin:pajak:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-pajak');
@@ -98,6 +103,7 @@ new class extends Component {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
             Pajak::where('id', $this->confirmingDeleteId)->delete();
+            Cache::forget('admin:pajak:stats:v1');
             $this->confirmingDeleteId = null;
             $this->dispatch('modal-close', name: 'confirm-delete-pajak');
             $this->dispatch('modal-close', name: 'confirm-delete-pajak-desktop');
@@ -122,7 +128,12 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $query = \App\Models\Pajak::query();
+        $query = Pajak::query()->select([
+            'id',
+            'nama',
+            'persentase',
+            'is_active',
+        ]);
 
         if (!empty($search)) {
             $query->where('nama', 'like', '%'.$search.'%');
@@ -136,10 +147,17 @@ new class extends Component {
 
         $items = $query->orderBy('nama')->paginate(10);
 
-        $totalCount    = \App\Models\Pajak::count();
-        $activeCount   = \App\Models\Pajak::where('is_active', true)->count();
-        $inactiveCount = \App\Models\Pajak::where('is_active', false)->count();
-        $averageRate   = round(\App\Models\Pajak::avg('persentase') ?? 0, 2);
+        $stats = Cache::remember('admin:pajak:stats:v1', 10, fn () => [
+            'total'    => Pajak::query()->count(),
+            'active'   => Pajak::query()->where('is_active', true)->count(),
+            'inactive' => Pajak::query()->where('is_active', false)->count(),
+            'avg'      => round(Pajak::query()->avg('persentase') ?? 0, 2),
+        ]);
+
+        $totalCount    = (int) ($stats['total'] ?? 0);
+        $activeCount   = (int) ($stats['active'] ?? 0);
+        $inactiveCount = (int) ($stats['inactive'] ?? 0);
+        $averageRate   = (float) ($stats['avg'] ?? 0);
 
         $statusMeta = [
             'active' => [
@@ -261,7 +279,7 @@ new class extends Component {
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent whitespace-nowrap justify-self-end"
-                    wire:click="$set('search','');$set('statusFilter','all')"
+                    wire:click="$wire.set('search','');$wire.set('statusFilter','all')"
                 >
                     {{ __('Clear') }}
                 </flux:button>
@@ -516,7 +534,7 @@ new class extends Component {
 
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
@@ -545,7 +563,7 @@ new class extends Component {
 
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}

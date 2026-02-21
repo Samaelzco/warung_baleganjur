@@ -61,7 +61,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full space-y-6">
-    @php $kategories = KategoriMenu::orderBy('nama_kategori')->get(); @endphp
+    @php $kategories = KategoriMenu::query()->select(['id', 'nama_kategori'])->orderBy('nama_kategori')->get(); @endphp
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <flux:heading size="xl" level="1">{{ __('Edit Menu') }}</flux:heading>

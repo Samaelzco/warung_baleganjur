@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Meja;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -45,7 +46,9 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $meja = Meja::findOrFail($id);
+        $meja = Meja::query()
+            ->select(['id', 'nomor_meja', 'qr_token', 'status'])
+            ->findOrFail($id);
         $this->editingId = $meja->id;
         $this->form = [
             'nomor_meja' => $meja->nomor_meja,
@@ -66,6 +69,7 @@ new class extends Component {
         ])->validate();
 
         Meja::create($validated);
+        Cache::forget('admin:meja:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-meja');
@@ -84,6 +88,7 @@ new class extends Component {
         ])->validate();
 
         Meja::where('id', $this->editingId)->update($validated);
+        Cache::forget('admin:meja:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-meja');
@@ -95,6 +100,7 @@ new class extends Component {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
             Meja::where('id', $this->confirmingDeleteId)->delete();
+            Cache::forget('admin:meja:stats:v1');
             $this->confirmingDeleteId = null;
             // Close both mobile (bottom sheet) and desktop (centered) delete modals
             $this->dispatch('modal-close', name: 'confirm-delete-meja');
@@ -133,7 +139,14 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $query = \App\Models\Meja::query();
+        $query = Meja::query()->select([
+            'id',
+            'nomor_meja',
+            'qr_token',
+            'status',
+            'created_at',
+            'updated_at',
+        ]);
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {
                 $sub->where('nomor_meja', 'like', '%'.$search.'%')
@@ -164,12 +177,19 @@ new class extends Component {
                 'hint' => __('Booked in advance'),
             ],
         ];
-        $statusCounts = \App\Models\Meja::query()
-            ->select('status')
-            ->selectRaw('count(*) as agg')
-            ->groupBy('status')
-            ->pluck('agg','status');
-        $totalCount = \App\Models\Meja::count();
+
+        $stats = Cache::remember('admin:meja:stats:v1', 10, fn () => [
+            'total' => Meja::query()->count(),
+            'status_counts' => Meja::query()
+                ->select('status')
+                ->selectRaw('count(*) as agg')
+                ->groupBy('status')
+                ->pluck('agg', 'status')
+                ->all(),
+        ]);
+
+        $statusCounts = collect($stats['status_counts'] ?? []);
+        $totalCount = (int) ($stats['total'] ?? 0);
     @endphp
 
     <div class="space-y-6">
@@ -247,7 +267,7 @@ new class extends Component {
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent whitespace-nowrap justify-self-end"
-                    wire:click="$set('search','');$set('statusFilter','all')"
+                    wire:click="$wire.set('search','');$wire.set('statusFilter','all')"
                 >
                     {{ __('Clear') }}
                 </flux:button>
@@ -716,7 +736,7 @@ new class extends Component {
 
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
@@ -745,7 +765,7 @@ new class extends Component {
 
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}

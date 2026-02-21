@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -37,7 +38,10 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $role = Role::query()->with('permissions')->findOrFail($id);
+        $role = Role::query()
+            ->select(['id', 'name'])
+            ->with(['permissions' => fn ($q) => $q->select(['permissions.id', 'permissions.name'])])
+            ->findOrFail($id);
 
         $this->editingId = $role->id;
         $this->form = [
@@ -66,6 +70,7 @@ new class extends Component {
 
         $this->ensurePermissionsExist($permissionNames);
         $role->syncPermissions($permissionNames);
+        Cache::forget('admin:roles:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-role');
@@ -85,7 +90,7 @@ new class extends Component {
             'permissions.*' => ['string', 'max:255', 'regex:/^[A-Za-z0-9_.-]+$/'],
         ])->validate();
 
-        $role = Role::findOrFail($this->editingId);
+        $role = Role::query()->select(['id'])->findOrFail($this->editingId);
         $role->update([
             'name' => $validated['name'],
             'guard_name' => 'web',
@@ -95,6 +100,7 @@ new class extends Component {
 
         $this->ensurePermissionsExist($permissionNames);
         $role->syncPermissions($permissionNames);
+        Cache::forget('admin:roles:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-role');
@@ -115,6 +121,7 @@ new class extends Component {
         }
 
         Role::whereKey($this->confirmingDeleteId)->delete();
+        Cache::forget('admin:roles:stats:v1');
         $this->confirmingDeleteId = null;
 
         $this->dispatch('modal-close', name: 'confirm-delete-role');
@@ -214,10 +221,14 @@ new class extends Component {
 
         $defaultPermissionNames = collect($defaultPermissionGroups)->flatten()->values();
         $extraPermissions = Permission::query()
+            ->select(['id', 'name'])
             ->whereNotIn('name', $defaultPermissionNames->all())
             ->orderBy('name')
             ->get();
-        $query = Role::query()->withCount('permissions')->orderBy('name');
+        $query = Role::query()
+            ->select(['id', 'name'])
+            ->withCount('permissions')
+            ->orderBy('name');
 
         if (!empty($search)) {
             $query->where('name', 'like', "%{$search}%");
@@ -225,9 +236,15 @@ new class extends Component {
 
         $items = $query->paginate(10);
 
-        $totalRoles = Role::query()->count();
-        $totalPermissions = Permission::query()->count();
-        $rolesWithPermissions = Role::query()->has('permissions')->count();
+        $stats = Cache::remember('admin:roles:stats:v1', 10, fn () => [
+            'roles' => Role::query()->count(),
+            'permissions' => Permission::query()->count(),
+            'roles_with_permissions' => Role::query()->has('permissions')->count(),
+        ]);
+
+        $totalRoles = (int) ($stats['roles'] ?? 0);
+        $totalPermissions = (int) ($stats['permissions'] ?? 0);
+        $rolesWithPermissions = (int) ($stats['roles_with_permissions'] ?? 0);
         $rolesWithoutPermissions = max(0, $totalRoles - $rolesWithPermissions);
     @endphp
 
@@ -318,7 +335,7 @@ new class extends Component {
                 size="sm"
                 variant="ghost"
                 class="btn-ghost-accent whitespace-nowrap shrink-0"
-                wire:click="$set('search','')"
+                wire:click="$wire.set('search','')"
             >
                 {{ __('Clear') }}
             </flux:button>
@@ -501,7 +518,7 @@ new class extends Component {
 
             <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                 <flux:modal.close>
-                    <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                    <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 <flux:button variant="danger" wire:click="delete">{{ __('Yes, delete') }}</flux:button>
             </div>
@@ -525,7 +542,7 @@ new class extends Component {
 
             <div class="mt-2 flex items-center justify-end gap-2">
                 <flux:modal.close>
-                    <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                    <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 <flux:button variant="danger" wire:click="delete">{{ __('Yes, delete') }}</flux:button>
             </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\KategoriMenu;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -43,7 +44,9 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $kategori = KategoriMenu::findOrFail($id);
+        $kategori = KategoriMenu::query()
+            ->select(['id', 'nama_kategori', 'nama_kategori_en'])
+            ->findOrFail($id);
 
         $this->editingId = $kategori->id;
         $this->form = [
@@ -63,6 +66,9 @@ new class extends Component {
         ])->validate();
 
         KategoriMenu::create($validated);
+        Cache::forget('customer:categories:v1');
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:kategori:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-kategori');
@@ -80,6 +86,9 @@ new class extends Component {
         ])->validate();
 
         KategoriMenu::where('id', $this->editingId)->update($validated);
+        Cache::forget('customer:categories:v1');
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:kategori:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-kategori');
@@ -97,6 +106,9 @@ new class extends Component {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
             KategoriMenu::where('id', $this->confirmingDeleteId)->delete();
+            Cache::forget('customer:categories:v1');
+            Cache::forget('customer:menus_available:v1');
+            Cache::forget('admin:kategori:stats:v1');
             $this->confirmingDeleteId = null;
             $this->dispatch('modal-close', name: 'confirm-delete-kategori');
             $this->dispatch('modal-close', name: 'confirm-delete-kategori-desktop');
@@ -120,7 +132,12 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $query = \App\Models\KategoriMenu::query();
+        $query = KategoriMenu::query()->select([
+            'id',
+            'nama_kategori',
+            'nama_kategori_en',
+            'created_at',
+        ]);
 
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {
@@ -131,7 +148,10 @@ new class extends Component {
         }
 
         $items        = $query->orderBy('nama_kategori')->paginate(10);
-        $totalCount   = \App\Models\KategoriMenu::count();
+        $stats = Cache::remember('admin:kategori:stats:v1', 10, fn () => [
+            'total' => KategoriMenu::query()->count(),
+        ]);
+        $totalCount = (int) ($stats['total'] ?? 0);
         $summaryMeta = [
             [
                 'label' => __('Categories'),
@@ -187,7 +207,7 @@ new class extends Component {
                 size="sm"
                 variant="ghost"
                 class="btn-ghost-accent whitespace-nowrap shrink-0"
-                wire:click="$set('search','')"
+                wire:click="$wire.set('search','')"
             >
                 {{ __('Clear') }}
             </flux:button>
@@ -464,7 +484,7 @@ new class extends Component {
 
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] dark:border-neutral-700 dark:bg-neutral-900">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
@@ -491,7 +511,7 @@ new class extends Component {
 
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}

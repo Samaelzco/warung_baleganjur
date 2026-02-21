@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Addon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -38,7 +39,9 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $addon = Addon::findOrFail($id);
+        $addon = Addon::query()
+            ->select(['id', 'nama_addon', 'nama_addon_en', 'harga', 'status'])
+            ->findOrFail($id);
         $this->editingId = $addon->id;
 
         $this->form = [
@@ -63,6 +66,8 @@ new class extends Component {
         ])->validate();
 
         Addon::create($validated);
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:addon:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-addon');
@@ -84,6 +89,8 @@ new class extends Component {
         ])->validate();
 
         Addon::whereKey($this->editingId)->update($validated);
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:addon:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-addon');
@@ -104,7 +111,7 @@ new class extends Component {
         }
 
         DB::transaction(function () {
-            $addon = Addon::query()->whereKey($this->confirmingDeleteId)->lockForUpdate()->first();
+            $addon = Addon::query()->select(['id'])->whereKey($this->confirmingDeleteId)->lockForUpdate()->first();
             if (!$addon) {
                 return;
             }
@@ -112,6 +119,8 @@ new class extends Component {
             $addon->menus()->detach();
             $addon->delete();
         });
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:addon:stats:v1');
 
         $this->confirmingDeleteId = null;
         $this->dispatch('modal-close', name: 'confirm-delete-addon');
@@ -137,7 +146,12 @@ new class extends Component {
 
     <section class="w-full">
     @php
-        $query = Addon::query();
+        $query = Addon::query()->select([
+            'id',
+            'nama_addon',
+            'harga',
+            'status',
+        ]);
 
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
@@ -152,10 +166,17 @@ new class extends Component {
 
         $items = $query->orderBy('nama_addon')->paginate(10);
 
-        $totalCount = Addon::count();
-        $availableCount = Addon::where('status', 'tersedia')->count();
-        $outCount = Addon::where('status', 'habis')->count();
-        $linkedCount = Addon::has('menus')->count();
+        $stats = Cache::remember('admin:addon:stats:v1', 10, fn () => [
+            'total'     => Addon::query()->count(),
+            'available' => Addon::query()->where('status', 'tersedia')->count(),
+            'out'       => Addon::query()->where('status', 'habis')->count(),
+            'linked'    => Addon::query()->has('menus')->count(),
+        ]);
+
+        $totalCount = (int) ($stats['total'] ?? 0);
+        $availableCount = (int) ($stats['available'] ?? 0);
+        $outCount = (int) ($stats['out'] ?? 0);
+        $linkedCount = (int) ($stats['linked'] ?? 0);
     @endphp
 
     <div class="space-y-6">
@@ -258,7 +279,7 @@ new class extends Component {
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent whitespace-nowrap justify-self-end"
-                    wire:click="$set('search','');$set('statusFilter','all')"
+                    wire:click="$wire.set('search','');$wire.set('statusFilter','all')"
                 >
                     {{ __('Clear') }}
                 </flux:button>
@@ -662,7 +683,7 @@ new class extends Component {
                 @endif
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">{{ __('Yes, delete') }}</flux:button>
                 </div>
@@ -687,7 +708,7 @@ new class extends Component {
                 @endif
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                     </flux:modal.close>
                     <flux:button variant="danger" wire:click="delete">{{ __('Yes, delete') }}</flux:button>
                 </div>

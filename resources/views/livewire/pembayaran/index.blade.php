@@ -2,6 +2,7 @@
 
 use App\Models\Pesanan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -30,11 +31,38 @@ use Livewire\WithPagination;
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingSort(): void { $this->resetPage(); }
 
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->sort = 'oldest';
+        $this->resetPage();
+    }
+
 	    public function openPayModal(int $id): void
 	    {
 	        $this->authorizeManage();
 
-	        $pesanan = Pesanan::with(['meja', 'details.menu', 'details.addons'])
+	        $pesanan = Pesanan::query()
+                ->select([
+                    'id',
+                    'meja_id',
+                    'kode_pesanan',
+                    'customer_name',
+                    'customer_note',
+                    'waktu_pesan',
+                    'subtotal',
+                    'discount_total',
+                    'tax_total',
+                    'total_harga',
+                    'status',
+                    'metode_pembayaran',
+                ])
+                ->with([
+                    'meja:id,nomor_meja',
+                    'details:id,pesanan_id,menu_id,qty,harga,subtotal',
+                    'details.menu:id,nama_menu',
+                    'details.addons:id,nama_addon',
+                ])
 	            ->whereKey($id)
             ->where('status', 'siap')
             ->where(function ($q) {
@@ -132,6 +160,7 @@ use Livewire\WithPagination;
 	        DB::transaction(function () use ($validated, &$saved) {
 	            $pesanan = Pesanan::query()
 	                ->whereKey($this->payingId)
+                    ->select(['id', 'status', 'metode_pembayaran', 'total_harga', 'waktu_selesai'])
 	                ->lockForUpdate()
                 ->firstOrFail();
 
@@ -211,7 +240,22 @@ use Livewire\WithPagination;
 
             $groupDetails = fn ($item) => ($item->details ?? collect())->groupBy($detailGroupKey);
 
-	        $query = Pesanan::with(['meja', 'details.menu', 'details.addons'])
+	        $query = Pesanan::query()
+                ->select([
+                    'id',
+                    'meja_id',
+                    'kode_pesanan',
+                    'customer_name',
+                    'customer_note',
+                    'waktu_pesan',
+                    'total_harga',
+                ])
+                ->with([
+                    'meja:id,nomor_meja',
+                    'details:id,pesanan_id,menu_id,qty',
+                    'details.menu:id,nama_menu',
+                    'details.addons:id,nama_addon',
+                ])
 	            ->where('status', 'siap')
             ->where(function ($q) {
                 $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
@@ -233,31 +277,36 @@ use Livewire\WithPagination;
             $query->orderBy('waktu_pesan')->orderBy('id');
         }
 
-        $items = $query
-            ->paginate(10);
+        $items = $query->paginate(10);
 
-        $totalReadyUnpaid = Pesanan::query()
-            ->where('status', 'siap')
-            ->where(function ($q) {
-                $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
-            })
-            ->count();
+        $today = now()->toDateString();
+        $stats = Cache::remember('payments:stats:' . $today, 10, function () use ($today) {
+            $readyAgg = Pesanan::query()
+                ->selectRaw("
+                    sum(case when status = 'siap' then 1 else 0 end) as ready,
+                    sum(case when status = 'siap' and (metode_pembayaran is null or metode_pembayaran = '') then 1 else 0 end) as ready_unpaid
+                ")
+                ->first();
 
-        $totalReady = Pesanan::query()
-            ->where('status', 'siap')
-            ->count();
+            $paidAgg = Pesanan::query()
+                ->where('status', 'selesai')
+                ->whereNotNull('metode_pembayaran')
+                ->whereDate('waktu_selesai', $today)
+                ->selectRaw('count(*) as cnt, coalesce(sum(total_harga), 0) as total')
+                ->first();
 
-        $paidTodayCount = Pesanan::query()
-            ->where('status', 'selesai')
-            ->whereNotNull('metode_pembayaran')
-            ->whereDate('waktu_selesai', now()->toDateString())
-            ->count();
+            return [
+                'ready_unpaid' => (int) ($readyAgg->ready_unpaid ?? 0),
+                'ready' => (int) ($readyAgg->ready ?? 0),
+                'paid_today_count' => (int) ($paidAgg->cnt ?? 0),
+                'paid_today_total' => (float) ($paidAgg->total ?? 0),
+            ];
+        });
 
-        $paidTodayTotal = (float) Pesanan::query()
-            ->where('status', 'selesai')
-            ->whereNotNull('metode_pembayaran')
-            ->whereDate('waktu_selesai', now()->toDateString())
-            ->sum('total_harga');
+        $totalReadyUnpaid = (int) ($stats['ready_unpaid'] ?? 0);
+        $totalReady = (int) ($stats['ready'] ?? 0);
+        $paidTodayCount = (int) ($stats['paid_today_count'] ?? 0);
+        $paidTodayTotal = (float) ($stats['paid_today_total'] ?? 0);
 
         $statusMeta = [
             'ready_unpaid' => [
@@ -391,14 +440,34 @@ use Livewire\WithPagination;
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent"
-                    wire:click="$set('search','');$set('sort','oldest')"
+                    wire:click="clearFilters"
                 >
                     {{ __('Clear') }}
                 </flux:button>
             </div>
         </div>
 
-        <div class="space-y-4" @if(!$payingId) wire:poll.5s @endif>
+        <div class="space-y-4">
+            @if(!$payingId)
+                <div
+                    x-data="{
+                        active: !document.hidden,
+                        modalOpen: false,
+                        init() {
+                            const sync = () => { this.active = !document.hidden }
+                            document.addEventListener('visibilitychange', sync)
+                            window.addEventListener('modal-show', () => { this.modalOpen = true })
+                            window.addEventListener('modal-close', () => { this.modalOpen = false })
+                            sync()
+                        },
+                    }"
+                    x-init="init()"
+                    x-show="active && !modalOpen"
+                    wire:poll.visible.5s
+                    class="fixed left-0 top-0 h-1 w-1 opacity-0 pointer-events-none"
+                    aria-hidden="true"
+                ></div>
+            @endif
         <!-- Mobile cards -->
         <div class="block sm:hidden">
             <div class="grid gap-3">
@@ -854,22 +923,25 @@ use Livewire\WithPagination;
 	        ></div>
 
 	        <div
+	            wire:ignore
 	            x-data="{
 	                show: false,
 	                message: '',
-                timeout: null,
-                handle(event) {
-                    this.message = event.detail?.message || '{{ __('Payment saved.') }}';
-                    this.show = true;
-                    clearTimeout(this.timeout);
-                    this.timeout = setTimeout(() => this.show = false, 3500);
-                }
-            }"
-            x-on:pembayaran-toast.window="handle($event)"
-            class="pointer-events-none fixed inset-x-0 top-6 flex justify-center px-4"
-        >
-            <div
-                x-show="show"
+	                defaultMessage: @js(__('Payment saved.')),
+	                timeout: null,
+	                handle(event) {
+	                    this.message = event.detail?.message || this.defaultMessage;
+	                    this.show = true;
+	                    clearTimeout(this.timeout);
+	                    this.timeout = setTimeout(() => this.show = false, 3500);
+	                }
+	            }"
+	            x-on:pembayaran-toast.window="handle($event)"
+	            class="pointer-events-none fixed inset-x-0 top-6 flex justify-center px-4"
+	        >
+	            <div
+	                x-cloak
+	                x-show="show"
                 x-transition:enter="transform ease-out duration-200"
                 x-transition:enter-start="-translate-y-3 opacity-0"
                 x-transition:enter-end="translate-y-0 opacity-100"
@@ -877,12 +949,12 @@ use Livewire\WithPagination;
                 x-transition:leave-start="translate-y-0 opacity-100"
                 x-transition:leave-end="-translate-y-3 opacity-0"
                 class="pointer-events-auto rounded-2xl toast-brand px-4 py-3 text-sm"
-            >
-                <div class="flex items-center gap-2">
-                    <flux:icon icon="check-circle" />
-                    <span x-text="message"></span>
-                </div>
-            </div>
-        </div>
+	            >
+	                <div class="flex items-center gap-2">
+	                    <flux:icon icon="check-circle" />
+	                    <span x-text="message"></span>
+	                </div>
+	            </div>
+	        </div>
     </div>
 </section>

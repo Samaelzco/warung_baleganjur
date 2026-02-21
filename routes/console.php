@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -80,3 +81,55 @@ Artisan::command('timezone:convert-utc-to-local {--timezone=Asia/Makassar : Targ
     $this->info('Done. NOTE: do not run this command twice, or times will be shifted again.');
     return 0;
 })->purpose('Convert existing UTC datetimes in DB to a local timezone (one-time fix).');
+
+Artisan::command('menus:thumbnails {--force : Regenerate thumbnails even if they exist}', function () {
+    $force = (bool) $this->option('force');
+
+    $menus = \App\Models\Menu::query()
+        ->select(['id', 'gambar'])
+        ->whereNotNull('gambar')
+        ->where('gambar', '!=', '')
+        ->get();
+
+    if ($menus->isEmpty()) {
+        $this->info('No menu images found.');
+        return 0;
+    }
+
+    $disk = 'public';
+    $storage = \Illuminate\Support\Facades\Storage::disk($disk);
+    $widths = [160, 320, 480, 640];
+
+    $this->line('Generating menu thumbnails (' . implode(', ', $widths) . 'px webp) on disk: ' . $disk);
+    $this->newLine();
+
+    $bar = $this->output->createProgressBar($menus->count());
+    $bar->start();
+
+    $generated = 0;
+    foreach ($menus as $menu) {
+        $path = ltrim((string) $menu->gambar, '/');
+        if ($path === '' || Str::startsWith($path, ['http://', 'https://', '/'])) {
+            $bar->advance();
+            continue;
+        }
+
+        $thumbs = \App\Services\MenuImageService::thumbnailPaths($path, $widths);
+        $allExist = collect($thumbs)->every(fn ($p) => $storage->exists($p));
+
+        if (!$force && $allExist) {
+            $bar->advance();
+            continue;
+        }
+
+        \App\Services\MenuImageService::generateThumbnails($path, $widths, $disk);
+        $generated++;
+        $bar->advance();
+    }
+
+    $bar->finish();
+    $this->newLine(2);
+
+    $this->info("Done. Updated {$generated} menu(s).");
+    return 0;
+})->purpose('Generate WebP thumbnails for menu images (customer page optimization).');

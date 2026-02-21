@@ -71,10 +71,10 @@ new class extends Component {
 
 <section class="w-full space-y-6">
     @php
-        $mejas = Meja::orderBy('nomor_meja')->get();
-        $diskons = Diskon::orderBy('kode')->get();
-        $pajaks = Pajak::orderBy('nama')->get();
-        $users = User::orderBy('name')->get();
+        $mejas = Meja::query()->select(['id', 'nomor_meja'])->orderBy('nomor_meja')->get();
+        $diskons = Diskon::query()->select(['id', 'kode'])->orderBy('kode')->get();
+        $pajaks = Pajak::query()->select(['id', 'nama', 'persentase'])->orderBy('nama')->get();
+        $users = User::query()->select(['id', 'name'])->orderBy('name')->get();
     @endphp
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

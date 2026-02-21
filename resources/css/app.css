@@ -112,7 +112,7 @@ select:focus[data-flux-control] {
     background: var(--brand-primary);
 }
 
-.kitchen-order[data-kitchen-updated="1"] .kitchen-updated-badge {
+.kitchen-updated-badge[data-updated="1"] {
     display: inline-flex;
 }
 

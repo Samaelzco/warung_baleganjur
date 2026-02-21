@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -39,7 +40,10 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $user = User::query()->with('roles')->findOrFail($id);
+        $user = User::query()
+            ->select(['id', 'name', 'email'])
+            ->with(['roles:id,name'])
+            ->findOrFail($id);
 
         $this->editingId = $user->id;
         $this->form = [
@@ -70,6 +74,7 @@ new class extends Component {
         ]);
 
         $user->syncRoles(!empty($validated['role']) ? [$validated['role']] : []);
+        Cache::forget('admin:users:stats:v1');
 
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-user');
@@ -106,9 +111,10 @@ new class extends Component {
             $payload['password'] = $validated['password'];
         }
 
-        $user = User::findOrFail($this->editingId);
+        $user = User::query()->select(['id'])->findOrFail($this->editingId);
         $user->update($payload);
         $user->syncRoles(!empty($validated['role']) ? [$validated['role']] : []);
+        Cache::forget('admin:users:stats:v1');
 
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-user');
@@ -139,6 +145,7 @@ new class extends Component {
         }
 
         User::whereKey($this->confirmingDeleteId)->delete();
+        Cache::forget('admin:users:stats:v1');
         $this->confirmingDeleteId = null;
 
         $this->dispatch('modal-close', name: 'confirm-delete-user');
@@ -164,21 +171,28 @@ new class extends Component {
     }
 }; ?>
 
-<section class="w-full">
+    <section class="w-full">
     @php
-        $roles = Role::query()->orderBy('name')->get();
+        $roles = Role::query()->select(['id', 'name'])->orderBy('name')->get();
 
-        $roleCounts = DB::table('model_has_roles')
-            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-            ->where('model_has_roles.model_type', \App\Models\User::class)
-            ->select('roles.name')
-            ->selectRaw('count(distinct model_has_roles.model_id) as agg')
-            ->groupBy('roles.name')
-            ->pluck('agg', 'roles.name');
+        $stats = Cache::remember('admin:users:stats:v1', 10, fn () => [
+            'total' => User::query()->count(),
+            'role_counts' => DB::table('model_has_roles')
+                ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                ->where('model_has_roles.model_type', User::class)
+                ->select('roles.name')
+                ->selectRaw('count(distinct model_has_roles.model_id) as agg')
+                ->groupBy('roles.name')
+                ->pluck('agg', 'roles.name')
+                ->all(),
+        ]);
 
-        $totalCount = User::query()->count();
+        $totalCount = (int) ($stats['total'] ?? 0);
+        $roleCounts = collect($stats['role_counts'] ?? []);
 
-        $query = User::query()->with('roles');
+        $query = User::query()
+            ->select(['id', 'name', 'email'])
+            ->with(['roles:id,name']);
 
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {
@@ -268,7 +282,7 @@ new class extends Component {
                         <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
                     @endforeach
                 </flux:select>
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent whitespace-nowrap shrink-0" wire:click="$set('search','');$set('roleFilter','all')">{{ __('Clear') }}</flux:button>
+                <flux:button size="sm" variant="ghost" class="btn-ghost-accent whitespace-nowrap shrink-0" wire:click="$wire.set('search','');$wire.set('roleFilter','all')">{{ __('Clear') }}</flux:button>
             </div>
         </div>
 
@@ -507,7 +521,7 @@ new class extends Component {
 
             <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                 <flux:modal.close>
-                    <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                    <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 <flux:button variant="danger" wire:click="delete">
                     {{ __('Yes, delete') }}
@@ -533,7 +547,7 @@ new class extends Component {
 
             <div class="mt-2 flex items-center justify-end gap-2">
                 <flux:modal.close>
-                    <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
+                    <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
                 <flux:button variant="danger" wire:click="delete">
                     {{ __('Yes, delete') }}

@@ -320,7 +320,7 @@ new class extends Component {
                             size="sm"
                             variant="ghost"
                             class="{{ $filterMode === 'range' ? 'btn-accent' : 'btn-ghost-accent' }} rounded-full w-full"
-                            wire:click="$set('filterMode','range')"
+                            wire:click="$wire.set('filterMode','range')"
                             wire:loading.attr="disabled"
                             wire:target="filterMode,startDate,endDate,month,year,setPreset"
                         >
@@ -330,7 +330,7 @@ new class extends Component {
                             size="sm"
                             variant="ghost"
                             class="{{ $filterMode === 'month' ? 'btn-accent' : 'btn-ghost-accent' }} rounded-full w-full"
-                            wire:click="$set('filterMode','month')"
+                            wire:click="$wire.set('filterMode','month')"
                             wire:loading.attr="disabled"
                             wire:target="filterMode,startDate,endDate,month,year,setPreset"
                         >

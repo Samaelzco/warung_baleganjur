@@ -8,6 +8,7 @@ use App\Models\PesananDetail;
 use App\Models\Menu;
 use App\Models\Addon;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -51,7 +52,34 @@ new class extends Component {
     public function openEditModal(int $id): void
     {
         $this->authorizeManage();
-        $pesanan = Pesanan::with(['details.menu', 'details.addons'])->findOrFail($id);
+        $pesanan = Pesanan::query()
+            ->select([
+                'id',
+                'meja_id',
+                'kode_pesanan',
+                'customer_name',
+                'customer_note',
+                'subtotal',
+                'discount_total',
+                'tax_total',
+                'total_harga',
+                'status',
+                'metode_pembayaran',
+                'dibayar',
+                'kembalian',
+                'kasir_id',
+                'chef_id',
+                'diskon_id',
+                'pajak_id',
+            ])
+            ->with([
+                'details' => fn ($q) => $q
+                    ->select(['id', 'pesanan_id', 'menu_id', 'qty', 'harga', 'subtotal'])
+                    ->with([
+                        'addons' => fn ($aq) => $aq->select(['addons.id']),
+                    ]),
+            ])
+            ->findOrFail($id);
         $this->editingId = $pesanan->id;
 
         $this->form = [
@@ -225,7 +253,7 @@ new class extends Component {
             'items.*.addon_ids.*' => ['integer', 'exists:addons,id'],
         ])->validate();
 
-        $pesanan = Pesanan::findOrFail($this->editingId);
+        $pesanan = Pesanan::query()->select(['id', 'waktu_selesai'])->findOrFail($this->editingId);
 
         $validated['customer_name'] = blank($validated['customer_name'] ?? null) ? __('Guest') : $validated['customer_name'];
 
@@ -328,7 +356,7 @@ new class extends Component {
                 ->get()
                 ->keyBy('id');
 
-            $existingDetails = $pesanan->details()->get()->keyBy('id');
+            $existingDetails = $pesanan->details()->select(['id'])->get()->keyBy('id');
             $keptIds = [];
 
             foreach ($items as $item) {
@@ -454,7 +482,7 @@ new class extends Component {
                 $menuId = (int) ($this->orderItems[$index]['menu_id'] ?? 0);
                 $this->orderItems[$index]['addon_ids'] = [];
                 if ($menuId > 0) {
-                    $menu = Menu::find($menuId);
+                    $menu = Menu::query()->select(['id', 'harga'])->find($menuId);
                     if ($menu) {
                         $this->orderItems[$index]['harga'] = (float) $menu->harga;
                     }
@@ -525,7 +553,12 @@ new class extends Component {
     {
         $menuIds = collect($items)->pluck('menu_id')->filter()->unique()->values()->all();
         $menus = Menu::query()
-            ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
+            ->select(['id', 'harga'])
+            ->with([
+                'addons' => fn ($q) => $q
+                    ->select(['addons.id', 'harga', 'status'])
+                    ->where('status', 'tersedia'),
+            ])
             ->whereIn('id', $menuIds)
             ->get()
             ->keyBy('id');
@@ -575,7 +608,7 @@ new class extends Component {
         $taxTotal = is_numeric($taxOverride) ? (float) $taxOverride : 0.0;
 
         if ($diskonId) {
-            $diskon = Diskon::find($diskonId);
+            $diskon = Diskon::query()->select(['id', 'tipe', 'nilai', 'min_subtotal'])->find($diskonId);
             if ($diskon && blank($discountOverride)) {
                 $discountTotal = $this->computeDiscount($diskon, $subtotal);
             }
@@ -584,7 +617,7 @@ new class extends Component {
         $baseAfterDiscount = max($subtotal - $discountTotal, 0);
 
         if ($pajakId) {
-            $pajak = Pajak::find($pajakId);
+            $pajak = Pajak::query()->select(['id', 'persentase'])->find($pajakId);
             if ($pajak && blank($taxOverride)) {
                 $taxTotal = $this->computeTax($pajak, $baseAfterDiscount);
             }
@@ -621,7 +654,23 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $query = Pesanan::with(['meja', 'diskon', 'pajak', 'kasir']);
+        $query = Pesanan::query()
+            ->select([
+                'id',
+                'meja_id',
+                'kasir_id',
+                'kode_pesanan',
+                'customer_name',
+                'customer_note',
+                'status',
+                'metode_pembayaran',
+                'total_harga',
+                'waktu_pesan',
+            ])
+            ->with([
+                'meja' => fn ($q) => $q->select(['id', 'nomor_meja']),
+                'kasir' => fn ($q) => $q->select(['id', 'name']),
+            ]);
 
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {
@@ -646,10 +695,17 @@ new class extends Component {
 
         $items = $query->orderByDesc('waktu_pesan')->orderByDesc('id')->paginate(10);
 
-        $totalCount      = Pesanan::count();
-        $openCount       = Pesanan::whereIn('status', ['menunggu', 'diproses', 'siap'])->count();
-        $completedCount  = Pesanan::where('status', 'selesai')->count();
-        $cancelledCount  = Pesanan::where('status', 'batal')->count();
+        $stats = Cache::remember('admin:pesanan:stats:v1', 10, fn () => [
+            'total'     => Pesanan::query()->count(),
+            'open'      => Pesanan::query()->whereIn('status', ['menunggu', 'diproses', 'siap'])->count(),
+            'completed' => Pesanan::query()->where('status', 'selesai')->count(),
+            'cancelled' => Pesanan::query()->where('status', 'batal')->count(),
+        ]);
+
+        $totalCount      = (int) ($stats['total'] ?? 0);
+        $openCount       = (int) ($stats['open'] ?? 0);
+        $completedCount  = (int) ($stats['completed'] ?? 0);
+        $cancelledCount  = (int) ($stats['cancelled'] ?? 0);
 
         $statusMeta = [
             'menunggu' => [
@@ -679,12 +735,18 @@ new class extends Component {
             ],
         ];
 
-        $mejas   = Meja::orderBy('nomor_meja')->get();
-        $diskons = Diskon::orderBy('kode')->get();
-        $pajaks  = Pajak::orderBy('nama')->get();
-        $users   = User::orderBy('name')->get();
+        $mejas   = Meja::query()->select(['id', 'nomor_meja'])->orderBy('nomor_meja')->get();
+        $diskons = Diskon::query()->select(['id', 'kode'])->orderBy('kode')->get();
+        $pajaks  = Pajak::query()->select(['id', 'nama', 'persentase'])->orderBy('nama')->get();
+        $users   = User::query()->select(['id', 'name'])->orderBy('name')->get();
         $menus   = Menu::query()
-            ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')->orderBy('nama_addon')])
+            ->select(['id', 'nama_menu', 'nama_menu_en', 'harga', 'status'])
+            ->with([
+                'addons' => fn ($q) => $q
+                    ->select(['addons.id', 'nama_addon', 'harga', 'status'])
+                    ->where('status', 'tersedia')
+                    ->orderBy('nama_addon'),
+            ])
             ->orderBy('nama_menu')
             ->get();
         $menusById = $menus->keyBy('id');
@@ -822,7 +884,7 @@ new class extends Component {
                     size="sm"
                     variant="ghost"
                     class="btn-ghost-accent whitespace-nowrap shrink-0"
-                    wire:click="$set('search','');$set('statusFilter','all');$set('paymentFilter','all')"
+                    wire:click="$wire.set('search','');$wire.set('statusFilter','all');$wire.set('paymentFilter','all')"
                 >
                     {{ __('Clear') }}
                 </flux:button>
@@ -1811,7 +1873,7 @@ new class extends Component {
 
                 <div class="sticky bottom-0 -mx-2 mt-2 flex items-center justify-end gap-2 border-t border-neutral-200 bg-white/85 px-2 py-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">
                             {{ __('Cancel') }}
                         </flux:button>
                     </flux:modal.close>
@@ -1847,7 +1909,7 @@ new class extends Component {
 
                 <div class="mt-2 flex items-center justify-end gap-2">
                     <flux:modal.close>
-                        <flux:button variant="filled" wire:click="$set('confirmingDeleteId', null)">
+                        <flux:button variant="filled" wire:click="$wire.set('confirmingDeleteId', null)">
                             {{ __('Cancel') }}
                         </flux:button>
                     </flux:modal.close>
