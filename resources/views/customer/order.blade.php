@@ -342,7 +342,7 @@
                         <button
                             type="button"
                             id="drawerCheckoutBtn"
-                            data-checkout-url="{{ route('customer.checkout', ['token' => $token] + (!empty($addMode) ? ['add' => 1] : [])) }}"
+                            data-checkout-url="{{ $checkoutUrl ?? route('customer.checkout', ['token' => $token] + (!empty($addMode) ? ['add' => 1] : [])) }}"
                             class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)]"
                         >
                             {{ __('Confirm order') }}

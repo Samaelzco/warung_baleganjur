@@ -1,8 +1,8 @@
 <x-layouts.customer :title="__('Checkout')">
     @php
         $addMode = (bool) ($addMode ?? false);
-        $backUrl = route('customer.order', ['token' => $token] + ($addMode ? ['add' => 1] : []));
-        $submitUrl = route('customer.checkout.submit', ['token' => $token] + ($addMode ? ['add' => 1] : []));
+        $backUrl = $backUrl ?? route('customer.order', ['token' => $token] + ($addMode ? ['add' => 1] : []));
+        $submitUrl = $submitUrl ?? route('customer.checkout.submit', ['token' => $token] + ($addMode ? ['add' => 1] : []));
 
         $idr0 = fn () => 'Rp 0';
 
@@ -257,6 +257,18 @@
                         />
                     </div>
 
+                    <div>
+                        <label for="jumlahOrang" class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">{{ __('Guests') }}</label>
+                        <input
+                            id="jumlahOrang"
+                            type="number"
+                            min="1"
+                            max="99"
+                            value="1"
+                            class="mt-2 h-12 w-full rounded-2xl border border-neutral-200/70 bg-white/70 px-4 text-sm text-neutral-900 shadow-sm outline-none placeholder:text-neutral-400 focus:border-[var(--brand-primary)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--brand-primary)_15%,transparent)] dark:border-neutral-800/70 dark:bg-neutral-950/30 dark:text-white dark:placeholder:text-neutral-500"
+                        />
+                    </div>
+
                     <div id="checkoutError" class="hidden rounded-2xl border border-rose-200/70 bg-rose-50/80 p-3 text-sm font-semibold text-rose-800 shadow-sm backdrop-blur dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200"></div>
 
                     <div class="flex items-center justify-end gap-2 pt-1">
@@ -306,6 +318,7 @@
             const confirmCheckoutBtn = document.getElementById('confirmCheckoutBtn')
             const nameModal = document.getElementById('nameModal')
             const customerName = document.getElementById('customerName')
+            const jumlahOrang = document.getElementById('jumlahOrang')
             const saveNameBtn = document.getElementById('saveNameBtn')
             const checkoutError = document.getElementById('checkoutError')
 
@@ -734,6 +747,7 @@
                 checkoutError?.classList.add('hidden')
                 if (nameModal) nameModal.classList.remove('hidden')
                 if (customerName) customerName.value = ''
+                if (jumlahOrang) jumlahOrang.value = '1'
                 setTimeout(() => customerName?.focus(), 50)
             }
 
@@ -758,6 +772,7 @@
                 if (!lines.length) return
 
                 const name = addMode ? '' : String(customerName?.value || '').trim()
+                const guests = addMode ? 1 : Math.max(Number(jumlahOrang?.value || 1), 1)
                 const note = String(noteInput?.value || readNote() || '').trim()
                 if (!addMode) {
                     if (!name) {
@@ -788,6 +803,7 @@
                             voucher: voucherCode,
                             customer_name: name,
                             customer_note: note,
+                            jumlah_orang: guests,
                         }),
                     })
 

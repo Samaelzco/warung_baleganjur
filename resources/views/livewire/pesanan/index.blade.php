@@ -8,6 +8,7 @@ use App\Models\PesananDetail;
 use App\Models\Menu;
 use App\Models\Addon;
 use App\Models\User;
+use App\Services\TableBookingService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
@@ -59,6 +60,7 @@ new class extends Component {
                 'kode_pesanan',
                 'customer_name',
                 'customer_note',
+                'jumlah_orang',
                 'subtotal',
                 'discount_total',
                 'tax_total',
@@ -87,6 +89,7 @@ new class extends Component {
             'kode_pesanan' => $pesanan->kode_pesanan,
             'customer_name' => $pesanan->customer_name,
             'customer_note' => $pesanan->customer_note,
+            'jumlah_orang' => $pesanan->jumlah_orang,
             'subtotal' => $pesanan->subtotal,
             'discount_total' => $pesanan->discount_total,
             'tax_total' => $pesanan->tax_total,
@@ -132,6 +135,7 @@ new class extends Component {
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan'],
             'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
+            'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
             'chef_id' => ['nullable', 'exists:users,id'],
@@ -167,6 +171,7 @@ new class extends Component {
                 'kode_pesanan' => $validated['kode_pesanan'],
                 'customer_name' => $validated['customer_name'],
                 'customer_note' => $validated['customer_note'] ?? null,
+                'jumlah_orang' => $validated['jumlah_orang'],
                 'subtotal' => $totals['subtotal'],
                 'discount_total' => $totals['discount_total'],
                 'tax_total' => $totals['tax_total'],
@@ -212,6 +217,8 @@ new class extends Component {
             }
         });
 
+        app(TableBookingService::class)->syncMejaStatus((int) $validated['meja_id']);
+
         $this->resetCreateForm();
         $this->dispatch('modal-close', name: 'create-pesanan');
         $this->dispatch('pesanan-toast', message: __('Order created successfully.'));
@@ -236,9 +243,10 @@ new class extends Component {
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan,' . $this->editingId],
             'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
+            'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
+            'status' => ['required', 'in:booking,menunggu,diproses,siap,selesai,batal'],
             'metode_pembayaran' => ['nullable', 'in:tunai,transfer,qris'],
             'dibayar' => ['nullable', 'numeric', 'min:0'],
             'kasir_id' => ['nullable', 'exists:users,id'],
@@ -395,6 +403,12 @@ new class extends Component {
             }
         });
 
+        if (in_array((string) ($validated['status'] ?? ''), ['selesai', 'batal'], true)) {
+            app(TableBookingService::class)->activateNextBookings((int) $validated['meja_id']);
+        } else {
+            app(TableBookingService::class)->syncMejaStatus((int) $validated['meja_id']);
+        }
+
         $this->editingId = null;
         $this->dispatch('modal-close', name: 'edit-pesanan');
         $this->dispatch('pesanan-toast', message: __('Order updated successfully.'));
@@ -410,7 +424,12 @@ new class extends Component {
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
-            Pesanan::where('id', $this->confirmingDeleteId)->delete();
+            $pesanan = Pesanan::query()->select(['id', 'meja_id'])->find($this->confirmingDeleteId);
+            $mejaId = $pesanan?->meja_id;
+            $pesanan?->delete();
+            if ($mejaId) {
+                app(TableBookingService::class)->activateNextBookings((int) $mejaId);
+            }
             $this->confirmingDeleteId = null;
 
             $this->dispatch('modal-close', name: 'confirm-delete-pesanan');
@@ -426,6 +445,7 @@ new class extends Component {
             'kode_pesanan' => '',
             'customer_name' => '',
             'customer_note' => '',
+            'jumlah_orang' => 1,
             'subtotal' => 0,
             'discount_total' => 0,
             'tax_total' => 0,
@@ -662,6 +682,7 @@ new class extends Component {
                 'kode_pesanan',
                 'customer_name',
                 'customer_note',
+                'jumlah_orang',
                 'status',
                 'metode_pembayaran',
                 'total_harga',
@@ -708,6 +729,11 @@ new class extends Component {
         $cancelledCount  = (int) ($stats['cancelled'] ?? 0);
 
         $statusMeta = [
+            'booking' => [
+                'label' => __('Booking'),
+                'badge' => 'bg-purple-50 text-purple-700 ring-1 ring-purple-100 dark:bg-purple-900/40 dark:text-purple-200 dark:ring-purple-800/60',
+                'dot'   => 'bg-purple-500',
+            ],
             'menunggu' => [
                 'label' => __('Waiting'),
                 'badge' => 'bg-amber-50 text-amber-700 ring-1 ring-amber-100 dark:bg-amber-900/40 dark:text-amber-200 dark:ring-amber-800/60',
@@ -862,6 +888,7 @@ new class extends Component {
                     class="flex-1 min-w-0 sm:flex-none sm:w-44 rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
                 >
                     <option value="all">{{ __('All Status') }}</option>
+                    <option value="booking">{{ __('Booking') }}</option>
                     <option value="menunggu">{{ __('Waiting') }}</option>
                     <option value="diproses">{{ __('In progress') }}</option>
                     <option value="siap">{{ __('Ready') }}</option>
@@ -1238,6 +1265,14 @@ new class extends Component {
                                 placeholder="{{ __('Guest') }}"
                             />
 
+                            <flux:input
+                                wire:model.defer="form.jumlah_orang"
+                                type="number"
+                                min="1"
+                                max="99"
+                                :label="__('Guests')"
+                            />
+
                             <flux:textarea
                                 wire:model.defer="form.customer_note"
                                 rows="3"
@@ -1535,6 +1570,14 @@ new class extends Component {
                                 placeholder="{{ __('Guest') }}"
                             />
 
+                            <flux:input
+                                wire:model.defer="form.jumlah_orang"
+                                type="number"
+                                min="1"
+                                max="99"
+                                :label="__('Guests')"
+                            />
+
                             <flux:textarea
                                 wire:model.defer="form.customer_note"
                                 rows="3"
@@ -1544,6 +1587,7 @@ new class extends Component {
 
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <flux:select wire:model.defer="form.status" :label="__('Status')" required>
+                                    <option value="booking">{{ __('Booking') }}</option>
                                     <option value="menunggu">{{ __('Waiting') }}</option>
                                     <option value="diproses">{{ __('In progress') }}</option>
                                     <option value="siap">{{ __('Ready') }}</option>

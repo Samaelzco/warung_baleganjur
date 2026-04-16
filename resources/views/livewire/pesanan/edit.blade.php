@@ -19,6 +19,7 @@ new class extends Component {
         'kode_pesanan' => '',
         'customer_name' => '',
         'customer_note' => '',
+        'jumlah_orang' => 1,
         'subtotal' => '',
         'discount_total' => '',
         'tax_total' => '',
@@ -44,6 +45,7 @@ new class extends Component {
             'kode_pesanan' => $pesanan->kode_pesanan,
             'customer_name' => $pesanan->customer_name,
             'customer_note' => $pesanan->customer_note,
+            'jumlah_orang' => $pesanan->jumlah_orang,
             'subtotal' => $pesanan->subtotal,
             'discount_total' => $pesanan->discount_total,
             'tax_total' => $pesanan->tax_total,
@@ -186,9 +188,10 @@ new class extends Component {
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan,' . $this->pesanan->id],
             'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
+            'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'in:menunggu,diproses,siap,selesai,batal'],
+            'status' => ['required', 'in:booking,menunggu,diproses,siap,selesai,batal'],
             'metode_pembayaran' => ['nullable', 'in:tunai,transfer,qris'],
             'dibayar' => ['nullable', 'numeric', 'min:0'],
             'kasir_id' => ['nullable', 'exists:users,id'],
@@ -467,6 +470,14 @@ new class extends Component {
                     placeholder="{{ __('Guest') }}"
                 />
 
+                <flux:input
+                    wire:model="form.jumlah_orang"
+                    type="number"
+                    min="1"
+                    max="99"
+                    :label="__('Guests')"
+                />
+
                 <div data-flux-field>
                     <label data-flux-label>{{ __('Customer Note') }}</label>
                     <textarea
@@ -480,6 +491,7 @@ new class extends Component {
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:select wire:model="form.status" :label="__('Status')" required>
                         <option value="menunggu">{{ __('Waiting') }}</option>
+                        <option value="booking">{{ __('Booking') }}</option>
                         <option value="diproses">{{ __('In progress') }}</option>
                         <option value="siap">{{ __('Ready') }}</option>
                         <option value="selesai">{{ __('Completed') }}</option>

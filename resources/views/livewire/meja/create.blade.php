@@ -9,6 +9,7 @@ new class extends Component {
         'nomor_meja' => '',
         'qr_token' => '',
         'status' => 'kosong',
+        'kapasitas' => 4,
     ];
 
     public function mount(): void
@@ -38,6 +39,7 @@ new class extends Component {
             'nomor_meja' => ['required', 'string', 'max:10'],
             'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token'],
             'status' => ['required', 'in:kosong,terisi,reservasi'],
+            'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
         ])->validate();
 
         Meja::create($validated);
@@ -59,6 +61,9 @@ new class extends Component {
         <form wire:submit="save" class="grid gap-6 md:grid-cols-3">
             <div class="md:col-span-1">
                 <flux:input wire:model="form.nomor_meja" :label="__('Table Number')" required maxlength="10" />
+                <div class="mt-4">
+                    <flux:input wire:model="form.kapasitas" type="number" min="1" max="99" :label="__('Capacity')" required />
+                </div>
                 <div class="mt-4" data-flux-field>
                     <label data-flux-label>{{ __('Status') }}</label>
                     <flux:select wire:model="form.status">

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Pesanan;
+use App\Services\TableBookingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
@@ -156,13 +157,15 @@ use Livewire\WithPagination;
 	        $receiptId = $this->payingId;
 	        $shouldPrint = (bool) ($validated['print_receipt'] ?? false);
             $saved = false;
+            $mejaId = null;
 
-	        DB::transaction(function () use ($validated, &$saved) {
+	        DB::transaction(function () use ($validated, &$saved, &$mejaId) {
 	            $pesanan = Pesanan::query()
 	                ->whereKey($this->payingId)
-                    ->select(['id', 'status', 'metode_pembayaran', 'total_harga', 'waktu_selesai'])
+                    ->select(['id', 'meja_id', 'status', 'metode_pembayaran', 'total_harga', 'waktu_selesai'])
 	                ->lockForUpdate()
                 ->firstOrFail();
+            $mejaId = (int) $pesanan->meja_id;
 
             if ($pesanan->status !== 'siap') {
                 $this->dispatch('pembayaran-toast', message: __('This order is not ready anymore.'));
@@ -213,6 +216,10 @@ use Livewire\WithPagination;
 	        $this->dispatch('modal-close', name: 'pay-pesanan');
 	        $this->dispatch('pembayaran-toast', message: __('Payment saved.'));
             $this->dispatch('payment-success');
+
+            if ($mejaId) {
+                app(TableBookingService::class)->activateNextBookings($mejaId);
+            }
 
 	        if ($shouldPrint && $receiptId) {
 	            $this->dispatch('receipt-print', url: route('pembayaran.receipt', $receiptId) . '?print=1');

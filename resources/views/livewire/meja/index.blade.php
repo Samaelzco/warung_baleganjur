@@ -47,13 +47,14 @@ new class extends Component {
     {
         $this->authorizeManage();
         $meja = Meja::query()
-            ->select(['id', 'nomor_meja', 'qr_token', 'status'])
+            ->select(['id', 'nomor_meja', 'qr_token', 'status', 'kapasitas'])
             ->findOrFail($id);
         $this->editingId = $meja->id;
         $this->form = [
             'nomor_meja' => $meja->nomor_meja,
             'qr_token' => $meja->qr_token,
             'status' => $meja->status,
+            'kapasitas' => $meja->kapasitas ?? 4,
         ];
 
         $this->dispatch('modal-show', name: 'edit-meja');
@@ -66,6 +67,7 @@ new class extends Component {
             'nomor_meja' => ['required', 'string', 'max:10'],
             'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token'],
             'status' => ['required', 'in:kosong,terisi,reservasi'],
+            'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
         ])->validate();
 
         Meja::create($validated);
@@ -85,6 +87,7 @@ new class extends Component {
             'nomor_meja' => ['required', 'string', 'max:10'],
             'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token,' . $this->editingId],
             'status' => ['required', 'in:kosong,terisi,reservasi'],
+            'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
         ])->validate();
 
         Meja::where('id', $this->editingId)->update($validated);
@@ -118,6 +121,7 @@ new class extends Component {
             'nomor_meja' => '',
             'qr_token' => $this->generateUniqueToken(),
             'status' => 'kosong',
+            'kapasitas' => 4,
         ];
     }
 
@@ -144,6 +148,7 @@ new class extends Component {
             'nomor_meja',
             'qr_token',
             'status',
+            'kapasitas',
             'created_at',
             'updated_at',
         ]);
@@ -301,6 +306,10 @@ new class extends Component {
                             </div>
                         </div>
 
+                        <div class="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                            {{ __('Capacity') }}: <span class="font-semibold text-neutral-900 dark:text-white">{{ (int) ($m->kapasitas ?? 4) }}</span>
+                        </div>
+
                         <div class="mt-3 inline-flex items-center gap-2 rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
                             <span>{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::limit($m->qr_token, 12, '...')) }}</span>
                         </div>
@@ -353,6 +362,10 @@ new class extends Component {
                                 <p class="font-medium text-neutral-800 dark:text-neutral-200">{{ __('Scan to order') }}</p>
                                 <p class="truncate">{{ __('Last updated') }} {{ $m->updated_at?->diffForHumans() }}</p>
                             </div>
+                        </div>
+
+                        <div class="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                            {{ __('Capacity') }}: <span class="font-semibold text-neutral-900 dark:text-white">{{ (int) ($m->kapasitas ?? 4) }}</span>
                         </div>
 
                         <div class="mt-3 inline-flex items-center gap-2 rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
@@ -519,6 +532,11 @@ new class extends Component {
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
 
+                        <flux:input wire:model.defer="form.kapasitas" type="number" min="1" max="99" :label="__('Capacity')" required />
+                        @error('form.kapasitas')
+                            <p class="text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+
                         <div data-flux-field>
                             <flux:select wire:model.defer="form.status" :label="__('Status')">
                                 <option value="kosong">{{ __('Empty') }}</option>
@@ -586,6 +604,11 @@ new class extends Component {
                     <div class="space-y-4 md:col-span-3">
                         <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
                         @error('form.nomor_meja')
+                            <p class="text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+
+                        <flux:input wire:model.defer="form.kapasitas" type="number" min="1" max="99" :label="__('Capacity')" required />
+                        @error('form.kapasitas')
                             <p class="text-xs text-red-500">{{ $message }}</p>
                         @enderror
 

@@ -4,13 +4,15 @@
         $status = (string) ($order?->status ?? '');
         $justSubmitted = (bool) ($justSubmitted ?? false);
         $stepIndex = match ($status) {
-            'menunggu' => 0,
-            'diproses' => 1,
-            'siap' => 2,
+            'booking' => 0,
+            'menunggu' => 1,
+            'diproses' => 2,
+            'siap' => 3,
             default => -1,
         };
         $isStepActive = fn (int $i) => $stepIndex >= $i;
         $statusLabel = match ($status) {
+            'booking' => __('Queued'),
             'menunggu' => __('Waiting'),
             'diproses' => __('Preparing'),
             'siap' => __('Ready'),
@@ -188,29 +190,38 @@
                 <div class="relative flex items-center justify-between gap-3" data-stepper>
                     <div class="absolute left-4 right-4 top-[0.9rem] h-px bg-neutral-200/80 dark:bg-neutral-800/70"></div>
 
-                    <div class="relative flex flex-1 flex-col items-center gap-2 text-center" data-step="menunggu">
+                    <div class="relative flex flex-1 flex-col items-center gap-2 text-center" data-step="booking">
                         <div class="flex h-7 w-7 items-center justify-center rounded-full border border-neutral-200/70 bg-white/80 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/40">
                             <div class="h-3 w-3 rounded-full @if($isStepActive(0)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
                         </div>
                         <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(0)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
+                            {{ __('Queued') }}
+                        </div>
+                    </div>
+
+                    <div class="relative flex flex-1 flex-col items-center gap-2 text-center" data-step="menunggu">
+                        <div class="flex h-7 w-7 items-center justify-center rounded-full border border-neutral-200/70 bg-white/80 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/40">
+                            <div class="h-3 w-3 rounded-full @if($isStepActive(1)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
+                        </div>
+                        <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(1)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
                             {{ __('Waiting') }}
                         </div>
                     </div>
 
                     <div class="relative flex flex-1 flex-col items-center gap-2 text-center" data-step="diproses">
                         <div class="flex h-7 w-7 items-center justify-center rounded-full border border-neutral-200/70 bg-white/80 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/40">
-                            <div class="h-3 w-3 rounded-full @if($isStepActive(1)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
+                            <div class="h-3 w-3 rounded-full @if($isStepActive(2)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
                         </div>
-                        <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(1)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
+                        <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(2)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
                             {{ __('Preparing') }}
                         </div>
                     </div>
 
                     <div class="relative flex flex-1 flex-col items-center gap-2 text-center" data-step="siap">
                         <div class="flex h-7 w-7 items-center justify-center rounded-full border border-neutral-200/70 bg-white/80 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/40">
-                            <div class="h-3 w-3 rounded-full @if($isStepActive(2)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
+                            <div class="h-3 w-3 rounded-full @if($isStepActive(3)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
                         </div>
-                        <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(2)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
+                        <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(3)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
                             {{ __('Ready') }}
                         </div>
                     </div>
@@ -221,12 +232,16 @@
                 {{ __('Your order is being prepared. Dishes will be served gradually as they become ready.') }}
             </div>
 
+            <div id="bookingNote" class="@if($status !== 'booking') hidden @endif mt-3 rounded-2xl border border-purple-200/70 bg-purple-50/80 p-3 text-sm font-semibold text-purple-800 shadow-sm backdrop-blur dark:border-purple-900/40 dark:bg-purple-900/20 dark:text-purple-200">
+                {{ __('Your order is queued and will be sent to the kitchen when the table is available.') }}
+            </div>
+
             <div id="readyNote" class="@if($status !== 'siap') hidden @endif mt-3 rounded-2xl border border-[color-mix(in_srgb,var(--brand-primary)_35%,transparent)] bg-[color-mix(in_srgb,var(--brand-primary)_12%,transparent)] p-3 text-sm font-semibold text-neutral-900 shadow-sm backdrop-blur dark:text-white">
                 {{ __('Please go to the cashier to complete payment.') }}
             </div>
         </div>
 
-        @if($order && in_array($status, ['menunggu', 'diproses'], true))
+        @if($order && in_array($status, ['menunggu', 'diproses'], true) && empty($statusJsonUrl))
             <div class="flex justify-center">
                 <a
                     href="{{ route('customer.order', ['token' => $token, 'add' => 1]) }}"
@@ -305,10 +320,11 @@
             } catch (e) {}
 
             const labelOrderFailed = @json(__('Order failed. Please place your order again.'));
-            const redirectOrderUrl = @json(route('customer.order', ['token' => $token]));
+            const redirectOrderUrl = @json($orderUrl ?? route('customer.order', ['token' => $token]));
 
             const labelQty = @json(__('Qty'));
             const labelMenu = @json(__('Menu'));
+            const labelQueued = @json(__('Queued'));
             const labelWaiting = @json(__('Waiting'));
             const labelPreparing = @json(__('Preparing'));
             const labelReady = @json(__('Ready'));
@@ -337,6 +353,7 @@
 
             const statusLabel = (status) => {
                 const s = String(status || '')
+                if (s === 'booking') return labelQueued
                 if (s === 'menunggu') return labelWaiting
                 if (s === 'diproses') return labelPreparing
                 if (s === 'siap') return labelReady
@@ -345,9 +362,10 @@
 
             const stepIndex = (status) => {
                 const s = String(status || '')
-                if (s === 'menunggu') return 0
-                if (s === 'diproses') return 1
-                if (s === 'siap') return 2
+                if (s === 'booking') return 0
+                if (s === 'menunggu') return 1
+                if (s === 'diproses') return 2
+                if (s === 'siap') return 3
                 return -1
             }
 
@@ -455,6 +473,8 @@
                 if (orderTaxText) orderTaxText.textContent = formatIDR(Number(order.tax_total || 0))
                 updateStepper(order.status)
                 if (processingNote) processingNote.classList.toggle('hidden', order.status !== 'diproses')
+                const bookingNote = document.getElementById('bookingNote')
+                if (bookingNote) bookingNote.classList.toggle('hidden', order.status !== 'booking')
                 if (readyNote) readyNote.classList.toggle('hidden', order.status !== 'siap')
 
                 if (breakdownItemsList) {
@@ -495,7 +515,7 @@
                     return
                 }
                 inflight = true
-                fetch(@json(route('customer.status.json', ['token' => $token])), { cache: 'no-store' })
+                fetch(@json($statusJsonUrl ?? route('customer.status.json', ['token' => $token])), { cache: 'no-store' })
                     .then(r => r.json())
                     .then((json) => {
                         render(json)

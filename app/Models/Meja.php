@@ -13,6 +13,10 @@ class Meja extends Model
         'nomor_meja',
         'qr_token',
         'status',
+        'kapasitas',
+    ];
+
+    protected $casts = [
+        'kapasitas' => 'integer',
     ];
 }
-

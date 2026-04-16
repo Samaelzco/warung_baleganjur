@@ -13,6 +13,7 @@ new class extends Component {
         'kode_pesanan' => '',
         'customer_name' => '',
         'customer_note' => '',
+        'jumlah_orang' => 1,
         'subtotal' => 0,
         'discount_total' => 0,
         'tax_total' => 0,
@@ -41,6 +42,7 @@ new class extends Component {
             'kode_pesanan' => ['nullable', 'string', 'max:20', 'unique:pesanans,kode_pesanan'],
             'customer_name' => ['nullable', 'string', 'max:100'],
             'customer_note' => ['nullable', 'string', 'max:255'],
+            'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
             'chef_id' => ['nullable', 'exists:users,id'],
@@ -106,6 +108,14 @@ new class extends Component {
                     :label="__('Customer Name')"
                     maxlength="100"
                     placeholder="{{ __('Guest') }}"
+                />
+
+                <flux:input
+                    wire:model="form.jumlah_orang"
+                    type="number"
+                    min="1"
+                    max="99"
+                    :label="__('Guests')"
                 />
 
                 <div data-flux-field>

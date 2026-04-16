@@ -12,8 +12,10 @@ class Pesanan extends Model
     protected $fillable = [
         'meja_id',
         'kode_pesanan',
+        'status_token',
         'customer_name',
         'customer_note',
+        'jumlah_orang',
         'subtotal',
         'discount_total',
         'tax_total',
@@ -33,6 +35,7 @@ class Pesanan extends Model
 
     protected $casts = [
         'subtotal' => 'decimal:2',
+        'jumlah_orang' => 'integer',
         'discount_total' => 'decimal:2',
         'tax_total' => 'decimal:2',
         'total_harga' => 'decimal:2',

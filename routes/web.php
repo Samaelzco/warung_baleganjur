@@ -5,6 +5,54 @@ use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use App\Services\TableBookingService;
+
+$makeStatusToken = function (): string {
+    do {
+        $token = \Illuminate\Support\Str::random(48);
+    } while (\App\Models\Pesanan::query()->where('status_token', $token)->exists());
+
+    return $token;
+};
+
+$serializeCustomerOrder = function (\App\Models\Pesanan $pesanan): array {
+    $pesanan->loadMissing(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en']);
+
+    return [
+        'id' => (int) $pesanan->id,
+        'kode_pesanan' => (string) $pesanan->kode_pesanan,
+        'status' => (string) $pesanan->status,
+        'subtotal' => (float) ($pesanan->subtotal ?? 0),
+        'discount_total' => (float) ($pesanan->discount_total ?? 0),
+        'tax_total' => (float) ($pesanan->tax_total ?? 0),
+        'total_harga' => (float) ($pesanan->total_harga ?? 0),
+        'items' => $pesanan->details
+            ->groupBy(function ($d) {
+                $ids = $d->addons?->pluck('id')?->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)->unique()->sort()->values()->all() ?? [];
+                return (int) $d->menu_id . ':' . implode(',', $ids);
+            })
+            ->map(function ($rows) {
+                $first = $rows->first();
+                $addons = $first?->addons
+                    ? $first->addons->map(fn ($a) => (string) $a->nama_addon_localized)->filter()->values()->all()
+                    : [];
+
+                return [
+                    'menu' => (string) ($first?->menu?->nama_menu_localized ?? __('Menu')),
+                    'qty' => (int) $rows->sum('qty'),
+                    'subtotal' => (float) $rows->sum('subtotal'),
+                    'addons' => $addons,
+                ];
+            })
+            ->sortBy(function ($row) {
+                $menu = strtolower((string) ($row['menu'] ?? ''));
+                $addons = strtolower(implode(',', (array) ($row['addons'] ?? [])));
+                return $menu . '|' . $addons;
+            })
+            ->values()
+            ->all(),
+    ];
+};
 
 Route::get('/', function () {
     return view('welcome');
@@ -252,6 +300,9 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('pesanan/create', 'pesanan.create')->middleware('can:pesanan.manage')->name('pesanan.create');
     Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->middleware('can:pesanan.manage')->name('pesanan.edit');
 
+    // Booking list
+    Volt::route('booking-list', 'booking.index')->middleware('can:pesanan.access')->name('booking-list.index');
+
     // Kitchen
     Volt::route('kitchen', 'kitchen.index')->middleware('can:kitchen.access')->name('kitchen.index');
 
@@ -342,6 +393,385 @@ Route::get('meja/qr', function (\Illuminate\Http\Request $request) {
     return $response;
 })->name('meja.qr');
 
+Route::get('booking', function () {
+    $service = app(TableBookingService::class);
+    $mejas = \App\Models\Meja::query()
+        ->select(['id', 'nomor_meja', 'status', 'kapasitas'])
+        ->orderBy('nomor_meja')
+        ->get();
+
+    $occupiedByTable = $mejas
+        ->mapWithKeys(fn ($m) => [(int) $m->id => $service->occupiedSeats($m)])
+        ->all();
+
+    $bookingCounts = \App\Models\Pesanan::query()
+        ->where('status', 'booking')
+        ->select('meja_id')
+        ->selectRaw('count(*) as agg')
+        ->groupBy('meja_id')
+        ->pluck('agg', 'meja_id')
+        ->all();
+
+    return view('customer.booking', [
+        'mejas' => $mejas,
+        'occupiedByTable' => $occupiedByTable,
+        'bookingCounts' => $bookingCounts,
+    ]);
+})->name('booking.index');
+
+Route::get('booking/qr', function (\Illuminate\Http\Request $request) {
+    $host = $request->getSchemeAndHttpHost();
+    $url = $host . '/booking';
+    $size = max(min((int) $request->query('size', 512), 2048), 120);
+
+    $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+        new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
+        new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+    );
+    $writer = new \BaconQrCode\Writer($renderer);
+    $svg = $writer->writeString($url);
+
+    return response($svg, 200, [
+        'Content-Type' => 'image/svg+xml',
+        'Cache-Control' => 'public, max-age=86400',
+    ]);
+})->name('booking.qr');
+
+Route::get('booking/{meja}', function (\App\Models\Meja $meja) {
+    $categories = Cache::remember('customer:categories:v1', 900, function () {
+        return \App\Models\KategoriMenu::query()
+            ->orderBy('nama_kategori')
+            ->get(['id', 'nama_kategori', 'nama_kategori_en']);
+    });
+
+    $menus = Cache::remember('customer:menus_available:v1', 900, function () {
+        return \App\Models\Menu::query()
+            ->with([
+                'kategori:id,nama_kategori,nama_kategori_en',
+                'addons' => function ($q) {
+                    $q->where('status', 'tersedia')->orderBy('nama_addon');
+                },
+            ])
+            ->where('status', 'tersedia')
+            ->orderBy('kategori_id')
+            ->orderBy('nama_menu')
+            ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
+    });
+
+    $token = 'BOOKING' . str_pad((string) $meja->id, 3, '0', STR_PAD_LEFT);
+
+    return view('customer.order', [
+        'token' => $token,
+        'meja' => $meja,
+        'order' => null,
+        'addMode' => false,
+        'baselineCart' => [],
+        'baselineMinQty' => [],
+        'categories' => $categories,
+        'menus' => $menus,
+        'checkoutUrl' => route('booking.checkout', ['meja' => $meja->id]),
+    ]);
+})->name('booking.order');
+
+Route::get('booking/{meja}/checkout', function (\App\Models\Meja $meja) {
+    $menus = Cache::remember('customer:menus_available:v1', 900, function () {
+        return \App\Models\Menu::query()
+            ->with([
+                'kategori:id,nama_kategori,nama_kategori_en',
+                'addons' => function ($q) {
+                    $q->where('status', 'tersedia')->orderBy('nama_addon');
+                },
+            ])
+            ->where('status', 'tersedia')
+            ->orderBy('kategori_id')
+            ->orderBy('nama_menu')
+            ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
+    });
+
+    $diskons = \App\Models\Diskon::query()
+        ->where('is_active', true)
+        ->orderBy('kode')
+        ->get(['id', 'kode', 'tipe', 'nilai', 'min_subtotal', 'tanggal_mulai', 'tanggal_selesai', 'is_active']);
+
+    $taxes = \App\Models\Pajak::query()
+        ->where('is_active', true)
+        ->orderBy('nama')
+        ->get(['id', 'nama', 'persentase', 'is_active']);
+
+    $token = 'BOOKING' . str_pad((string) $meja->id, 3, '0', STR_PAD_LEFT);
+
+    return view('customer.checkout', [
+        'token' => $token,
+        'meja' => $meja,
+        'order' => null,
+        'addMode' => false,
+        'menus' => $menus,
+        'diskons' => $diskons,
+        'taxes' => $taxes,
+        'backUrl' => route('booking.order', ['meja' => $meja->id]),
+        'submitUrl' => route('booking.submit', ['meja' => $meja->id]),
+    ]);
+})->name('booking.checkout');
+
+Route::post('booking/{meja}/submit', function (\Illuminate\Http\Request $request, \App\Models\Meja $meja) use ($makeStatusToken) {
+    $data = validator([
+        'cart' => $request->input('cart', null),
+        'voucher' => $request->input('voucher', null),
+        'customer_name' => $request->input('customer_name', null),
+        'customer_note' => $request->input('customer_note', null),
+        'jumlah_orang' => $request->input('jumlah_orang', 1),
+    ], [
+        'cart' => ['required', 'array', 'min:1'],
+        'cart.*.qty' => ['required', 'integer', 'min:1'],
+        'cart.*.addons' => ['nullable', 'array'],
+        'cart.*.addons.*' => ['integer', 'exists:addons,id'],
+        'cart.*.menu_id' => ['nullable', 'integer', 'exists:menus,id'],
+        'voucher' => ['nullable', 'string', 'max:50'],
+        'customer_name' => ['required', 'string', 'max:100'],
+        'customer_note' => ['nullable', 'string', 'max:255'],
+        'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
+    ])->validate();
+
+    $cartLines = [];
+    foreach ((array) $data['cart'] as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $menuId = (int) ($row['menu_id'] ?? 0);
+        $qty = (int) ($row['qty'] ?? 0);
+        if ($menuId > 0 && $qty > 0) {
+            $cartLines[] = [
+                'menu_id' => $menuId,
+                'qty' => $qty,
+                'addons' => array_values(array_filter(array_map('intval', (array) ($row['addons'] ?? [])))),
+            ];
+        }
+    }
+
+    abort_if(empty($cartLines), 422, __('Your cart is empty.'));
+
+    $menuIds = collect($cartLines)->pluck('menu_id')->unique()->values()->all();
+    $menus = \App\Models\Menu::query()
+        ->with(['addons' => fn ($q) => $q->where('status', 'tersedia')])
+        ->whereIn('id', $menuIds)
+        ->where('status', 'tersedia')
+        ->get()
+        ->keyBy('id');
+
+    $items = [];
+    $subtotal = 0.0;
+    foreach ($cartLines as $line) {
+        $menu = $menus[(int) $line['menu_id']] ?? null;
+        if (!$menu) {
+            continue;
+        }
+
+        $allowedAddonIds = $menu->addons->pluck('id')->map(fn ($v) => (int) $v)->all();
+        $addonIds = array_values(array_intersect($line['addons'], $allowedAddonIds));
+        $addonTotal = (float) $menu->addons->whereIn('id', $addonIds)->sum('harga');
+        $harga = (float) $menu->harga + $addonTotal;
+        $lineSubtotal = $harga * (int) $line['qty'];
+        $subtotal += $lineSubtotal;
+
+        $items[] = [
+            'menu_id' => (int) $menu->id,
+            'qty' => (int) $line['qty'],
+            'harga' => $harga,
+            'subtotal' => $lineSubtotal,
+            'addon_ids' => $addonIds,
+        ];
+    }
+
+    abort_if(empty($items), 422, __('Your cart is empty.'));
+
+    $voucherCode = strtoupper(trim((string) ($data['voucher'] ?? '')));
+    $diskon = null;
+    $discountTotal = 0.0;
+    if ($voucherCode !== '') {
+        $today = now()->toDateString();
+        $diskon = \App\Models\Diskon::query()
+            ->where('kode', $voucherCode)
+            ->where('is_active', true)
+            ->first();
+
+        if ($diskon && (!$diskon->tanggal_mulai || $diskon->tanggal_mulai->toDateString() <= $today) && (!$diskon->tanggal_selesai || $diskon->tanggal_selesai->toDateString() >= $today) && ($diskon->min_subtotal === null || $subtotal >= (float) $diskon->min_subtotal)) {
+            $discountTotal = $diskon->tipe === 'percent'
+                ? max($subtotal * ((float) $diskon->nilai / 100), 0)
+                : max((float) $diskon->nilai, 0);
+            $discountTotal = min($discountTotal, $subtotal);
+        } else {
+            $diskon = null;
+        }
+    }
+
+    $taxes = \App\Models\Pajak::query()->where('is_active', true)->get(['id', 'persentase']);
+    $taxPercent = (float) $taxes->sum('persentase');
+    $baseAfterDiscount = max($subtotal - $discountTotal, 0);
+    $taxTotal = max($baseAfterDiscount * ($taxPercent / 100), 0);
+    $total = max($baseAfterDiscount + $taxTotal, 0);
+    $pajakId = $taxes->count() === 1 ? (int) $taxes->first()->id : null;
+
+    $pesananId = null;
+    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $data, $items, $subtotal, $discountTotal, $taxTotal, $total, $diskon, $pajakId, $makeStatusToken, &$pesananId) {
+        $pesanan = \App\Models\Pesanan::create([
+            'meja_id' => $meja->id,
+            'kode_pesanan' => 'BKG-' . now()->format('YmdHis'),
+            'status_token' => $makeStatusToken(),
+            'customer_name' => trim((string) $data['customer_name']),
+            'customer_note' => blank($data['customer_note'] ?? null) ? null : \Illuminate\Support\Str::substr(trim((string) $data['customer_note']), 0, 255),
+            'jumlah_orang' => max((int) ($data['jumlah_orang'] ?? 1), 1),
+            'subtotal' => $subtotal,
+            'discount_total' => $discountTotal,
+            'tax_total' => $taxTotal,
+            'total_harga' => $total,
+            'status' => 'booking',
+            'metode_pembayaran' => null,
+            'dibayar' => null,
+            'kembalian' => null,
+            'referensi_pembayaran' => null,
+            'kasir_id' => null,
+            'chef_id' => null,
+            'diskon_id' => $diskon?->id,
+            'pajak_id' => $pajakId,
+            'waktu_pesan' => now(),
+        ]);
+
+        $pesananId = $pesanan->id;
+
+        $allAddonIds = collect($items)->pluck('addon_ids')->flatten()->filter()->unique()->values()->all();
+        $addons = \App\Models\Addon::query()->select(['id', 'harga'])->whereIn('id', $allAddonIds)->get()->keyBy('id');
+
+        foreach ($items as $item) {
+            $detail = $pesanan->details()->create([
+                'menu_id' => $item['menu_id'],
+                'qty' => $item['qty'],
+                'harga' => $item['harga'],
+                'subtotal' => $item['subtotal'],
+            ]);
+
+            $sync = [];
+            foreach (($item['addon_ids'] ?? []) as $addonId) {
+                if ($addons->has($addonId)) {
+                    $sync[$addonId] = ['harga' => (float) $addons[$addonId]->harga];
+                }
+            }
+            $detail->addons()->sync($sync);
+        }
+    });
+
+    session()->put('booking_last_order_id', $pesananId);
+
+    return response()->json([
+        'ok' => true,
+        'redirect' => route('customer.order-status', [
+            'pesanan' => $pesananId,
+            'token' => \App\Models\Pesanan::query()->whereKey($pesananId)->value('status_token'),
+        ]),
+        'order_id' => $pesananId,
+    ]);
+})->name('booking.submit');
+
+Route::get('booking/status/{pesanan}', function (\App\Models\Pesanan $pesanan) {
+    if (!blank($pesanan->status_token)) {
+        return redirect()->route('customer.order-status', [
+            'pesanan' => $pesanan->id,
+            'token' => $pesanan->status_token,
+        ]);
+    }
+
+    $pesanan->loadMissing(['meja', 'details.menu', 'details.addons']);
+
+    return view('customer.status', [
+        'token' => 'BOOKING' . str_pad((string) $pesanan->meja_id, 3, '0', STR_PAD_LEFT),
+        'meja' => $pesanan->meja,
+        'order' => $pesanan,
+        'justSubmitted' => false,
+        'statusJsonUrl' => route('booking.status.json', ['pesanan' => $pesanan->id]),
+        'orderUrl' => route('booking.order', ['meja' => $pesanan->meja_id]),
+    ]);
+})->name('booking.status');
+
+Route::get('booking/status/{pesanan}/json', function (\App\Models\Pesanan $pesanan) {
+    $pesanan->loadMissing(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en']);
+
+    $paid = $pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran);
+
+    return response()->json([
+        'ok' => true,
+        'paid' => $paid,
+        'paid_order' => $paid ? [
+            'id' => (int) $pesanan->id,
+            'kode_pesanan' => (string) $pesanan->kode_pesanan,
+            'paid_at' => $pesanan->waktu_selesai?->toIso8601String(),
+        ] : null,
+        'redirect' => $paid ? route('booking.index') : null,
+        'order' => in_array($pesanan->status, ['booking', 'menunggu', 'diproses', 'siap'], true) ? [
+            'id' => (int) $pesanan->id,
+            'kode_pesanan' => (string) $pesanan->kode_pesanan,
+            'status' => (string) $pesanan->status,
+            'subtotal' => (float) ($pesanan->subtotal ?? 0),
+            'discount_total' => (float) ($pesanan->discount_total ?? 0),
+            'tax_total' => (float) ($pesanan->tax_total ?? 0),
+            'total_harga' => (float) ($pesanan->total_harga ?? 0),
+            'items' => $pesanan->details->map(fn ($d) => [
+                'menu' => (string) ($d->menu?->nama_menu_localized ?? __('Menu')),
+                'qty' => (int) $d->qty,
+                'subtotal' => (float) $d->subtotal,
+                'addons' => $d->addons?->map(fn ($a) => (string) $a->nama_addon_localized)->filter()->values()->all() ?? [],
+            ])->values()->all(),
+        ] : null,
+    ], 200, [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+    ]);
+})->name('booking.status.json');
+
+Route::get('order-status/{pesanan}/{token}', function (\App\Models\Pesanan $pesanan, string $token) {
+    abort_unless(hash_equals((string) $pesanan->status_token, $token), 404);
+
+    $pesanan->loadMissing(['meja', 'details.menu', 'details.addons']);
+
+    return view('customer.status', [
+        'token' => (string) ($pesanan->meja?->qr_token ?? ''),
+        'meja' => $pesanan->meja,
+        'order' => $pesanan,
+        'justSubmitted' => (bool) session()->pull('customer_order_submitted_' . $pesanan->id, false),
+        'statusJsonUrl' => route('customer.order-status.json', ['pesanan' => $pesanan->id, 'token' => $token]),
+        'orderUrl' => $pesanan->meja?->qr_token
+            ? route('customer.order', ['token' => $pesanan->meja->qr_token])
+            : route('booking.index'),
+    ]);
+})
+    ->whereNumber('pesanan')
+    ->where('token', '[A-Za-z0-9]{20,80}')
+    ->name('customer.order-status');
+
+Route::get('order-status/{pesanan}/{token}/json', function (\App\Models\Pesanan $pesanan, string $token) use ($serializeCustomerOrder) {
+    abort_unless(hash_equals((string) $pesanan->status_token, $token), 404);
+
+    $paid = $pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran);
+
+    return response()->json([
+        'ok' => true,
+        'paid' => $paid,
+        'paid_order' => $paid ? [
+            'id' => (int) $pesanan->id,
+            'kode_pesanan' => (string) $pesanan->kode_pesanan,
+            'paid_at' => $pesanan->waktu_selesai?->toIso8601String(),
+        ] : null,
+        'redirect' => $paid && $pesanan->meja?->qr_token
+            ? route('customer.order', ['token' => $pesanan->meja->qr_token])
+            : ($paid ? route('booking.index') : null),
+        'order' => in_array($pesanan->status, ['booking', 'menunggu', 'diproses', 'siap'], true)
+            ? $serializeCustomerOrder($pesanan)
+            : null,
+    ], 200, [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+    ]);
+})
+    ->whereNumber('pesanan')
+    ->where('token', '[A-Za-z0-9]{20,80}')
+    ->name('customer.order-status.json');
+
 // Customer (QR scan) - public (no login)
 // Token is generated as 10 uppercase alphanumeric characters.
 Route::get('{token}/cart', function (\Illuminate\Http\Request $request, string $token) {
@@ -361,7 +791,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
         ->where('qr_token', $token)
         ->firstOrFail();
 
-    $order = \App\Models\Pesanan::query()
+    $order = $addMode ? \App\Models\Pesanan::query()
         ->select(['id', 'meja_id', 'status', 'subtotal', 'discount_total', 'tax_total', 'total_harga', 'diskon_id', 'pajak_id', 'customer_name'])
         ->where('meja_id', $meja->id)
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
@@ -369,11 +799,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
             $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
         })
         ->orderByDesc('waktu_pesan')
-        ->first();
-
-    if ($order && !$addMode) {
-        return redirect()->route('customer.status', ['token' => $token]);
-    }
+        ->first() : null;
 
     if (!$order) {
         $addMode = false;
@@ -416,7 +842,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
     ->where('token', '[A-Za-z0-9]{10}')
     ->name('customer.checkout');
 
-Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $request, string $token) {
+Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $request, string $token) use ($makeStatusToken) {
     $token = \Illuminate\Support\Str::upper($token);
     $addMode = (bool) $request->boolean('add');
 
@@ -434,19 +860,12 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         ->orderByDesc('waktu_pesan')
         ->first();
 
-    if ($existing && !$addMode) {
-        return response()->json([
-            'ok' => false,
-            'message' => __('An order is already in progress for this table.'),
-            'redirect' => route('customer.status', ['token' => $token]),
-        ], 409);
-    }
-
     $data = validator([
         'cart' => $request->input('cart', null),
         'voucher' => $request->input('voucher', null),
         'customer_name' => $request->input('customer_name', null),
         'customer_note' => $request->input('customer_note', null),
+        'jumlah_orang' => $request->input('jumlah_orang', 1),
     ], [
         'cart' => ['required', 'array', 'min:1'],
         'cart.*.qty' => ['required', 'integer', 'min:1'],
@@ -456,6 +875,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         'voucher' => ['nullable', 'string', 'max:50'],
         'customer_name' => ['nullable', 'string', 'max:100'],
         'customer_note' => ['nullable', 'string', 'max:255'],
+        'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
     ])->validate();
 
     $rawCart = $data['cart'];
@@ -591,6 +1011,8 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         $customerNote = null;
     }
 
+    $jumlahOrang = max((int) ($data['jumlah_orang'] ?? 1), 1);
+
     $pajakId = null;
     if ($taxes->count() === 1) {
         $pajakId = (int) $taxes->first()->id;
@@ -599,12 +1021,17 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     $pesananId = null;
     $noDelta = false;
 
-    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $existing, $addMode, $items, $subtotal, $discountTotal, $taxes, $taxPercent, $taxTotal, $total, $diskon, $pajakId, $customerName, $customerNote, &$pesananId, &$noDelta) {
+    try {
+    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $existing, $addMode, $items, $subtotal, $discountTotal, $taxes, $taxPercent, $taxTotal, $total, $diskon, $pajakId, $customerName, $customerNote, $jumlahOrang, $makeStatusToken, &$pesananId, &$noDelta) {
         if ($existing && $addMode) {
             $pesanan = \App\Models\Pesanan::query()
                 ->whereKey((int) $existing->id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if (blank($pesanan->status_token)) {
+                $pesanan->forceFill(['status_token' => $makeStatusToken()])->save();
+            }
 
             $sigFromIds = static function (array $ids): string {
                 $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn ($v) => $v > 0)));
@@ -788,11 +1215,21 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
             return;
         }
 
+        $lockedMeja = \App\Models\Meja::query()->whereKey($meja->id)->lockForUpdate()->firstOrFail();
+        $bookingService = app(TableBookingService::class);
+        if (!$bookingService->hasCapacity($lockedMeja, $jumlahOrang)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'jumlah_orang' => __('This table is full. Please use the booking queue.'),
+            ]);
+        }
+
         $pesanan = \App\Models\Pesanan::create([
             'meja_id' => $meja->id,
             'kode_pesanan' => 'ORD-' . now()->format('YmdHis'),
+            'status_token' => $makeStatusToken(),
             'customer_name' => $customerName,
             'customer_note' => $customerNote,
+            'jumlah_orang' => $jumlahOrang,
             'subtotal' => $subtotal,
             'discount_total' => max($discountTotal, 0),
             'tax_total' => max($taxTotal, 0),
@@ -839,34 +1276,60 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
                 }
             }
         }
+
+        $bookingService->syncMejaStatus($lockedMeja);
     });
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => false,
+                'message' => collect($e->errors())->flatten()->first() ?: __('This table is full. Please use the booking queue.'),
+                'redirect' => route('booking.index'),
+            ], 409);
+        }
+
+        throw $e;
+    }
 
     if ($existing && $addMode && $noDelta) {
+        $statusToken = \App\Models\Pesanan::query()->whereKey((int) $existing->id)->value('status_token');
+        $statusUrl = $statusToken
+            ? route('customer.order-status', ['pesanan' => $existing->id, 'token' => $statusToken, 'noop' => 1])
+            : route('customer.status', ['token' => $token, 'noop' => 1]);
+
         // No net changes (user added then reverted). Don't fail silently—return to status with a hint.
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-                'redirect' => route('customer.status', ['token' => $token, 'noop' => 1]),
+                'redirect' => $statusUrl,
                 'order_id' => $existing->id,
             ]);
         }
 
-        return redirect()->route('customer.status', ['token' => $token, 'noop' => 1]);
+        return redirect()->to($statusUrl);
     }
 
     session()->put('customer_order_submitted_' . $token, true);
+    if ($pesananId) {
+        session()->put('customer_order_submitted_' . $pesananId, true);
+    }
     session()->put('customer_last_order_id_' . $token, $pesananId);
 
     // If JSON request, respond JSON; otherwise redirect.
+    $statusToken = \App\Models\Pesanan::query()->whereKey((int) $pesananId)->value('status_token');
+    $statusUrl = $statusToken
+        ? route('customer.order-status', ['pesanan' => $pesananId, 'token' => $statusToken])
+        : route('customer.status', ['token' => $token]);
+
     if ($request->expectsJson()) {
         return response()->json([
             'ok' => true,
-            'redirect' => route('customer.status', ['token' => $token]),
+            'redirect' => $statusUrl,
             'order_id' => $pesananId,
         ]);
     }
 
-    return redirect()->route('customer.status', ['token' => $token]);
+    return redirect()->to($statusUrl);
 })
     ->where('token', '[A-Za-z0-9]{10}')
     ->name('customer.checkout.submit');
@@ -879,9 +1342,12 @@ Route::get('{token}/status', function (string $token) {
         ->where('qr_token', $token)
         ->firstOrFail();
 
+    $lastOrderId = session()->get('customer_last_order_id_' . $token);
+
     $order = \App\Models\Pesanan::query()
         ->with(['details.menu', 'details.addons'])
         ->where('meja_id', $meja->id)
+        ->when($lastOrderId, fn ($q) => $q->whereKey((int) $lastOrderId))
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
         ->where(function ($q) {
             $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
@@ -907,9 +1373,12 @@ Route::get('{token}/status.json', function (string $token) {
         ->where('qr_token', $token)
         ->firstOrFail();
 
+    $lastOrderId = session()->get('customer_last_order_id_' . $token);
+
     $active = \App\Models\Pesanan::query()
         ->with(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en'])
         ->where('meja_id', $meja->id)
+        ->when($lastOrderId, fn ($q) => $q->whereKey((int) $lastOrderId))
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
         ->where(function ($q) {
             $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
@@ -1000,7 +1469,7 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
         ->where('qr_token', $token)
         ->firstOrFail();
 
-    $orderQuery = \App\Models\Pesanan::query()
+    $orderQuery = $addMode ? \App\Models\Pesanan::query()
         ->when($addMode, fn ($q) => $q->with(['details.addons:id']))
         ->where('meja_id', $meja->id)
         ->whereIn('status', ['menunggu', 'diproses', 'siap'])
@@ -1008,13 +1477,9 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
             $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
         })
         ->orderByDesc('waktu_pesan')
-        ->first();
+        ->first() : null;
 
     $order = $orderQuery;
-
-    if ($order && !$addMode) {
-        return redirect()->route('customer.status', ['token' => $token]);
-    }
 
     if (!$order) {
         $addMode = false;
