@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Pesanan;
-use App\Services\TableBookingService;
+use App\Services\TableWaitingListService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
@@ -218,7 +218,9 @@ use Livewire\WithPagination;
             $this->dispatch('payment-success');
 
             if ($mejaId) {
-                app(TableBookingService::class)->activateNextBookings($mejaId);
+                $waitingListService = app(TableWaitingListService::class);
+                $waitingListService->activateNextWaitingLists($mejaId);
+                $waitingListService->forgetKitchenCache();
             }
 
 	        if ($shouldPrint && $receiptId) {

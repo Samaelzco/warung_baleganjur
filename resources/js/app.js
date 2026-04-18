@@ -167,6 +167,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('kitchenSound', ({ src } = {}) => ({
         enabled: false,
         src: src || '',
+        lastPlayedAt: 0,
         init() {
             try {
                 this.enabled = JSON.parse(localStorage.getItem('kitchenSoundEnabled') || 'false') === true;
@@ -189,6 +190,8 @@ document.addEventListener('alpine:init', () => {
 
             window.addEventListener('kitchen-new-order', onNewOrder);
             document.addEventListener('kitchen-new-order', onNewOrder);
+            window.addEventListener('kitchen-order-created', onNewOrder);
+            document.addEventListener('kitchen-order-created', onNewOrder);
 
             window.addEventListener('kitchen-order-updated', onOrderUpdated);
             document.addEventListener('kitchen-order-updated', onOrderUpdated);
@@ -203,6 +206,10 @@ document.addEventListener('alpine:init', () => {
             }
         },
         play() {
+            const now = Date.now();
+            if (now - this.lastPlayedAt < 300) return;
+            this.lastPlayedAt = now;
+
             try {
                 const audio = this.$refs.audio;
                 audio.currentTime = 0;
@@ -317,6 +324,10 @@ document.addEventListener('alpine:init', () => {
 
             if (created.length === 1) this.toast(`${this.$el.dataset.newOrderLabel || 'New order'}: ${created[0]}`);
             else if (created.length > 1) this.toast(`${created.length} ${this.$el.dataset.newOrdersLabel || 'new orders'}`);
+
+            if (created.length > 0) {
+                window.dispatchEvent(new CustomEvent('kitchen-order-created', { detail: { orders: created } }));
+            }
 
             if (changed.length === 1) this.toast(`${this.$el.dataset.orderUpdatedLabel || 'Order updated'}: ${changed[0]}`);
             else if (changed.length > 1) this.toast(`${changed.length} ${this.$el.dataset.ordersUpdatedLabel || 'orders updated'}`);

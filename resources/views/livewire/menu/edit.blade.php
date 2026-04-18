@@ -1,59 +1,86 @@
 <?php
 
-use App\Models\Menu;
+use App\Models\Addon;
 use App\Models\KategoriMenu;
+use App\Models\Menu;
+use App\Services\MenuImageService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
 new class extends Component {
     use WithFileUploads;
+
     public Menu $menu;
 
     public array $form = [
-        'kategori_id' => null,
         'nama_menu' => '',
-        'deskripsi' => '',
-        'harga' => '',
+        'nama_menu_en' => '',
+        'kategori_id' => null,
+        'harga' => null,
         'status' => 'tersedia',
+        'deskripsi' => '',
+        'deskripsi_en' => '',
+        'addon_ids' => [],
     ];
+
     public $gambar = null;
 
     public function mount(Menu $menu): void
     {
+        $menu->loadMissing(['addons:id']);
         $this->menu = $menu;
         $this->form = [
-            'kategori_id' => $menu->kategori_id,
             'nama_menu' => $menu->nama_menu,
-            'deskripsi' => $menu->deskripsi,
+            'nama_menu_en' => $menu->nama_menu_en,
+            'kategori_id' => $menu->kategori_id,
             'harga' => $menu->harga,
             'status' => $menu->status,
+            'deskripsi' => $menu->deskripsi,
+            'deskripsi_en' => $menu->deskripsi_en,
+            'addon_ids' => $menu->addons->pluck('id')->all(),
         ];
     }
 
     public function update(): void
     {
         $data = [...$this->form, 'gambar' => $this->gambar];
+
         $validated = validator($data, [
-            'kategori_id' => ['required', 'exists:kategori_menus,id'],
-            'nama_menu' => ['required', 'string', 'max:100'],
-            'deskripsi' => ['nullable', 'string'],
+            'nama_menu' => ['required', 'string', 'max:150', 'unique:menus,nama_menu,' . $this->menu->id],
+            'nama_menu_en' => ['nullable', 'string', 'max:150'],
+            'kategori_id' => ['required', 'integer', 'exists:kategori_menus,id'],
             'harga' => ['required', 'numeric', 'min:0'],
-            'gambar' => ['nullable', 'image', 'max:2048'],
             'status' => ['required', 'in:tersedia,habis'],
+            'deskripsi' => ['nullable', 'string'],
+            'deskripsi_en' => ['nullable', 'string'],
+            'addon_ids' => ['nullable', 'array'],
+            'addon_ids.*' => ['integer', 'exists:addons,id'],
+            'gambar' => ['nullable', 'image', 'max:2048'],
         ])->validate();
+
+        $addonIds = $validated['addon_ids'] ?? [];
+        unset($validated['addon_ids']);
 
         if ($this->gambar) {
             if ($this->menu->gambar) {
                 Storage::disk('public')->delete($this->menu->gambar);
+                MenuImageService::deleteThumbnails($this->menu->gambar);
             }
+
             $path = $this->gambar->store('menus', 'public');
             $validated['gambar'] = $path;
+            MenuImageService::generateThumbnails($path);
         } else {
             unset($validated['gambar']);
         }
 
         $this->menu->update($validated);
+        $this->menu->addons()->sync($addonIds);
+
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:menu:stats:v1');
 
         session()->flash('menu_toast', __('Menu updated successfully.'));
         $this->redirectRoute('menu.index', navigate: true);
@@ -61,62 +88,130 @@ new class extends Component {
 }; ?>
 
 <section class="w-full space-y-6">
-    @php $kategories = KategoriMenu::query()->select(['id', 'nama_kategori'])->orderBy('nama_kategori')->get(); @endphp
+    @php
+        $kategories = KategoriMenu::query()->select(['id', 'nama_kategori'])->orderBy('nama_kategori')->get();
+        $addons = Addon::query()->select(['id', 'nama_addon', 'harga', 'status'])->orderBy('nama_addon')->get();
+    @endphp
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <flux:heading size="xl" level="1">{{ __('Edit Menu') }}</flux:heading>
-        <flux:link :href="route('menu.index')" wire:navigate>
+        <div class="space-y-1">
+            <flux:heading size="xl" level="1">{{ __('Edit Menu') }}</flux:heading>
+            <flux:subheading>{{ __('Update the details for this menu item.') }}</flux:subheading>
+        </div>
+        <flux:link :href="route('menu.index', [], false)" wire:navigate>
             <flux:button variant="ghost" icon="arrow-left" class="btn-ghost-accent">{{ __('Back') }}</flux:button>
         </flux:link>
     </div>
 
-    <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-        <form wire:submit="update" class="grid gap-6 md:grid-cols-2">
-            <div class="md:col-span-1">
-                <flux:select wire:model="form.kategori_id" :label="__('Category')" required>
-                    @foreach ($kategories as $kat)
-                        <option value="{{ $kat->id }}">{{ $kat->nama_kategori }}</option>
-                    @endforeach
-                </flux:select>
-            </div>
-            <div class="md:col-span-1">
-                <flux:input wire:model="form.nama_menu" :label="__('Name')" required maxlength="100" />
-            </div>
-            <div class="md:col-span-1">
-                <flux:input type="number" step="0.01" min="0" wire:model="form.harga" :label="__('Price')" required />
-            </div>
-            <div class="md:col-span-1">
-                <div data-flux-field>
-                    <label data-flux-label>{{ __('Image') }}</label>
-                    <input type="file" wire:model="gambar" accept="image/*" class="mt-2 block w-full text-sm" />
-                    <div class="mt-2 flex items-center gap-3">
-                        @if ($gambar)
-                            <img src="{{ $gambar->temporaryUrl() }}" alt="preview" class="h-20 w-20 rounded object-cover border" />
-                        @elseif ($menu->gambar)
-                            <img src="{{ Storage::url($menu->gambar) }}" alt="current" class="h-20 w-20 rounded object-cover border" />
-                        @endif
+    <form wire:submit.prevent="update" class="space-y-6">
+        <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900 sm:p-5">
+            <div class="grid gap-6 md:grid-cols-5">
+                <div class="space-y-4 md:col-span-3">
+                    <flux:input wire:model.defer="form.nama_menu" :label="__('Menu Name')" required maxlength="150" />
+                    @error('form.nama_menu')
+                        <p class="text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+
+                    <flux:input wire:model.defer="form.nama_menu_en" :label="__('Menu Name (English)')" maxlength="150" placeholder="{{ __('Optional') }}" />
+                    @error('form.nama_menu_en')
+                        <p class="text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+
+                    <div data-flux-field>
+                        <flux:select wire:model.defer="form.kategori_id" :label="__('Category')">
+                            <option value="">{{ __('Select category') }}</option>
+                            @foreach($kategories as $kat)
+                                <option value="{{ $kat->id }}">{{ $kat->nama_kategori }}</option>
+                            @endforeach
+                        </flux:select>
+                        @error('form.kategori_id')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" inputmode="numeric" placeholder="0" :label="__('Price (IDR)')" required />
+                            @error('form.harga')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div data-flux-field>
+                            <flux:select wire:model.defer="form.status" :label="__('Status')">
+                                <option value="tersedia">{{ __('Available') }}</option>
+                                <option value="habis">{{ __('Out of stock') }}</option>
+                            </flux:select>
+                            @error('form.status')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <flux:checkbox.group wire:model.defer="form.addon_ids" variant="pills" :label="__('Add-ons (optional)')">
+                        @forelse ($addons as $addon)
+                            <flux:checkbox
+                                variant="pills"
+                                value="{{ $addon->id }}"
+                                :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')' . ($addon->status === 'habis' ? ' · ' . __('Out of stock') : '')"
+                            />
+                        @empty
+                            <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons yet.') }}</div>
+                        @endforelse
+                        @error('form.addon_ids')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Selected add-ons will be selectable when ordering this menu.') }}</p>
+                    </flux:checkbox.group>
+
+                    <div>
+                        <flux:textarea wire:model.defer="form.deskripsi" rows="4" :label="__('Description')" placeholder="{{ __('Optional') }}"></flux:textarea>
+                        @error('form.deskripsi')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <flux:textarea wire:model.defer="form.deskripsi_en" rows="4" :label="__('Description (English)')" placeholder="{{ __('Optional') }}"></flux:textarea>
+                        @error('form.deskripsi_en')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <div class="space-y-4 md:col-span-2 md:pl-2">
+                    <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                        <flux:heading size="sm">{{ __('Image') }}</flux:heading>
+                        <input type="file" wire:model="gambar" accept="image/*" class="mt-2 block w-full text-sm" />
+                        @error('gambar')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                        <div class="mt-3">
+                            @if ($gambar)
+                                <img src="{{ $gambar->temporaryUrl() }}" alt="preview" class="h-24 w-24 rounded-xl border object-cover" />
+                            @elseif ($menu->gambar)
+                                <img src="{{ Storage::url($menu->gambar) }}" alt="current" class="h-24 w-24 rounded-xl border object-cover" />
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                        <flux:heading size="sm">{{ __('Info') }}</flux:heading>
+                        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                            {{ __('Updating this menu will reflect on customer ordering page.') }}
+                        </p>
                     </div>
                 </div>
             </div>
-            <div class="md:col-span-2">
-                <div data-flux-field>
-                    <label data-flux-label>{{ __('Description') }}</label>
-                    <textarea wire:model="form.deskripsi" rows="4" class="w-full min-h-28 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"></textarea>
-                </div>
-            </div>
-            <div class="md:col-span-1">
-                <flux:select wire:model="form.status" :label="__('Status')">
-                    <option value="tersedia">{{ __('Available') }}</option>
-                    <option value="habis">{{ __('Out of stock') }}</option>
-                </flux:select>
-            </div>
+        </div>
 
-            <div class="md:col-span-2 flex items-center gap-3">
-                <flux:button type="submit" variant="primary" class="btn-brand">{{ __('Update') }}</flux:button>
-                <flux:link :href="route('menu.index')" wire:navigate>
-                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
+        <div class="sticky bottom-0 z-20 -mx-4 border-t border-neutral-200 bg-white/90 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80 dark:shadow-black/20 sm:static sm:mx-0 sm:flex sm:justify-end sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none sm:backdrop-blur-none">
+            <div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                <flux:link :href="route('menu.index', [], false)" wire:navigate>
+                    <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full justify-center sm:w-auto">{{ __('Cancel') }}</flux:button>
                 </flux:link>
+                <flux:button type="submit" variant="primary" icon="check" class="btn-brand w-full justify-center sm:w-auto">{{ __('Update') }}</flux:button>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </section>

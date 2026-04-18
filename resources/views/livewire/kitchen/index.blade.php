@@ -54,13 +54,11 @@ new class extends Component {
 
     protected function currentActiveMaxId(): ?int
     {
-        return Cache::remember('kitchen:active_max_id', 5, function () {
-            $max = Pesanan::query()
-                ->whereIn('status', ['menunggu', 'diproses', 'siap'])
-                ->max('id');
+        $max = Pesanan::query()
+            ->whereIn('status', ['menunggu', 'diproses', 'siap'])
+            ->max('id');
 
-            return $max ? (int) $max : null;
-        });
+        return $max ? (int) $max : null;
     }
 
     public function setStatus(int $id, string $toStatus): void
@@ -86,6 +84,7 @@ new class extends Component {
         }
 
         $pesanan->update(['status' => $toStatus]);
+        Cache::forget('kitchen:status_counts');
     }
 
     protected function authorizeManage(): void

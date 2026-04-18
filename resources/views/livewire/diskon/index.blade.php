@@ -9,8 +9,6 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
-    public array $form = [];
     public string $search = '';
     public string $statusFilter = 'all';
 
@@ -20,98 +18,8 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-diskon');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $diskon = Diskon::query()
-            ->select([
-                'id',
-                'kode',
-                'tipe',
-                'nilai',
-                'min_subtotal',
-                'tanggal_mulai',
-                'tanggal_selesai',
-                'is_active',
-            ])
-            ->findOrFail($id);
-        $this->editingId = $diskon->id;
-
-        $this->form = [
-            'kode'            => $diskon->kode,
-            'tipe'            => $diskon->tipe,
-            'nilai'           => $diskon->nilai,
-            'min_subtotal'    => $diskon->min_subtotal,
-            'is_active'       => (bool) $diskon->is_active,
-            'tanggal_mulai'   => optional($diskon->tanggal_mulai)?->format('Y-m-d'),
-            'tanggal_selesai' => optional($diskon->tanggal_selesai)?->format('Y-m-d'),
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-diskon');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $validated = validator($this->form, [
-            'kode'            => ['required', 'string', 'max:50', 'unique:diskons,kode'],
-            'tipe'            => ['required', 'in:percent,nominal'],
-            'nilai'           => ['required', 'numeric', 'min:0'],
-            'min_subtotal'    => ['nullable', 'numeric', 'min:0'],
-            'is_active'       => ['boolean'],
-            'tanggal_mulai'   => ['nullable', 'date'],
-            'tanggal_selesai' => ['nullable', 'date', 'after_or_equal:tanggal_mulai'],
-        ])->validate();
-
-        $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
-
-        Diskon::create($validated);
-        Cache::forget('admin:diskon:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-diskon');
-        $this->dispatch('diskon-toast', message: __('Discount created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) return;
-
-        $validated = validator($this->form, [
-            'kode'            => ['required', 'string', 'max:50', 'unique:diskons,kode,' . $this->editingId],
-            'tipe'            => ['required', 'in:percent,nominal'],
-            'nilai'           => ['required', 'numeric', 'min:0'],
-            'min_subtotal'    => ['nullable', 'numeric', 'min:0'],
-            'is_active'       => ['boolean'],
-            'tanggal_mulai'   => ['nullable', 'date'],
-            'tanggal_selesai' => ['nullable', 'date', 'after_or_equal:tanggal_mulai'],
-        ])->validate();
-
-        $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
-
-        Diskon::where('id', $this->editingId)->update($validated);
-        Cache::forget('admin:diskon:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-diskon');
-        $this->dispatch('diskon-toast', message: __('Discount updated successfully.'));
-    }
 
     public function confirmDelete(int $id): void
     {
@@ -131,19 +39,6 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-diskon-desktop');
             $this->dispatch('diskon-toast', message: __('Discount deleted successfully.'));
         }
-    }
-
-    protected function resetCreateForm(): void
-    {
-        $this->form = [
-            'kode'            => '',
-            'tipe'            => 'percent',
-            'nilai'           => null,
-            'min_subtotal'    => null,
-            'is_active'       => true,
-            'tanggal_mulai'   => null,
-            'tanggal_selesai' => null,
-        ];
     }
 
     protected function authorizeManage(): void
@@ -201,14 +96,9 @@ new class extends Component {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @can('diskon.manage')
-                    <flux:button
-                        variant="primary"
-                        icon="plus"
-                        class="btn-brand"
-                        wire:click="openCreateModal"
-                    >
-                        {{ __('Create') }}
-                    </flux:button>
+                    <flux:link :href="route('diskon.create', [], false)" wire:navigate>
+                        <flux:button variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -359,15 +249,9 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('diskon.manage')
-                                <flux:button
-                                    size="sm"
-                                    icon="pencil-square"
-                                    variant="primary"
-                                    class="flex-1 btn-accent"
-                                    wire:click="openEditModal({{ $d->id }})"
-                                >
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link class="flex-1" :href="route('diskon.edit', $d, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-diskon" class="flex-1">
                                     <flux:button
                                         size="sm"
@@ -457,15 +341,9 @@ new class extends Component {
 
                         @can('diskon.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button
-                                    size="sm"
-                                    icon="pencil-square"
-                                    variant="primary"
-                                    class="w-full btn-accent"
-                                    wire:click="openEditModal({{ $d->id }})"
-                                >
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-diskon-desktop">
                                     <flux:button
                                         size="sm"
@@ -576,15 +454,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('diskon.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
-                                                    wire:click="openEditModal({{ $d->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-diskon-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -693,247 +572,6 @@ new class extends Component {
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
                     </flux:button>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- Create discount modal -->
-        <flux:modal name="create-diskon" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Create Discount') }}</flux:heading>
-                        <flux:subheading>{{ __('Fill the details below to add a new discount code.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="create-diskon-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-2">
-                        <div class="space-y-4">
-                            <flux:input
-                                wire:model.defer="form.kode"
-                                :label="__('Code')"
-                                required
-                                maxlength="50"
-                                help="{{ __('Suggestion: use uppercase, e.g. WEEKNIGHT10') }}"
-                            />
-                            @error('form.kode')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <div data-flux-field>
-                                <flux:select wire:model.defer="form.tipe" :label="__('Type')">
-                                    <option value="percent">{{ __('Percent') }}</option>
-                                    <option value="nominal">{{ __('Nominal') }}</option>
-                                </flux:select>
-                                @error('form.tipe')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <flux:input
-                                wire:model.defer="form.nilai"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                inputmode="numeric"
-                                placeholder="0"
-                                :label="__('Value')"
-                                required
-                                help="{{ __('Percent: 10 = 10% · Nominal: 10000 = Rp 10.000') }}"
-                            />
-                            @error('form.nilai')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.min_subtotal"
-                                type="number"
-                                min="0"
-                                step="100"
-                                :label="__('Minimum Subtotal')"
-                                help="{{ __('Optional. Leave empty for no minimum.') }}"
-                            />
-                            @error('form.min_subtotal')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="space-y-4">
-                            <div class="grid gap-3 md:grid-cols-2">
-                                <flux:input
-                                    wire:model.defer="form.tanggal_mulai"
-                                    type="date"
-                                    :label="__('Start Date')"
-                                />
-                                @error('form.tanggal_mulai')
-                                    <p class="text-xs text-red-500 md:col-span-2">{{ $message }}</p>
-                                @enderror
-
-                                <flux:input
-                                    wire:model.defer="form.tanggal_selesai"
-                                    type="date"
-                                    :label="__('End Date')"
-                                />
-                                @error('form.tanggal_selesai')
-                                    <p class="text-xs text-red-500 md:col-span-2">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <flux:checkbox
-                                wire:model.defer="form.is_active"
-                                :label="__('Active')"
-                            />
-                            @error('form.is_active')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                                <ul class="mt-2 list-disc space-y-1 pl-4">
-                                    <li>{{ __('Use uppercase codes without spaces, e.g. "BALEGANJUR10".') }}</li>
-                                    <li>{{ __('Percent type uses the value as a percentage (e.g. 10 = 10%).') }}</li>
-                                    <li>{{ __('Nominal type uses the value as a fixed amount (e.g. 10000 = Rp 10.000).') }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-diskon-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-diskon-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- Edit discount modal -->
-        <flux:modal name="edit-diskon" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Discount') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this discount code.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="edit-diskon-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-2">
-                        <div class="space-y-4">
-                            <flux:input
-                                wire:model.defer="form.kode"
-                                :label="__('Code')"
-                                required
-                                maxlength="50"
-                                help="{{ __('Suggestion: use uppercase, e.g. WEEKNIGHT10') }}"
-                            />
-                            @error('form.kode')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <div data-flux-field>
-                                <flux:select wire:model.defer="form.tipe" :label="__('Type')">
-                                    <option value="percent">{{ __('Percent') }}</option>
-                                    <option value="nominal">{{ __('Nominal') }}</option>
-                                </flux:select>
-                                @error('form.tipe')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <flux:input
-                                wire:model.defer="form.nilai"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                inputmode="numeric"
-                                placeholder="0"
-                                :label="__('Value')"
-                                required
-                                help="{{ __('Percent: 10 = 10% · Nominal: 10000 = Rp 10.000') }}"
-                            />
-                            @error('form.nilai')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.min_subtotal"
-                                type="number"
-                                min="0"
-                                step="100"
-                                :label="__('Minimum Subtotal')"
-                                help="{{ __('Optional. Leave empty for no minimum.') }}"
-                            />
-                            @error('form.min_subtotal')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="space-y-4">
-                            <div class="grid gap-3 md:grid-cols-2">
-                                <flux:input
-                                    wire:model.defer="form.tanggal_mulai"
-                                    type="date"
-                                    :label="__('Start Date')"
-                                />
-                                @error('form.tanggal_mulai')
-                                    <p class="text-xs text-red-500 md:col-span-2">{{ $message }}</p>
-                                @enderror
-
-                                <flux:input
-                                    wire:model.defer="form.tanggal_selesai"
-                                    type="date"
-                                    :label="__('End Date')"
-                                />
-                                @error('form.tanggal_selesai')
-                                    <p class="text-xs text-red-500 md:col-span-2">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <flux:checkbox
-                                wire:model.defer="form.is_active"
-                                :label="__('Active')"
-                            />
-                            @error('form.is_active')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                                <ul class="mt-2 list-disc space-y-1 pl-4">
-                                    <li>{{ __('Adjust the value and period carefully, especially for running promotions.') }}</li>
-                                    <li>{{ __('Deactivate discounts that should no longer be used instead of deleting them.') }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-diskon-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-diskon-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                    </div>
                 </div>
             </div>
         </flux:modal>

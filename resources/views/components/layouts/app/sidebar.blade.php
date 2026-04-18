@@ -36,7 +36,7 @@
                     @endcan
                     @can('pesanan.access')
                         <flux:navlist.item icon="receipt-percent" :href="route('pesanan.index')" :current="request()->routeIs('pesanan.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
-                        <flux:navlist.item icon="queue-list" :href="route('booking-list.index')" :current="request()->routeIs('booking-list.*')" wire:navigate>{{ __('Booking List') }}</flux:navlist.item>
+                        <flux:navlist.item icon="clipboard-document-list" :href="route('waiting-list.index')" :current="request()->routeIs('waiting-list.*')" wire:navigate>{{ __('Waiting List') }}</flux:navlist.item>
                     @endcan
                     @can('kitchen.access')
                         <flux:navlist.item icon="fire" :href="route('kitchen.index')" :current="request()->routeIs('kitchen.*')" wire:navigate>{{ __('Kitchen') }}</flux:navlist.item>

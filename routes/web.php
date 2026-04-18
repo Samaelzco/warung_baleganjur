@@ -5,54 +5,9 @@ use Laravel\Fortify\Features;
 use Livewire\Volt\Volt;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use App\Services\TableBookingService;
-
-$makeStatusToken = function (): string {
-    do {
-        $token = \Illuminate\Support\Str::random(48);
-    } while (\App\Models\Pesanan::query()->where('status_token', $token)->exists());
-
-    return $token;
-};
-
-$serializeCustomerOrder = function (\App\Models\Pesanan $pesanan): array {
-    $pesanan->loadMissing(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en']);
-
-    return [
-        'id' => (int) $pesanan->id,
-        'kode_pesanan' => (string) $pesanan->kode_pesanan,
-        'status' => (string) $pesanan->status,
-        'subtotal' => (float) ($pesanan->subtotal ?? 0),
-        'discount_total' => (float) ($pesanan->discount_total ?? 0),
-        'tax_total' => (float) ($pesanan->tax_total ?? 0),
-        'total_harga' => (float) ($pesanan->total_harga ?? 0),
-        'items' => $pesanan->details
-            ->groupBy(function ($d) {
-                $ids = $d->addons?->pluck('id')?->map(fn ($v) => (int) $v)->filter(fn ($v) => $v > 0)->unique()->sort()->values()->all() ?? [];
-                return (int) $d->menu_id . ':' . implode(',', $ids);
-            })
-            ->map(function ($rows) {
-                $first = $rows->first();
-                $addons = $first?->addons
-                    ? $first->addons->map(fn ($a) => (string) $a->nama_addon_localized)->filter()->values()->all()
-                    : [];
-
-                return [
-                    'menu' => (string) ($first?->menu?->nama_menu_localized ?? __('Menu')),
-                    'qty' => (int) $rows->sum('qty'),
-                    'subtotal' => (float) $rows->sum('subtotal'),
-                    'addons' => $addons,
-                ];
-            })
-            ->sortBy(function ($row) {
-                $menu = strtolower((string) ($row['menu'] ?? ''));
-                $addons = strtolower(implode(',', (array) ($row['addons'] ?? [])));
-                return $menu . '|' . $addons;
-            })
-            ->values()
-            ->all(),
-    ];
-};
+use App\Services\OrderStatusService;
+use App\Services\QrCodeService;
+use App\Services\TableWaitingListService;
 
 Route::get('/', function () {
     return view('welcome');
@@ -284,6 +239,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Add-ons
     Volt::route('addon', 'addon.index')->middleware('can:addon.access')->name('addon.index');
+    Volt::route('addon/create', 'addon.create')->middleware('can:addon.manage')->name('addon.create');
+    Volt::route('addon/{addon}/edit', 'addon.edit')->middleware('can:addon.manage')->name('addon.edit');
 
     // Pajak
     Volt::route('pajak', 'pajak.index')->middleware('can:pajak.access')->name('pajak.index');
@@ -300,8 +257,9 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('pesanan/create', 'pesanan.create')->middleware('can:pesanan.manage')->name('pesanan.create');
     Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->middleware('can:pesanan.manage')->name('pesanan.edit');
 
-    // Booking list
-    Volt::route('booking-list', 'booking.index')->middleware('can:pesanan.access')->name('booking-list.index');
+    // Waiting list
+    Volt::route('admin/waiting-list', 'waiting-list.index')->middleware('can:pesanan.access')->name('waiting-list.index');
+    Volt::route('admin/waiting-list/create', 'waiting-list.create')->middleware('can:pesanan.manage')->name('waiting-list.create');
 
     // Kitchen
     Volt::route('kitchen', 'kitchen.index')->middleware('can:kitchen.access')->name('kitchen.index');
@@ -325,10 +283,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Roles
     Volt::route('roles', 'roles.index')->middleware('can:roles.access')->name('roles.index');
+    Volt::route('roles/create', 'roles.create')->middleware('can:roles.manage')->name('roles.create');
+    Volt::route('roles/{role}/edit', 'roles.edit')->middleware('can:roles.manage')->name('roles.edit');
 });
 
 // QR image (PNG) generator (public path to avoid auth/cookie issues when embedding in <img>)
-Route::get('meja/qr', function (\Illuminate\Http\Request $request) {
+Route::get('meja/qr', function (\Illuminate\Http\Request $request, QrCodeService $qrCode) {
     $token = (string) $request->query('token', '');
 
     if ($token === '' && $request->filled('meja')) {
@@ -342,69 +302,32 @@ Route::get('meja/qr', function (\Illuminate\Http\Request $request) {
     $url = $host . '/' . $token;
 
     $size = (int) $request->query('size', 512);
-    if ($size < 120) { $size = 120; }
-    if ($size > 2048) { $size = 2048; }
-
     $format = strtolower((string) $request->query('format', 'svg'));
+    $filename = $request->boolean('download')
+        ? 'qr-meja-' . substr($token, 0, 8) . '.' . ($format === 'png' ? 'png' : 'svg')
+        : null;
 
-    if ($format === 'png') {
-        try {
-            $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-                new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
-                new \BaconQrCode\Renderer\Image\PngImageBackEnd()
-            );
-            $writer = new \BaconQrCode\Writer($renderer);
-            $data = $writer->writeString($url);
-
-            $response = response($data, 200, [
-                'Content-Type' => 'image/png',
-                'Cache-Control' => 'public, max-age=86400',
-            ]);
-
-            if ($request->boolean('download')) {
-                $filename = 'qr-meja-' . substr($token, 0, 8) . '.png';
-                $response->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-            }
-
-            return $response;
-        } catch (\Throwable $e) {
-            // Fall through to SVG below if PNG backend not available
-        }
-    }
-
-    // Default SVG output (browser-friendly, no ext dependencies)
-    $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-        new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
-        new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
-    );
-    $writer = new \BaconQrCode\Writer($renderer);
-    $svg = $writer->writeString($url);
-
-    $response = response($svg, 200, [
-        'Content-Type' => 'image/svg+xml',
-        'Cache-Control' => 'public, max-age=86400',
-    ]);
-
-    if ($request->boolean('download')) {
-        $filename = 'qr-meja-' . substr($token, 0, 8) . '.svg';
-        $response->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-    }
-
-    return $response;
+    return $qrCode->response($url, $size, $format, $filename);
 })->name('meja.qr');
 
-Route::get('booking', function () {
-    $service = app(TableBookingService::class);
+Route::get('waiting-list', function () {
     $mejas = \App\Models\Meja::query()
         ->select(['id', 'nomor_meja', 'status', 'kapasitas'])
         ->orderBy('nomor_meja')
         ->get();
 
-    $occupiedByTable = $mejas
-        ->mapWithKeys(fn ($m) => [(int) $m->id => $service->occupiedSeats($m)])
+    $occupiedByTable = \App\Models\Pesanan::query()
+        ->whereIn('status', TableWaitingListService::ACTIVE_STATUSES)
+        ->where(function ($q) {
+            $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
+        })
+        ->select('meja_id')
+        ->selectRaw('COALESCE(SUM(jumlah_orang), 0) as agg')
+        ->groupBy('meja_id')
+        ->pluck('agg', 'meja_id')
         ->all();
 
-    $bookingCounts = \App\Models\Pesanan::query()
+    $waitingListCounts = \App\Models\Pesanan::query()
         ->where('status', 'booking')
         ->select('meja_id')
         ->selectRaw('count(*) as agg')
@@ -412,32 +335,77 @@ Route::get('booking', function () {
         ->pluck('agg', 'meja_id')
         ->all();
 
-    return view('customer.booking', [
+    return view('customer.waiting-list', [
         'mejas' => $mejas,
         'occupiedByTable' => $occupiedByTable,
-        'bookingCounts' => $bookingCounts,
+        'waitingListCounts' => $waitingListCounts,
     ]);
-})->name('booking.index');
+})->name('customer.waiting-list.index');
 
-Route::get('booking/qr', function (\Illuminate\Http\Request $request) {
+Route::get('waiting-list/data', function () {
+    $mejas = \App\Models\Meja::query()
+        ->select(['id', 'nomor_meja', 'status', 'kapasitas'])
+        ->orderBy('nomor_meja')
+        ->get();
+
+    $occupiedByTable = \App\Models\Pesanan::query()
+        ->whereIn('status', TableWaitingListService::ACTIVE_STATUSES)
+        ->where(function ($q) {
+            $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
+        })
+        ->select('meja_id')
+        ->selectRaw('COALESCE(SUM(jumlah_orang), 0) as agg')
+        ->groupBy('meja_id')
+        ->pluck('agg', 'meja_id')
+        ->all();
+
+    $waitingListCounts = \App\Models\Pesanan::query()
+        ->where('status', 'booking')
+        ->select('meja_id')
+        ->selectRaw('count(*) as agg')
+        ->groupBy('meja_id')
+        ->pluck('agg', 'meja_id')
+        ->all();
+
+    $tables = $mejas->map(function ($meja) use ($occupiedByTable, $waitingListCounts) {
+        $capacity = (int) ($meja->kapasitas ?? 4);
+        $occupied = (int) ($occupiedByTable[$meja->id] ?? 0);
+        $waiting = (int) ($waitingListCounts[$meja->id] ?? 0);
+        $seatsLeft = max($capacity - $occupied, 0);
+
+        return [
+            'id' => (int) $meja->id,
+            'number' => (string) $meja->nomor_meja,
+            'capacity' => $capacity,
+            'occupied' => $occupied,
+            'seats_left' => $seatsLeft,
+            'waiting' => $waiting,
+            'is_full' => $seatsLeft <= 0,
+        ];
+    })->values();
+
+    return response()->json([
+        'ok' => true,
+        'updated_at' => now()->toIso8601String(),
+        'summary' => [
+            'tables' => $tables->count(),
+            'seats_left' => (int) $tables->sum('seats_left'),
+            'waiting' => (int) $tables->sum('waiting'),
+        ],
+        'tables' => $tables,
+    ], 200, [
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+    ]);
+})->name('customer.waiting-list.data');
+
+Route::get('waiting-list/qr', function (\Illuminate\Http\Request $request, QrCodeService $qrCode) {
     $host = $request->getSchemeAndHttpHost();
-    $url = $host . '/booking';
-    $size = max(min((int) $request->query('size', 512), 2048), 120);
+    $url = $host . '/waiting-list';
 
-    $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-        new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size),
-        new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
-    );
-    $writer = new \BaconQrCode\Writer($renderer);
-    $svg = $writer->writeString($url);
+    return $qrCode->response($url, (int) $request->query('size', 512), 'svg');
+})->name('customer.waiting-list.qr');
 
-    return response($svg, 200, [
-        'Content-Type' => 'image/svg+xml',
-        'Cache-Control' => 'public, max-age=86400',
-    ]);
-})->name('booking.qr');
-
-Route::get('booking/{meja}', function (\App\Models\Meja $meja) {
+Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
     $categories = Cache::remember('customer:categories:v1', 900, function () {
         return \App\Models\KategoriMenu::query()
             ->orderBy('nama_kategori')
@@ -458,7 +426,7 @@ Route::get('booking/{meja}', function (\App\Models\Meja $meja) {
             ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
     });
 
-    $token = 'BOOKING' . str_pad((string) $meja->id, 3, '0', STR_PAD_LEFT);
+    $token = 'WAITING' . str_pad((string) $meja->id, 3, '0', STR_PAD_LEFT);
 
     return view('customer.order', [
         'token' => $token,
@@ -469,11 +437,11 @@ Route::get('booking/{meja}', function (\App\Models\Meja $meja) {
         'baselineMinQty' => [],
         'categories' => $categories,
         'menus' => $menus,
-        'checkoutUrl' => route('booking.checkout', ['meja' => $meja->id]),
+        'checkoutUrl' => route('customer.waiting-list.checkout', ['meja' => $meja->id]),
     ]);
-})->name('booking.order');
+})->name('customer.waiting-list.order');
 
-Route::get('booking/{meja}/checkout', function (\App\Models\Meja $meja) {
+Route::get('waiting-list/{meja}/checkout', function (\App\Models\Meja $meja) {
     $menus = Cache::remember('customer:menus_available:v1', 900, function () {
         return \App\Models\Menu::query()
             ->with([
@@ -498,7 +466,7 @@ Route::get('booking/{meja}/checkout', function (\App\Models\Meja $meja) {
         ->orderBy('nama')
         ->get(['id', 'nama', 'persentase', 'is_active']);
 
-    $token = 'BOOKING' . str_pad((string) $meja->id, 3, '0', STR_PAD_LEFT);
+    $token = 'WAITING' . str_pad((string) $meja->id, 3, '0', STR_PAD_LEFT);
 
     return view('customer.checkout', [
         'token' => $token,
@@ -508,12 +476,12 @@ Route::get('booking/{meja}/checkout', function (\App\Models\Meja $meja) {
         'menus' => $menus,
         'diskons' => $diskons,
         'taxes' => $taxes,
-        'backUrl' => route('booking.order', ['meja' => $meja->id]),
-        'submitUrl' => route('booking.submit', ['meja' => $meja->id]),
+        'backUrl' => route('customer.waiting-list.order', ['meja' => $meja->id]),
+        'submitUrl' => route('customer.waiting-list.submit', ['meja' => $meja->id]),
     ]);
-})->name('booking.checkout');
+})->name('customer.waiting-list.checkout');
 
-Route::post('booking/{meja}/submit', function (\Illuminate\Http\Request $request, \App\Models\Meja $meja) use ($makeStatusToken) {
+Route::post('waiting-list/{meja}/submit', function (\Illuminate\Http\Request $request, \App\Models\Meja $meja, OrderStatusService $orderStatus) {
     $data = validator([
         'cart' => $request->input('cart', null),
         'voucher' => $request->input('voucher', null),
@@ -612,11 +580,11 @@ Route::post('booking/{meja}/submit', function (\Illuminate\Http\Request $request
     $pajakId = $taxes->count() === 1 ? (int) $taxes->first()->id : null;
 
     $pesananId = null;
-    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $data, $items, $subtotal, $discountTotal, $taxTotal, $total, $diskon, $pajakId, $makeStatusToken, &$pesananId) {
+    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $data, $items, $subtotal, $discountTotal, $taxTotal, $total, $diskon, $pajakId, $orderStatus, &$pesananId) {
         $pesanan = \App\Models\Pesanan::create([
             'meja_id' => $meja->id,
-            'kode_pesanan' => 'BKG-' . now()->format('YmdHis'),
-            'status_token' => $makeStatusToken(),
+            'kode_pesanan' => 'WTL-' . now()->format('YmdHis'),
+            'status_token' => $orderStatus->generateToken(),
             'customer_name' => trim((string) $data['customer_name']),
             'customer_note' => blank($data['customer_note'] ?? null) ? null : \Illuminate\Support\Str::substr(trim((string) $data['customer_note']), 0, 255),
             'jumlah_orang' => max((int) ($data['jumlah_orang'] ?? 1), 1),
@@ -659,7 +627,7 @@ Route::post('booking/{meja}/submit', function (\Illuminate\Http\Request $request
         }
     });
 
-    session()->put('booking_last_order_id', $pesananId);
+    session()->put('waiting_list_last_order_id', $pesananId);
 
     return response()->json([
         'ok' => true,
@@ -669,9 +637,9 @@ Route::post('booking/{meja}/submit', function (\Illuminate\Http\Request $request
         ]),
         'order_id' => $pesananId,
     ]);
-})->name('booking.submit');
+})->name('customer.waiting-list.submit');
 
-Route::get('booking/status/{pesanan}', function (\App\Models\Pesanan $pesanan) {
+Route::get('waiting-list/status/{pesanan}', function (\App\Models\Pesanan $pesanan) {
     if (!blank($pesanan->status_token)) {
         return redirect()->route('customer.order-status', [
             'pesanan' => $pesanan->id,
@@ -682,16 +650,16 @@ Route::get('booking/status/{pesanan}', function (\App\Models\Pesanan $pesanan) {
     $pesanan->loadMissing(['meja', 'details.menu', 'details.addons']);
 
     return view('customer.status', [
-        'token' => 'BOOKING' . str_pad((string) $pesanan->meja_id, 3, '0', STR_PAD_LEFT),
+        'token' => 'WAITING' . str_pad((string) $pesanan->meja_id, 3, '0', STR_PAD_LEFT),
         'meja' => $pesanan->meja,
         'order' => $pesanan,
         'justSubmitted' => false,
-        'statusJsonUrl' => route('booking.status.json', ['pesanan' => $pesanan->id]),
-        'orderUrl' => route('booking.order', ['meja' => $pesanan->meja_id]),
+        'statusJsonUrl' => route('customer.waiting-list.status.json', ['pesanan' => $pesanan->id]),
+        'orderUrl' => route('customer.waiting-list.order', ['meja' => $pesanan->meja_id]),
     ]);
-})->name('booking.status');
+})->name('customer.waiting-list.status');
 
-Route::get('booking/status/{pesanan}/json', function (\App\Models\Pesanan $pesanan) {
+Route::get('waiting-list/status/{pesanan}/json', function (\App\Models\Pesanan $pesanan) {
     $pesanan->loadMissing(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en']);
 
     $paid = $pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran);
@@ -704,7 +672,7 @@ Route::get('booking/status/{pesanan}/json', function (\App\Models\Pesanan $pesan
             'kode_pesanan' => (string) $pesanan->kode_pesanan,
             'paid_at' => $pesanan->waktu_selesai?->toIso8601String(),
         ] : null,
-        'redirect' => $paid ? route('booking.index') : null,
+        'redirect' => $paid ? route('customer.waiting-list.index') : null,
         'order' => in_array($pesanan->status, ['booking', 'menunggu', 'diproses', 'siap'], true) ? [
             'id' => (int) $pesanan->id,
             'kode_pesanan' => (string) $pesanan->kode_pesanan,
@@ -723,10 +691,10 @@ Route::get('booking/status/{pesanan}/json', function (\App\Models\Pesanan $pesan
     ], 200, [
         'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
     ]);
-})->name('booking.status.json');
+})->name('customer.waiting-list.status.json');
 
-Route::get('order-status/{pesanan}/{token}', function (\App\Models\Pesanan $pesanan, string $token) {
-    abort_unless(hash_equals((string) $pesanan->status_token, $token), 404);
+Route::get('order-status/{pesanan}/{token}', function (\App\Models\Pesanan $pesanan, string $token, OrderStatusService $orderStatus) {
+    abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
 
     $pesanan->loadMissing(['meja', 'details.menu', 'details.addons']);
 
@@ -738,15 +706,15 @@ Route::get('order-status/{pesanan}/{token}', function (\App\Models\Pesanan $pesa
         'statusJsonUrl' => route('customer.order-status.json', ['pesanan' => $pesanan->id, 'token' => $token]),
         'orderUrl' => $pesanan->meja?->qr_token
             ? route('customer.order', ['token' => $pesanan->meja->qr_token])
-            : route('booking.index'),
+            : route('customer.waiting-list.index'),
     ]);
 })
     ->whereNumber('pesanan')
     ->where('token', '[A-Za-z0-9]{20,80}')
     ->name('customer.order-status');
 
-Route::get('order-status/{pesanan}/{token}/json', function (\App\Models\Pesanan $pesanan, string $token) use ($serializeCustomerOrder) {
-    abort_unless(hash_equals((string) $pesanan->status_token, $token), 404);
+Route::get('order-status/{pesanan}/{token}/json', function (\App\Models\Pesanan $pesanan, string $token, OrderStatusService $orderStatus) {
+    abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
 
     $paid = $pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran);
 
@@ -760,9 +728,9 @@ Route::get('order-status/{pesanan}/{token}/json', function (\App\Models\Pesanan 
         ] : null,
         'redirect' => $paid && $pesanan->meja?->qr_token
             ? route('customer.order', ['token' => $pesanan->meja->qr_token])
-            : ($paid ? route('booking.index') : null),
+            : ($paid ? route('customer.waiting-list.index') : null),
         'order' => in_array($pesanan->status, ['booking', 'menunggu', 'diproses', 'siap'], true)
-            ? $serializeCustomerOrder($pesanan)
+            ? $orderStatus->serializeCustomerOrder($pesanan)
             : null,
     ], 200, [
         'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
@@ -842,7 +810,7 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
     ->where('token', '[A-Za-z0-9]{10}')
     ->name('customer.checkout');
 
-Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $request, string $token) use ($makeStatusToken) {
+Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $request, string $token, OrderStatusService $orderStatus) {
     $token = \Illuminate\Support\Str::upper($token);
     $addMode = (bool) $request->boolean('add');
 
@@ -1022,7 +990,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     $noDelta = false;
 
     try {
-    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $existing, $addMode, $items, $subtotal, $discountTotal, $taxes, $taxPercent, $taxTotal, $total, $diskon, $pajakId, $customerName, $customerNote, $jumlahOrang, $makeStatusToken, &$pesananId, &$noDelta) {
+    \Illuminate\Support\Facades\DB::transaction(function () use ($meja, $existing, $addMode, $items, $subtotal, $discountTotal, $taxes, $taxPercent, $taxTotal, $total, $diskon, $pajakId, $customerName, $customerNote, $jumlahOrang, $orderStatus, &$pesananId, &$noDelta) {
         if ($existing && $addMode) {
             $pesanan = \App\Models\Pesanan::query()
                 ->whereKey((int) $existing->id)
@@ -1030,7 +998,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
                 ->firstOrFail();
 
             if (blank($pesanan->status_token)) {
-                $pesanan->forceFill(['status_token' => $makeStatusToken()])->save();
+                $pesanan->forceFill(['status_token' => $orderStatus->generateToken()])->save();
             }
 
             $sigFromIds = static function (array $ids): string {
@@ -1216,17 +1184,17 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         }
 
         $lockedMeja = \App\Models\Meja::query()->whereKey($meja->id)->lockForUpdate()->firstOrFail();
-        $bookingService = app(TableBookingService::class);
-        if (!$bookingService->hasCapacity($lockedMeja, $jumlahOrang)) {
+        $waitingListService = app(TableWaitingListService::class);
+        if (!$waitingListService->hasCapacity($lockedMeja, $jumlahOrang)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'jumlah_orang' => __('This table is full. Please use the booking queue.'),
+                'jumlah_orang' => __('This table is full. Please use the waiting list.'),
             ]);
         }
 
         $pesanan = \App\Models\Pesanan::create([
             'meja_id' => $meja->id,
             'kode_pesanan' => 'ORD-' . now()->format('YmdHis'),
-            'status_token' => $makeStatusToken(),
+            'status_token' => $orderStatus->generateToken(),
             'customer_name' => $customerName,
             'customer_note' => $customerNote,
             'jumlah_orang' => $jumlahOrang,
@@ -1277,14 +1245,15 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
             }
         }
 
-        $bookingService->syncMejaStatus($lockedMeja);
+        $waitingListService->syncMejaStatus($lockedMeja);
+        $waitingListService->forgetKitchenCache();
     });
     } catch (\Illuminate\Validation\ValidationException $e) {
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => false,
-                'message' => collect($e->errors())->flatten()->first() ?: __('This table is full. Please use the booking queue.'),
-                'redirect' => route('booking.index'),
+                'message' => collect($e->errors())->flatten()->first() ?: __('This table is full. Please use the waiting list.'),
+                'redirect' => route('customer.waiting-list.index'),
             ], 409);
         }
 

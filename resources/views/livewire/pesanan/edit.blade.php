@@ -8,6 +8,7 @@ use App\Models\PesananDetail;
 use App\Models\Menu;
 use App\Models\Addon;
 use App\Models\User;
+use App\Services\TableWaitingListService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 
@@ -260,6 +261,8 @@ new class extends Component {
             $validated['kembalian'] = null;
         }
 
+        $previousMejaId = (int) $this->pesanan->meja_id;
+
         DB::transaction(function () use ($validated) {
             $items = $this->normalizeItemsForSave($validated['items']);
             $totals = $this->calculateTotals(
@@ -323,6 +326,11 @@ new class extends Component {
                 $this->pesanan->details()->delete();
             }
         });
+
+        $waitingListService = app(TableWaitingListService::class);
+        $waitingListService->syncMejaStatus($previousMejaId);
+        $waitingListService->syncMejaStatus((int) $validated['meja_id']);
+        $waitingListService->forgetKitchenCache();
 
         session()->flash('pesanan_toast', __('Order updated successfully.'));
         $this->redirectRoute('pesanan.index', navigate: true);
@@ -440,14 +448,17 @@ new class extends Component {
     @endphp
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <flux:heading size="xl" level="1">{{ __('Edit Order') }}</flux:heading>
-        <flux:link :href="route('pesanan.index')" wire:navigate>
+        <div class="space-y-1">
+            <flux:heading size="xl" level="1">{{ __('Edit Order') }}</flux:heading>
+            <flux:subheading>{{ __('Update order details, items, payment, and kitchen status.') }}</flux:subheading>
+        </div>
+        <flux:link :href="route('pesanan.index', [], false)" wire:navigate>
             <flux:button variant="ghost" icon="arrow-left" class="btn-ghost-accent">{{ __('Back') }}</flux:button>
         </flux:link>
     </div>
 
-    <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 space-y-6">
-        <form wire:submit="update" class="grid gap-6 md:grid-cols-2">
+    <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900 sm:p-5">
+        <form id="edit-pesanan-form" wire:submit.prevent="update" class="grid gap-6 md:grid-cols-2">
             <div class="space-y-4">
                 <flux:select wire:model="form.meja_id" :label="__('Table')" required>
                     <option value="">{{ __('Select') }}</option>
@@ -491,7 +502,7 @@ new class extends Component {
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:select wire:model="form.status" :label="__('Status')" required>
                         <option value="menunggu">{{ __('Waiting') }}</option>
-                        <option value="booking">{{ __('Booking') }}</option>
+                        <option value="booking">{{ __('Waiting List') }}</option>
                         <option value="diproses">{{ __('In progress') }}</option>
                         <option value="siap">{{ __('Ready') }}</option>
                         <option value="selesai">{{ __('Completed') }}</option>
@@ -607,12 +618,6 @@ new class extends Component {
                 </div>
             </div>
 
-            <div class="md:col-span-2 flex items-center gap-3">
-                <flux:button type="submit" variant="primary" class="btn-brand">{{ __('Update') }}</flux:button>
-                <flux:link :href="route('pesanan.index')" wire:navigate>
-                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                </flux:link>
-            </div>
         </form>
 
         <div class="mt-4 space-y-3">
@@ -719,6 +724,15 @@ new class extends Component {
                     </table>
                 </div>
             @endif
+        </div>
+    </div>
+
+    <div class="sticky bottom-0 z-20 -mx-4 border-t border-neutral-200 bg-white/90 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80 dark:shadow-black/20 sm:static sm:mx-0 sm:flex sm:justify-end sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none sm:backdrop-blur-none">
+        <div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+            <flux:link :href="route('pesanan.index', [], false)" wire:navigate>
+                <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full justify-center sm:w-auto">{{ __('Cancel') }}</flux:button>
+            </flux:link>
+            <flux:button type="submit" form="edit-pesanan-form" variant="primary" icon="check" class="btn-brand w-full justify-center sm:w-auto">{{ __('Update') }}</flux:button>
         </div>
     </div>
 </section>

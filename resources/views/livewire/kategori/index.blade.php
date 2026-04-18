@@ -9,8 +9,6 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
-    public array $form = [];
     public string $search = '';
 
     protected $queryString = [
@@ -18,81 +16,9 @@ new class extends Component {
         'page'   => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
-    public function resettingModal(): void
-    {
-        $this->resetCreateForm();
-        $this->editingId = null;
-    }
-
     public function updatingSearch(): void
     {
         $this->resetPage();
-    }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-kategori');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $kategori = KategoriMenu::query()
-            ->select(['id', 'nama_kategori', 'nama_kategori_en'])
-            ->findOrFail($id);
-
-        $this->editingId = $kategori->id;
-        $this->form = [
-            'nama_kategori' => $kategori->nama_kategori,
-            'nama_kategori_en' => $kategori->nama_kategori_en,
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-kategori');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $validated = validator($this->form, [
-            'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori'],
-            'nama_kategori_en' => ['nullable', 'string', 'max:100'],
-        ])->validate();
-
-        KategoriMenu::create($validated);
-        Cache::forget('customer:categories:v1');
-        Cache::forget('customer:menus_available:v1');
-        Cache::forget('admin:kategori:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-kategori');
-        $this->dispatch('kategori-toast', message: __('Category created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) return;
-
-        $validated = validator($this->form, [
-            'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori,' . $this->editingId],
-            'nama_kategori_en' => ['nullable', 'string', 'max:100'],
-        ])->validate();
-
-        KategoriMenu::where('id', $this->editingId)->update($validated);
-        Cache::forget('customer:categories:v1');
-        Cache::forget('customer:menus_available:v1');
-        Cache::forget('admin:kategori:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-kategori');
-        $this->dispatch('kategori-toast', message: __('Category updated successfully.'));
     }
 
     public function confirmDelete(int $id): void
@@ -114,14 +40,6 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-kategori-desktop');
             $this->dispatch('kategori-toast', message: __('Category deleted successfully.'));
         }
-    }
-
-    protected function resetCreateForm(): void
-    {
-        $this->form = [
-            'nama_kategori' => '',
-            'nama_kategori_en' => '',
-        ];
     }
 
     protected function authorizeManage(): void
@@ -167,7 +85,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Categories') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('kategori.manage')
-                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                    <flux:link :href="route('kategori.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -227,7 +147,9 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('kategori.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $k->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:link class="flex-1" :href="route('kategori.edit', $k, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-kategori" class="flex-1">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -259,7 +181,9 @@ new class extends Component {
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
                             @can('kategori.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $k->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:link :href="route('kategori.edit', $k, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-kategori-desktop">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -309,15 +233,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('kategori.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
-                                                    wire:click="openEditModal({{ $k->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('kategori.edit', $k, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-kategori-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -357,110 +282,6 @@ new class extends Component {
         </div>
 
         @php($selectedKategori = $items->firstWhere('id', $confirmingDeleteId))
-
-        <!-- Create modal (match meja) -->
-        <flux:modal name="create-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 pr-12 dark:border-neutral-700 dark:bg-neutral-900">
-                    <div>
-                        <flux:heading size="lg">{{ __('Create Category') }}</flux:heading>
-                        <flux:subheading>{{ __('Fill the details below to add a new category.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="create-kategori-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+3.25rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-5">
-                        <div class="space-y-4 md:col-span-3">
-                            <flux:input wire:model.defer="form.nama_kategori" :label="__('Category Name')" required maxlength="100" help="{{ __('e.g. Makanan, Minuman, Snack') }}" />
-                            @error('form.nama_kategori')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input wire:model.defer="form.nama_kategori_en" :label="__('Category Name (English)')" maxlength="100" placeholder="{{ __('Optional') }}" help="{{ __('e.g. Food, Drinks, Snack') }}" />
-                            @error('form.nama_kategori_en')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="space-y-4 md:col-span-2 md:pl-2">
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                    {{ __('Use categories to group menu items in the customer QR page.') }}
-                                </p>
-                            </div>
-                            <div class="hidden md:flex items-center justify-end gap-3 pt-2">
-                                <flux:modal.close>
-                                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                                </flux:modal.close>
-                                <flux:button type="submit" form="create-kategori-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] dark:border-neutral-700 dark:bg-neutral-900">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-kategori-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- Edit modal (match meja) -->
-        <flux:modal name="edit-kategori" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white px-4 py-3 pr-12 dark:border-neutral-700 dark:bg-neutral-900">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Category') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this category.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="edit-kategori-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+3.25rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-5">
-                        <div class="space-y-4 md:col-span-3">
-                            <flux:input wire:model.defer="form.nama_kategori" :label="__('Category Name')" required maxlength="100" />
-                            @error('form.nama_kategori')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input wire:model.defer="form.nama_kategori_en" :label="__('Category Name (English)')" maxlength="100" placeholder="{{ __('Optional') }}" />
-                            @error('form.nama_kategori_en')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="space-y-4 md:col-span-2 md:pl-2">
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('Info') }}</flux:heading>
-                                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                    {{ __('Changes will affect how menu items are grouped in the QR page.') }}
-                                </p>
-                            </div>
-                            <div class="hidden md:flex items-center justify-end gap-3 pt-2">
-                                <flux:modal.close>
-                                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                                </flux:modal.close>
-                                <flux:button type="submit" form="edit-kategori-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] dark:border-neutral-700 dark:bg-neutral-900">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-kategori-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
 
         <!-- Mobile bottom-sheet delete (match meja) -->
         <flux:modal name="confirm-delete-kategori" focusable variant="flyout" position="bottom" :closable="false" class="rounded-t-3xl sm:rounded-xl">

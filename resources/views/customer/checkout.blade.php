@@ -227,10 +227,10 @@
         </section>
     </div>
 
-    <div id="nameModal" class="fixed inset-0 z-50 hidden">
+    <div id="nameModal" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none">
         <button type="button" class="absolute inset-0 bg-black/40" onclick="window.CustomerCheckout?.closeNameModal?.()" aria-label="{{ __('Close') }}"></button>
 
-        <div class="relative flex min-h-svh items-center justify-center p-4">
+        <div data-name-panel class="relative flex min-h-svh translate-y-4 scale-95 items-center justify-center p-4 transition duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:scale-100 motion-reduce:transition-none">
             <div class="customer-card-depth w-full max-w-md rounded-3xl border border-neutral-200/70 bg-white/90 p-5 shadow-2xl backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/85">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
@@ -317,6 +317,7 @@
 
             const confirmCheckoutBtn = document.getElementById('confirmCheckoutBtn')
             const nameModal = document.getElementById('nameModal')
+            const namePanel = nameModal?.querySelector('[data-name-panel]')
             const customerName = document.getElementById('customerName')
             const jumlahOrang = document.getElementById('jumlahOrang')
             const saveNameBtn = document.getElementById('saveNameBtn')
@@ -328,6 +329,8 @@
             const labelSubmitFailed = @json(__('Failed to submit order. Please try again.'));
             const labelMenu = @json(__('Menu'));
             const labelTaxDefault = @json(__('Tax'));
+            const modalTransitionMs = 220
+            let nameModalCloseTimer = null
 
             const formatIDR = (value) => {
                 try {
@@ -745,14 +748,42 @@
 
             const openNameModal = () => {
                 checkoutError?.classList.add('hidden')
-                if (nameModal) nameModal.classList.remove('hidden')
+                if (nameModalCloseTimer) {
+                    window.clearTimeout(nameModalCloseTimer)
+                    nameModalCloseTimer = null
+                }
+
+                if (nameModal) {
+                    nameModal.classList.remove('hidden')
+                    document.body.style.overflow = 'hidden'
+
+                    window.requestAnimationFrame(() => {
+                        nameModal.classList.remove('opacity-0')
+                        nameModal.classList.add('opacity-100')
+                        namePanel?.classList.remove('translate-y-4', 'scale-95')
+                        namePanel?.classList.add('translate-y-0', 'scale-100')
+                    })
+                }
+
                 if (customerName) customerName.value = ''
                 if (jumlahOrang) jumlahOrang.value = '1'
                 setTimeout(() => customerName?.focus(), 50)
             }
 
             const closeNameModal = () => {
-                if (nameModal) nameModal.classList.add('hidden')
+                if (!nameModal) return
+
+                nameModal.classList.remove('opacity-100')
+                nameModal.classList.add('opacity-0')
+                namePanel?.classList.remove('translate-y-0', 'scale-100')
+                namePanel?.classList.add('translate-y-4', 'scale-95')
+                document.body.style.overflow = ''
+
+                nameModalCloseTimer = window.setTimeout(() => {
+                    if (nameModal.classList.contains('opacity-0')) {
+                        nameModal.classList.add('hidden')
+                    }
+                }, modalTransitionMs)
             }
 
             const applyVoucher = () => {

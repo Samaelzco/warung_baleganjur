@@ -10,8 +10,6 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
-    public array $form = [];
     public string $search = '';
     public string $statusFilter = 'all';
 
@@ -21,81 +19,8 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-addon');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $addon = Addon::query()
-            ->select(['id', 'nama_addon', 'nama_addon_en', 'harga', 'status'])
-            ->findOrFail($id);
-        $this->editingId = $addon->id;
-
-        $this->form = [
-            'nama_addon' => $addon->nama_addon,
-            'nama_addon_en' => $addon->nama_addon_en,
-            'harga' => $addon->harga,
-            'status' => $addon->status,
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-addon');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-
-        $validated = validator($this->form, [
-            'nama_addon' => ['required', 'string', 'max:100', 'unique:addons,nama_addon'],
-            'nama_addon_en' => ['nullable', 'string', 'max:100'],
-            'harga' => ['required', 'numeric', 'min:0'],
-            'status' => ['required', 'in:tersedia,habis'],
-        ])->validate();
-
-        Addon::create($validated);
-        Cache::forget('customer:menus_available:v1');
-        Cache::forget('admin:addon:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-addon');
-        $this->dispatch('addon-toast', message: __('Add-on created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) {
-            return;
-        }
-
-        $validated = validator($this->form, [
-            'nama_addon' => ['required', 'string', 'max:100', 'unique:addons,nama_addon,' . $this->editingId],
-            'nama_addon_en' => ['nullable', 'string', 'max:100'],
-            'harga' => ['required', 'numeric', 'min:0'],
-            'status' => ['required', 'in:tersedia,habis'],
-        ])->validate();
-
-        Addon::whereKey($this->editingId)->update($validated);
-        Cache::forget('customer:menus_available:v1');
-        Cache::forget('admin:addon:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-addon');
-        $this->dispatch('addon-toast', message: __('Add-on updated successfully.'));
-    }
 
     public function confirmDelete(int $id): void
     {
@@ -126,16 +51,6 @@ new class extends Component {
         $this->dispatch('modal-close', name: 'confirm-delete-addon');
         $this->dispatch('modal-close', name: 'confirm-delete-addon-desktop');
         $this->dispatch('addon-toast', message: __('Add-on deleted successfully.'));
-    }
-
-    protected function resetCreateForm(): void
-    {
-        $this->form = [
-            'nama_addon' => '',
-            'nama_addon_en' => '',
-            'harga' => null,
-            'status' => 'tersedia',
-        ];
     }
 
     protected function authorizeManage(): void
@@ -184,7 +99,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Add-ons') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('addon.manage')
-                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                    <flux:link :href="route('addon.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -309,15 +226,16 @@ new class extends Component {
 
                         @can('addon.manage')
                             <div class="mt-4 flex items-center gap-2">
-                                <flux:button
-                                    size="sm"
-                                    icon="pencil-square"
-                                    variant="primary"
-                                    class="flex-1 btn-accent rounded-2xl shadow-sm transition"
-                                    wire:click="openEditModal({{ $addon->id }})"
-                                >
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link class="flex-1" :href="route('addon.edit', $addon, false)" wire:navigate>
+                                    <flux:button
+                                        size="sm"
+                                        icon="pencil-square"
+                                        variant="primary"
+                                        class="w-full btn-accent rounded-2xl shadow-sm transition"
+                                    >
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-addon" class="flex-1">
                                     <flux:button
                                         size="sm"
@@ -364,15 +282,16 @@ new class extends Component {
 
                         @can('addon.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button
-                                    size="sm"
-                                    icon="pencil-square"
-                                    variant="primary"
-                                    class="w-full btn-accent rounded-2xl shadow-sm transition"
-                                    wire:click="openEditModal({{ $addon->id }})"
-                                >
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link :href="route('addon.edit', $addon, false)" wire:navigate>
+                                    <flux:button
+                                        size="sm"
+                                        icon="pencil-square"
+                                        variant="primary"
+                                        class="w-full btn-accent rounded-2xl shadow-sm transition"
+                                    >
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-addon-desktop">
                                     <flux:button
                                         size="sm"
@@ -441,15 +360,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('addon.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
-                                                    wire:click="openEditModal({{ $addon->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('addon.edit', $addon, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-addon-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -482,185 +402,6 @@ new class extends Component {
         </div>
 
         @php($selectedAddon = $items->firstWhere('id', $confirmingDeleteId))
-
-        <!-- create modal -->
-        <flux:modal name="create-addon" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Create Add-on') }}</flux:heading>
-                        <flux:subheading>{{ __('Fill the details below to add a new add-on.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="create-addon-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-2">
-                        <div class="space-y-4">
-                            <flux:input
-                                wire:model.defer="form.nama_addon"
-                                :label="__('Add-on Name')"
-                                required
-                                maxlength="100"
-                                help="{{ __('Example: Egg / Extra sambal / Ice tea') }}"
-                            />
-                            @error('form.nama_addon')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.nama_addon_en"
-                                :label="__('Add-on Name (English)')"
-                                maxlength="100"
-                                placeholder="{{ __('Optional') }}"
-                                help="{{ __('Example: Egg / Extra sambal / Ice tea') }}"
-                            />
-                            @error('form.nama_addon_en')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.harga"
-                                type="number"
-                                min="0"
-                                step="100"
-                                inputmode="numeric"
-                                placeholder="0"
-                                :label="__('Price (IDR)')"
-                                required
-                                help="{{ __('Optional add-ons will be added to the menu price automatically.') }}"
-                            />
-                            @error('form.harga')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="space-y-4">
-                            <div data-flux-field>
-                                <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                    <option value="tersedia">{{ __('Available') }}</option>
-                                    <option value="habis">{{ __('Out of stock') }}</option>
-                                </flux:select>
-                                @error('form.status')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                                <ul class="mt-2 list-disc space-y-1 pl-4">
-                                    <li>{{ __('Set status to "Out of stock" to hide this add-on from menu selection.') }}</li>
-                                    <li>{{ __('You can attach add-ons to specific menus from the Menus page.') }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-addon-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-addon-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- edit modal -->
-        <flux:modal name="edit-addon" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Add-on') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this add-on.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="edit-addon-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-2">
-                        <div class="space-y-4">
-                            <flux:input
-                                wire:model.defer="form.nama_addon"
-                                :label="__('Add-on Name')"
-                                required
-                                maxlength="100"
-                            />
-                            @error('form.nama_addon')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.nama_addon_en"
-                                :label="__('Add-on Name (English)')"
-                                maxlength="100"
-                                placeholder="{{ __('Optional') }}"
-                            />
-                            @error('form.nama_addon_en')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.harga"
-                                type="number"
-                                min="0"
-                                step="100"
-                                inputmode="numeric"
-                                placeholder="0"
-                                :label="__('Price (IDR)')"
-                                required
-                            />
-                            @error('form.harga')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="space-y-4">
-                            <div data-flux-field>
-                                <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                    <option value="tersedia">{{ __('Available') }}</option>
-                                    <option value="habis">{{ __('Out of stock') }}</option>
-                                </flux:select>
-                                @error('form.status')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                                <ul class="mt-2 list-disc space-y-1 pl-4">
-                                    <li>{{ __('If a menu already uses this add-on, changing the price will apply to new orders.') }}</li>
-                                    <li>{{ __('Past orders keep a snapshot of add-on prices.') }}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-addon-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-addon-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
 
         <!-- Delete confirm modal - mobile flyout -->
         <flux:modal name="confirm-delete-addon" focusable variant="flyout" position="bottom" :closable="false" class="rounded-t-3xl sm:rounded-xl">
@@ -749,3 +490,14 @@ new class extends Component {
         </div>
     </div>
 </section>
+
+@if (session('addon_toast'))
+    <script>
+        window.addEventListener('load', () => {
+            try {
+                const message = @js(session('addon_toast'));
+                window.dispatchEvent(new CustomEvent('addon-toast', { detail: { message } }));
+            } catch (e) {}
+        });
+    </script>
+@endif

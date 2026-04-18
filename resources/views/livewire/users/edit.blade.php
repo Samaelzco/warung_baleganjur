@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Spatie\Permission\Models\Role;
 
@@ -61,6 +62,8 @@ new class extends Component {
             $this->user->syncRoles([]);
         }
 
+        Cache::forget('admin:users:stats:v1');
+
         session()->flash('users_toast', __('User updated successfully.'));
         $this->redirectRoute('users.index', navigate: true);
     }
@@ -70,53 +73,63 @@ new class extends Component {
     @php($roles = Role::query()->select(['id', 'name'])->orderBy('name')->get())
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <flux:heading size="xl" level="1">{{ __('Edit User') }}</flux:heading>
-        <flux:link :href="route('users.index')" wire:navigate>
+        <div class="space-y-1">
+            <flux:heading size="xl" level="1">{{ __('Edit User') }}</flux:heading>
+            <flux:subheading>{{ __('Update profile and access for this user.') }}</flux:subheading>
+        </div>
+        <flux:link :href="route('users.index', [], false)" wire:navigate>
             <flux:button variant="ghost" icon="arrow-left" class="btn-ghost-accent">{{ __('Back') }}</flux:button>
         </flux:link>
     </div>
 
-    <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-        <form wire:submit="update" class="grid gap-6 md:grid-cols-2">
-            <div class="md:col-span-1 space-y-4">
-                <flux:input wire:model="form.name" :label="__('Name')" required maxlength="255" />
-                <flux:input wire:model="form.email" type="email" :label="__('Email')" required maxlength="255" />
+    <form id="edit-user-form" wire:submit.prevent="update" class="space-y-6">
+        <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900 sm:p-5">
+            <div class="grid gap-6 lg:grid-cols-2">
+                <div class="space-y-4">
+                    <flux:input wire:model.defer="form.name" :label="__('Name')" required maxlength="255" />
+                    @error('form.name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
 
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input wire:model="form.password" type="password" :label="__('New Password')" />
-                    <flux:input wire:model="form.password_confirmation" type="password" :label="__('Confirm Password')" />
-                </div>
+                    <flux:input wire:model.defer="form.email" type="email" :label="__('Email')" required maxlength="255" />
+                    @error('form.email') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
 
-                <div data-flux-field>
-                    <label data-flux-label>{{ __('Role') }}</label>
-                    <select
-                        wire:model="form.role"
-                        class="mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                    >
+                    <flux:select wire:model.defer="form.role" :label="__('Role')">
                         <option value="">{{ __('No role') }}</option>
                         @foreach ($roles as $role)
                             <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
                         @endforeach
-                    </select>
+                    </flux:select>
+                    @error('form.role') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="space-y-4">
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                        <flux:input wire:model.defer="form.password" type="password" :label="__('New Password')" />
+                        <flux:input wire:model.defer="form.password_confirmation" type="password" :label="__('Confirm Password')" />
+                    </div>
+                    @error('form.password') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+
+                    <div class="rounded-2xl border border-neutral-200/70 bg-neutral-50/60 p-4 dark:border-neutral-800 dark:bg-neutral-950/40">
+                        <div class="flex items-center gap-3">
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-100 text-sm font-semibold text-neutral-800 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-100 dark:ring-neutral-700">
+                                {{ $user->initials() }}
+                            </span>
+                            <div class="min-w-0">
+                                <div class="truncate text-sm font-semibold text-neutral-900 dark:text-white">{{ $form['name'] ?: $user->name }}</div>
+                                <div class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ $form['email'] ?: $user->email }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="md:col-span-1 flex flex-col justify-between space-y-4">
-                <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                    <flux:heading size="sm">{{ __('Notes') }}</flux:heading>
-                    <ul class="mt-2 list-disc space-y-1 pl-4 text-xs">
-                        <li>{{ __('Leave password empty to keep the current password.') }}</li>
-                        <li>{{ __('Changing role will replace existing roles (single-role mode).') }}</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="md:col-span-2 flex items-center gap-3">
-                <flux:button type="submit" variant="primary" class="btn-brand">{{ __('Update') }}</flux:button>
-                <flux:link :href="route('users.index')" wire:navigate>
-                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
+        <div class="sticky bottom-0 z-20 -mx-4 border-t border-neutral-200 bg-white/90 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80 dark:shadow-black/20 sm:static sm:mx-0 sm:flex sm:justify-end sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0 sm:shadow-none sm:backdrop-blur-none">
+            <div class="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                <flux:link :href="route('users.index', [], false)" wire:navigate>
+                    <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full justify-center sm:w-auto">{{ __('Cancel') }}</flux:button>
                 </flux:link>
+                <flux:button type="submit" form="edit-user-form" variant="primary" icon="check" class="btn-brand w-full justify-center sm:w-auto">{{ __('Update') }}</flux:button>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </section>

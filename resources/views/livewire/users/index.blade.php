@@ -11,10 +11,8 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
     public string $search = '';
     public string $roleFilter = 'all';
-    public array $form = [];
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -22,104 +20,8 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingRoleFilter(): void { $this->resetPage(); }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-user');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $user = User::query()
-            ->select(['id', 'name', 'email'])
-            ->with(['roles:id,name'])
-            ->findOrFail($id);
-
-        $this->editingId = $user->id;
-        $this->form = [
-            'name' => $user->name,
-            'email' => $user->email,
-            'password' => '',
-            'password_confirmation' => '',
-            'role' => $user->roles->pluck('name')->first() ?? '',
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-user');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $validated = validator($this->form, [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['nullable', 'string', 'max:255', 'exists:roles,name'],
-        ])->validate();
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-        ]);
-
-        $user->syncRoles(!empty($validated['role']) ? [$validated['role']] : []);
-        Cache::forget('admin:users:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-user');
-        $this->dispatch('users-toast', message: __('User created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) {
-            return;
-        }
-
-        $rules = [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $this->editingId],
-            'role' => ['nullable', 'string', 'max:255', 'exists:roles,name'],
-        ];
-
-        if (!empty($this->form['password'])) {
-            $rules['password'] = ['required', 'string', 'min:8', 'confirmed'];
-        } else {
-            $rules['password'] = ['nullable', 'string'];
-        }
-
-        $validated = validator($this->form, $rules)->validate();
-
-        $payload = [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-        ];
-
-        if (!empty($validated['password'])) {
-            $payload['password'] = $validated['password'];
-        }
-
-        $user = User::query()->select(['id'])->findOrFail($this->editingId);
-        $user->update($payload);
-        $user->syncRoles(!empty($validated['role']) ? [$validated['role']] : []);
-        Cache::forget('admin:users:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-user');
-        $this->dispatch('users-toast', message: __('User updated successfully.'));
-    }
 
     public function confirmDelete(int $id): void
     {
@@ -151,18 +53,6 @@ new class extends Component {
         $this->dispatch('modal-close', name: 'confirm-delete-user');
         $this->dispatch('modal-close', name: 'confirm-delete-user-desktop');
         $this->dispatch('users-toast', message: __('User deleted successfully.'));
-    }
-
-    protected function resetCreateForm(): void
-    {
-        $this->editingId = null;
-        $this->form = [
-            'name' => '',
-            'email' => '',
-            'password' => '',
-            'password_confirmation' => '',
-            'role' => '',
-        ];
     }
 
     protected function authorizeManage(): void
@@ -217,7 +107,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Users') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('users.manage')
-                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                    <flux:link :href="route('users.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -318,9 +210,11 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('users.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $user->id }})">
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link class="flex-1" :href="route('users.edit', $user, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-user" class="flex-1">
                                     <flux:button
                                         size="sm"
@@ -379,9 +273,11 @@ new class extends Component {
 
                         @can('users.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $user->id }})">
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link :href="route('users.edit', $user, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-user-desktop">
                                     <flux:button
                                         size="sm"
@@ -455,15 +351,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex items-center gap-2 flex-nowrap">
                                             @can('users.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition md:w-24"
-                                                    wire:click="openEditModal({{ $user->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('users.edit', $user, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition md:w-24"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-user-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -552,136 +449,6 @@ new class extends Component {
                 <flux:button variant="danger" wire:click="delete">
                     {{ __('Yes, delete') }}
                 </flux:button>
-            </div>
-        </div>
-    </flux:modal>
-
-    <!-- Create user modal -->
-    <flux:modal name="create-user" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-        <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-            <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                <div>
-                    <flux:heading size="lg">{{ __('Create User') }}</flux:heading>
-                    <flux:subheading>{{ __('Fill the details below to add a new user.') }}</flux:subheading>
-                </div>
-            </div>
-
-            <form id="create-user-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                <div class="grid gap-6 md:grid-cols-2">
-                    <div class="space-y-4">
-                        <flux:input wire:model.defer="form.name" :label="__('Name')" required maxlength="255" />
-                        @error('form.name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <flux:input wire:model.defer="form.email" type="email" :label="__('Email')" required maxlength="255" />
-                        @error('form.email') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <div data-flux-field>
-                            <flux:select wire:model.defer="form.role" :label="__('Role')">
-                                <option value="">{{ __('No role') }}</option>
-                                @foreach ($roles as $role)
-                                    <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
-                                @endforeach
-                            </flux:select>
-                            @error('form.role') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <flux:input wire:model.defer="form.password" type="password" :label="__('Password')" required />
-                        @error('form.password') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <flux:input wire:model.defer="form.password_confirmation" type="password" :label="__('Confirm Password')" required />
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                            <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                <li>{{ __('Use a strong password (min 8 characters).') }}</li>
-                                <li>{{ __('Assign a role to match responsibilities.') }}</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="create-user-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                </div>
-            </form>
-
-            <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="create-user-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                </div>
-            </div>
-        </div>
-    </flux:modal>
-
-    <!-- Edit user modal -->
-    <flux:modal name="edit-user" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-        <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-            <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                <div>
-                    <flux:heading size="lg">{{ __('Edit User') }}</flux:heading>
-                    <flux:subheading>{{ __('Update the details for this user.') }}</flux:subheading>
-                </div>
-            </div>
-
-            <form id="edit-user-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                <div class="grid gap-6 md:grid-cols-2">
-                    <div class="space-y-4">
-                        <flux:input wire:model.defer="form.name" :label="__('Name')" required maxlength="255" />
-                        @error('form.name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <flux:input wire:model.defer="form.email" type="email" :label="__('Email')" required maxlength="255" />
-                        @error('form.email') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <div data-flux-field>
-                            <flux:select wire:model.defer="form.role" :label="__('Role')">
-                                <option value="">{{ __('No role') }}</option>
-                                @foreach ($roles as $role)
-                                    <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
-                                @endforeach
-                            </flux:select>
-                            @error('form.role') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <flux:input wire:model.defer="form.password" type="password" :label="__('New Password')" />
-                        @error('form.password') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <flux:input wire:model.defer="form.password_confirmation" type="password" :label="__('Confirm Password')" />
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                            <flux:heading size="sm">{{ __('Notes') }}</flux:heading>
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                <li>{{ __('Leave password empty to keep the current password.') }}</li>
-                                <li>{{ __('Role selection will replace existing roles (single-role mode).') }}</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="edit-user-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                </div>
-            </form>
-
-            <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="edit-user-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                </div>
             </div>
         </div>
     </flux:modal>

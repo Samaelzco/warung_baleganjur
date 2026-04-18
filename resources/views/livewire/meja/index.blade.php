@@ -2,15 +2,12 @@
 
 use App\Models\Meja;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
 new class extends Component {
     use WithPagination;
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
-    public array $form = [];
     public string $search = '';
     public string $statusFilter = 'all';
     protected $queryString = [
@@ -19,83 +16,10 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function confirmDelete(int $id): void
     {
         $this->authorizeManage();
         $this->confirmingDeleteId = $id;
-    }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-meja');
-    }
-
-    public function regenerateToken(): void
-    {
-        $this->authorizeManage();
-        $this->form['qr_token'] = $this->generateUniqueToken();
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $meja = Meja::query()
-            ->select(['id', 'nomor_meja', 'qr_token', 'status', 'kapasitas'])
-            ->findOrFail($id);
-        $this->editingId = $meja->id;
-        $this->form = [
-            'nomor_meja' => $meja->nomor_meja,
-            'qr_token' => $meja->qr_token,
-            'status' => $meja->status,
-            'kapasitas' => $meja->kapasitas ?? 4,
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-meja');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $validated = validator($this->form, [
-            'nomor_meja' => ['required', 'string', 'max:10'],
-            'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token'],
-            'status' => ['required', 'in:kosong,terisi,reservasi'],
-            'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
-        ])->validate();
-
-        Meja::create($validated);
-        Cache::forget('admin:meja:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-meja');
-        $this->dispatch('meja-toast', message: __('Table created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) return;
-
-        $validated = validator($this->form, [
-            'nomor_meja' => ['required', 'string', 'max:10'],
-            'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token,' . $this->editingId],
-            'status' => ['required', 'in:kosong,terisi,reservasi'],
-            'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
-        ])->validate();
-
-        Meja::where('id', $this->editingId)->update($validated);
-        Cache::forget('admin:meja:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-meja');
-        $this->dispatch('meja-toast', message: __('Table updated successfully.'));
     }
 
     public function delete(): void
@@ -114,25 +38,6 @@ new class extends Component {
 
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
-
-    protected function resetCreateForm(): void
-    {
-        $this->form = [
-            'nomor_meja' => '',
-            'qr_token' => $this->generateUniqueToken(),
-            'status' => 'kosong',
-            'kapasitas' => 4,
-        ];
-    }
-
-    protected function generateUniqueToken(): string
-    {
-        do {
-            $token = Str::upper(Str::random(10));
-        } while (Meja::where('qr_token', $token)->exists());
-
-        return $token;
-    }
 
     protected function authorizeManage(): void
     {
@@ -202,7 +107,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Tables') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('meja.manage')
-                    <flux:button icon="plus" variant="primary" class="btn-brand order-1 sm:order-2" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                    <flux:link class="order-1 sm:order-2" :href="route('meja.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
                 <flux:link class="order-2 sm:order-1" :href="route('meja.print', [], false)" target="_blank">
                     <flux:button icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
@@ -319,7 +226,9 @@ new class extends Component {
                                 <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
                             </flux:link>
                             @can('meja.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:link class="flex-1" :href="route('meja.edit', $m, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-meja" class="flex-1">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -377,7 +286,9 @@ new class extends Component {
                                 <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
                             </flux:link>
                             @can('meja.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-meja-desktop">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -465,16 +376,17 @@ new class extends Component {
                                             </div>
                                             @can('meja.manage')
                                                 <div class="flex flex-wrap justify-start gap-2 lg:contents">
-                                                    <flux:button
-                                                        size="sm"
-                                                        icon="pencil-square"
-                                                        variant="primary"
-                                                        class="btn-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
-                                                        wire:click="openEditModal({{ $m->id }})"
-                                                        title="{{ __('Edit') }}"
-                                                    >
-                                                        {{ __('Edit') }}
-                                                    </flux:button>
+                                                    <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="pencil-square"
+                                                            variant="primary"
+                                                            class="btn-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                            title="{{ __('Edit') }}"
+                                                        >
+                                                            {{ __('Edit') }}
+                                                        </flux:button>
+                                                    </flux:link>
                                                     <flux:modal.trigger name="confirm-delete-meja-desktop">
                                                         <flux:button
                                                             size="sm"
@@ -514,168 +426,6 @@ new class extends Component {
                 {{ $items->links() }}
             </div>
         </div>
-
-        <flux:modal name="create-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Create Table') }}</flux:heading>
-                        <flux:subheading>{{ __('Fill the details below to add a new table.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="create-meja-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-5">
-                    <div class="space-y-4 md:col-span-3">
-                        <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
-                        @error('form.nomor_meja')
-                            <p class="text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-
-                        <flux:input wire:model.defer="form.kapasitas" type="number" min="1" max="99" :label="__('Capacity')" required />
-                        @error('form.kapasitas')
-                            <p class="text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-
-                        <div data-flux-field>
-                            <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                <option value="kosong">{{ __('Empty') }}</option>
-                                <option value="terisi">{{ __('Occupied') }}</option>
-                                <option value="reservasi">{{ __('Reserved') }}</option>
-                            </flux:select>
-                            @error('form.status')
-                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-                    </div>
-
-                    <div class="space-y-4 md:col-span-2 md:pl-2">
-                        <flux:input wire:model.defer="form.qr_token" :label="__('QR Token')" readonly class="font-mono" help="{{ __('Unique code used in the QR link') }}" />
-                        @error('form.qr_token')
-                            <p class="text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-                        <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-                            <span>{{ __('Used in URL: /{token}') }}</span>
-                            <div class="inline-flex items-center gap-1">
-                                <flux:button size="xs" variant="ghost" class="btn-ghost-accent" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
-                            </div>
-                        </div>
-
-                            <div class="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
-                                <div class="rounded-xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
-                                    @if (!empty($form['qr_token']))
-                                        <img alt="QR" class="mx-auto h-44 w-44" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 320, 'format' => 'svg'], false) }}" />
-                                @else
-                                    <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="hidden md:flex items-center justify-end gap-3 pt-2">
-                            <flux:modal.close>
-                                <flux:button type="button" variant="ghost" class="btn-ghost-accent md:w-28 lg:w-auto justify-center">{{ __('Cancel') }}</flux:button>
-                            </flux:modal.close>
-                            <flux:button type="submit" form="create-meja-form" variant="primary" icon="plus" class="btn-brand md:w-28 lg:w-auto justify-center">{{ __('Create') }}</flux:button>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-meja-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
-        <flux:modal name="edit-meja" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Table') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this table.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="edit-meja-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-5">
-                    <div class="space-y-4 md:col-span-3">
-                        <flux:input wire:model.defer="form.nomor_meja" :label="__('Table Number')" required maxlength="10" help="{{ __('Up to 10 characters, e.g. A12') }}" />
-                        @error('form.nomor_meja')
-                            <p class="text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-
-                        <flux:input wire:model.defer="form.kapasitas" type="number" min="1" max="99" :label="__('Capacity')" required />
-                        @error('form.kapasitas')
-                            <p class="text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-
-                        <div data-flux-field>
-                            <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                <option value="kosong">{{ __('Empty') }}</option>
-                                <option value="terisi">{{ __('Occupied') }}</option>
-                                <option value="reservasi">{{ __('Reserved') }}</option>
-                            </flux:select>
-                            @error('form.status')
-                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-                    </div>
-
-                    <div class="space-y-4 md:col-span-2 md:pl-2">
-                        <flux:input wire:model.defer="form.qr_token" :label="__('QR Token')" readonly class="font-mono" help="{{ __('Unique code used in the QR link') }}" />
-                        @error('form.qr_token')
-                            <p class="text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-                        <div class="mt-2 flex items-center justify-between gap-2 rounded-2xl border border-neutral-200/70 bg-neutral-50/70 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-                            <span>{{ __('Used in URL: /{token}') }}</span>
-                            <div class="inline-flex items-center gap-1">
-                                <flux:button size="xs" variant="ghost" class="btn-ghost-accent" icon="arrow-path" type="button" wire:click="regenerateToken">{{ __('Regenerate') }}</flux:button>
-                            </div>
-                        </div>
-
-                        <div class="space-y-3 rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                            <div class="flex items-center justify-between">
-                                <flux:heading size="sm">{{ __('QR Preview') }}</flux:heading>
-                                <flux:link :href="route('meja.print', ['ids' => $editingId], false)" target="_blank">
-                                    <flux:button size="xs" icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
-                                </flux:link>
-                            </div>
-                            <div class="rounded-xl border border-dashed border-neutral-200 bg-white p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
-                                @if (!empty($form['qr_token']))
-                                    <img alt="QR" class="mx-auto h-44 w-44" src="{{ route('meja.qr', ['token' => $form['qr_token'], 'size' => 320, 'format' => 'svg'], false) }}" />
-                                @else
-                                    <div class="text-xs text-red-600">{{ __('QR generation failed') }}</div>
-                                @endif
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <flux:link :href="route('meja.qr', ['token' => $form['qr_token'] ?? null], false)" target="_blank">
-                                    <flux:button size="xs" icon="arrow-top-right-on-square" variant="ghost" class="btn-ghost-accent">{{ __('Open Order Page') }}</flux:button>
-                                </flux:link>
-                                <flux:text variant="subtle" class="text-xs">{{ __('Preview for printing and testing') }}</flux:text>
-                            </div>
-                        </div>
-                        <div class="hidden md:flex items-center justify-end gap-3 pt-2">
-                            <flux:modal.close>
-                                <flux:button type="button" variant="ghost" class="btn-ghost-accent md:w-28 lg:w-auto justify-center">{{ __('Cancel') }}</flux:button>
-                            </flux:modal.close>
-                            <flux:button type="submit" form="edit-meja-form" variant="primary" icon="check" class="btn-brand md:w-28 lg:w-auto justify-center">{{ __('Update') }}</flux:button>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-meja-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
 
         {{-- Detail modal (removed) --}}
         {{--

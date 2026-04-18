@@ -10,102 +10,15 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
 
     public string $search = '';
-
-    public array $form = [];
 
     protected $queryString = [
         'search' => ['except' => ''],
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function updatingSearch(): void { $this->resetPage(); }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-role');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $role = Role::query()
-            ->select(['id', 'name'])
-            ->with(['permissions' => fn ($q) => $q->select(['permissions.id', 'permissions.name'])])
-            ->findOrFail($id);
-
-        $this->editingId = $role->id;
-        $this->form = [
-            'name' => $role->name,
-            'permissions' => $role->permissions->pluck('name')->values()->all(),
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-role');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $validated = validator($this->form, [
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name'],
-            'permissions' => ['array'],
-            'permissions.*' => ['string', 'max:255', 'regex:/^[A-Za-z0-9_.-]+$/'],
-        ])->validate();
-
-        $role = Role::create([
-            'name' => $validated['name'],
-            'guard_name' => 'web',
-        ]);
-
-        $permissionNames = $this->normalizePermissionNames($validated['permissions'] ?? []);
-
-        $this->ensurePermissionsExist($permissionNames);
-        $role->syncPermissions($permissionNames);
-        Cache::forget('admin:roles:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-role');
-        $this->dispatch('roles-toast', message: __('Role created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) {
-            return;
-        }
-
-        $validated = validator($this->form, [
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name,' . $this->editingId],
-            'permissions' => ['array'],
-            'permissions.*' => ['string', 'max:255', 'regex:/^[A-Za-z0-9_.-]+$/'],
-        ])->validate();
-
-        $role = Role::query()->select(['id'])->findOrFail($this->editingId);
-        $role->update([
-            'name' => $validated['name'],
-            'guard_name' => 'web',
-        ]);
-
-        $permissionNames = $this->normalizePermissionNames($validated['permissions'] ?? []);
-
-        $this->ensurePermissionsExist($permissionNames);
-        $role->syncPermissions($permissionNames);
-        Cache::forget('admin:roles:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-role');
-        $this->dispatch('roles-toast', message: __('Role updated successfully.'));
-    }
 
     public function confirmDelete(int $id): void
     {
@@ -129,102 +42,14 @@ new class extends Component {
         $this->dispatch('roles-toast', message: __('Role deleted successfully.'));
     }
 
-    protected function resetCreateForm(): void
-    {
-        $this->editingId = null;
-        $this->form = [
-            'name' => '',
-            'permissions' => [],
-        ];
-    }
-
-    protected function normalizePermissionNames(array $names): array
-    {
-        return collect($names)
-            ->map(fn ($n) => trim((string) $n))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    protected function ensurePermissionsExist(array $names): void
-    {
-        foreach ($names as $name) {
-            Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
-        }
-    }
-
     protected function authorizeManage(): void
     {
         abort_unless(auth()->check() && auth()->user()->can('roles.manage'), 403);
-    }
-
-    public function permissionGroups(): array
-    {
-        return [
-            __('General') => [
-                'dashboard.access',
-            ],
-            __('Menu Access') => [
-                'meja.access',
-                'kategori.access',
-                'menu.access',
-                'addon.access',
-                'pajak.access',
-                'diskon.access',
-                'pesanan.access',
-                'kitchen.access',
-                'pembayaran.access',
-                'users.access',
-                'roles.access',
-            ],
-            __('Manage') => [
-                'meja.manage',
-                'kategori.manage',
-                'menu.manage',
-                'addon.manage',
-                'pajak.manage',
-                'diskon.manage',
-                'pesanan.manage',
-                'kitchen.manage',
-                'pembayaran.manage',
-                'users.manage',
-                'roles.manage',
-            ],
-        ];
-    }
-
-    public function clearPermissions(): void
-    {
-        $this->form['permissions'] = [];
-    }
-
-    public function selectAllPermissions(): void
-    {
-        $default = collect($this->permissionGroups())->flatten()->values()->all();
-        $extra = Permission::query()
-            ->whereNotIn('name', $default)
-            ->pluck('name')
-            ->all();
-
-        $this->form['permissions'] = collect(array_merge($default, $extra))
-            ->unique()
-            ->values()
-            ->all();
     }
 }; ?>
 
 <section class="w-full">
     @php
-        $defaultPermissionGroups = $this->permissionGroups();
-
-        $defaultPermissionNames = collect($defaultPermissionGroups)->flatten()->values();
-        $extraPermissions = Permission::query()
-            ->select(['id', 'name'])
-            ->whereNotIn('name', $defaultPermissionNames->all())
-            ->orderBy('name')
-            ->get();
         $query = Role::query()
             ->select(['id', 'name'])
             ->withCount('permissions')
@@ -253,7 +78,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Roles') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('roles.manage')
-                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                    <flux:link :href="route('roles.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -360,9 +187,11 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('roles.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $role->id }})">
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link class="flex-1" :href="route('roles.edit', $role, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-role" class="flex-1">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $role->id }})">
                                         {{ __('Delete') }}
@@ -401,9 +230,11 @@ new class extends Component {
 
                         @can('roles.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $role->id }})">
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link :href="route('roles.edit', $role, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-role-desktop">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $role->id }})">
                                         {{ __('Delete') }}
@@ -453,15 +284,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex items-center gap-2 flex-nowrap">
                                             @can('roles.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
-                                                    wire:click="openEditModal({{ $role->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('roles.edit', $role, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-role-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -549,235 +381,6 @@ new class extends Component {
         </div>
     </flux:modal>
 
-    <!-- Create role modal -->
-    <flux:modal name="create-role" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-        <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-            <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                <div>
-                    <flux:heading size="lg">{{ __('Create Role') }}</flux:heading>
-                    <flux:subheading>{{ __('Create a role and assign permissions.') }}</flux:subheading>
-                </div>
-            </div>
-
-            <form id="create-role-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                <div class="grid gap-6 md:grid-cols-2">
-                    <div class="space-y-4">
-                        <flux:input wire:model.defer="form.name" :label="__('Role name')" required maxlength="255" />
-                        @error('form.name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                            <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                <li>{{ __('Use clear names like "Kasir", "Chef", or "Manager".') }}</li>
-                                <li>{{ __('Access = can open menu/index. Manage = can create/edit/delete.') }}</li>
-                                <li>{{ __('Keep Roles manage permission limited to trusted users.') }}</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div class="flex flex-wrap items-center gap-3">
-                                <flux:heading size="sm">{{ __('Permissions') }}</flux:heading>
-                                <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-[11px] font-semibold text-neutral-600 dark:bg-white/5 dark:text-neutral-300">
-                                    {{ count($form['permissions'] ?? []) }} {{ __('selected') }}
-                                </span>
-                            </div>
-                            <div class="flex flex-wrap items-center justify-end gap-2">
-                                <flux:button
-                                    size="sm"
-                                    variant="ghost"
-                                    class="btn-ghost-accent"
-                                    type="button"
-                                    wire:click="selectAllPermissions"
-                                >
-                                    {{ __('Select all') }}
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" type="button" wire:click="clearPermissions">{{ __('Clear') }}</flux:button>
-                            </div>
-                        </div>
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                            <div class="max-h-[44dvh] overflow-y-auto pr-1">
-                            <div class="space-y-4">
-                                @foreach ($defaultPermissionGroups as $groupLabel => $permissionNames)
-                                    <div>
-                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">{{ $groupLabel }}</p>
-                                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                            @foreach ($permissionNames as $permName)
-                                                <label class="flex items-center gap-2 rounded-xl border border-neutral-200/60 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-800/60 dark:bg-neutral-950 dark:text-neutral-200">
-                                                    <input
-                                                        type="checkbox"
-                                                        value="{{ $permName }}"
-                                                        wire:model.live="form.permissions"
-                                                        class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
-                                                    />
-                                                    <span class="truncate">{{ $permName }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endforeach
-
-                                @if ($extraPermissions->isNotEmpty())
-                                    <div>
-                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">{{ __('Other') }}</p>
-                                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                            @foreach ($extraPermissions as $perm)
-                                                <label class="flex items-center gap-2 rounded-xl border border-neutral-200/60 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-800/60 dark:bg-neutral-950 dark:text-neutral-200">
-                                                    <input
-                                                        type="checkbox"
-                                                        value="{{ $perm->name }}"
-                                                        wire:model.live="form.permissions"
-                                                        class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
-                                                    />
-                                                    <span class="truncate">{{ $perm->name }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-
-                                @error('form.permissions.*') <p class="mt-2 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="create-role-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                </div>
-            </form>
-
-            <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="create-role-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                </div>
-            </div>
-        </div>
-    </flux:modal>
-
-    <!-- Edit role modal -->
-    <flux:modal name="edit-role" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-        <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-            <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                <div>
-                    <flux:heading size="lg">{{ __('Edit Role') }}</flux:heading>
-                    <flux:subheading>{{ __('Update role and its permissions.') }}</flux:subheading>
-                </div>
-            </div>
-
-            <form id="edit-role-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                <div class="grid gap-6 md:grid-cols-2">
-                    <div class="space-y-4">
-                        <flux:input wire:model.defer="form.name" :label="__('Role name')" required maxlength="255" />
-                        @error('form.name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                            <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                <li>{{ __('Access = can open menu/index. Manage = can create/edit/delete.') }}</li>
-                                <li>{{ __('Remove manage permissions for read-only roles.') }}</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div class="flex flex-wrap items-center gap-3">
-                                <flux:heading size="sm">{{ __('Permissions') }}</flux:heading>
-                                <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-[11px] font-semibold text-neutral-600 dark:bg-white/5 dark:text-neutral-300">
-                                    {{ count($form['permissions'] ?? []) }} {{ __('selected') }}
-                                </span>
-                            </div>
-                            <div class="flex flex-wrap items-center justify-end gap-2">
-                                <flux:button
-                                    size="sm"
-                                    variant="ghost"
-                                    class="btn-ghost-accent"
-                                    type="button"
-                                    wire:click="selectAllPermissions"
-                                >
-                                    {{ __('Select all') }}
-                                </flux:button>
-                                <flux:button size="sm" variant="ghost" class="btn-ghost-accent" type="button" wire:click="clearPermissions">{{ __('Clear') }}</flux:button>
-                            </div>
-                        </div>
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                            <div class="max-h-[44dvh] overflow-y-auto pr-1">
-                            <div class="space-y-4">
-                                @foreach ($defaultPermissionGroups as $groupLabel => $permissionNames)
-                                    <div>
-                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">{{ $groupLabel }}</p>
-                                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                            @foreach ($permissionNames as $permName)
-                                                <label class="flex items-center gap-2 rounded-xl border border-neutral-200/60 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-800/60 dark:bg-neutral-950 dark:text-neutral-200">
-                                                    <input
-                                                        type="checkbox"
-                                                        value="{{ $permName }}"
-                                                        wire:model.live="form.permissions"
-                                                        class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
-                                                    />
-                                                    <span class="truncate">{{ $permName }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endforeach
-
-                                @if ($extraPermissions->isNotEmpty())
-                                    <div>
-                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-400">{{ __('Other') }}</p>
-                                        <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                            @foreach ($extraPermissions as $perm)
-                                                <label class="flex items-center gap-2 rounded-xl border border-neutral-200/60 bg-white px-3 py-2 text-sm text-neutral-700 dark:border-neutral-800/60 dark:bg-neutral-950 dark:text-neutral-200">
-                                                    <input
-                                                        type="checkbox"
-                                                        value="{{ $perm->name }}"
-                                                        wire:model.live="form.permissions"
-                                                        class="h-4 w-4 rounded border-neutral-300 text-[color:var(--brand-accent)] focus:ring-[color:var(--brand-accent)] dark:border-neutral-700"
-                                                    />
-                                                    <span class="truncate">{{ $perm->name }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-
-                                @error('form.permissions.*') <p class="mt-2 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="edit-role-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                </div>
-            </form>
-
-            <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                <div class="grid grid-cols-2 gap-2">
-                    <flux:modal.close>
-                        <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                    </flux:modal.close>
-                    <flux:button type="submit" form="edit-role-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                </div>
-            </div>
-        </div>
-    </flux:modal>
-
     <!-- Toast -->
     <div
         x-data="{
@@ -811,3 +414,14 @@ new class extends Component {
         </div>
     </div>
 </section>
+
+@if (session('roles_toast'))
+    <script>
+        window.addEventListener('load', () => {
+            try {
+                const message = @js(session('roles_toast'));
+                window.dispatchEvent(new CustomEvent('roles-toast', { detail: { message } }));
+            } catch (e) {}
+        });
+    </script>
+@endif

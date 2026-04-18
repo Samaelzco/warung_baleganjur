@@ -4,9 +4,10 @@ namespace App\Services;
 
 use App\Models\Meja;
 use App\Models\Pesanan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
-class TableBookingService
+class TableWaitingListService
 {
     public const ACTIVE_STATUSES = ['menunggu', 'diproses', 'siap'];
 
@@ -48,7 +49,12 @@ class TableBookingService
         }
     }
 
-    public function activateNextBookings(Meja|int $meja): int
+    public function forgetKitchenCache(): void
+    {
+        Cache::forget('kitchen:status_counts');
+    }
+
+    public function activateNextWaitingLists(Meja|int $meja): int
     {
         $mejaId = $meja instanceof Meja ? (int) $meja->id : (int) $meja;
         $activated = 0;
@@ -65,7 +71,7 @@ class TableBookingService
                     break;
                 }
 
-                $booking = Pesanan::query()
+                $waitingList = Pesanan::query()
                     ->where('meja_id', $table->id)
                     ->where('status', 'booking')
                     ->orderBy('waktu_pesan')
@@ -73,21 +79,25 @@ class TableBookingService
                     ->lockForUpdate()
                     ->first();
 
-                if (!$booking) {
+                if (!$waitingList) {
                     break;
                 }
 
-                $jumlahOrang = max((int) ($booking->jumlah_orang ?? 1), 1);
+                $jumlahOrang = max((int) ($waitingList->jumlah_orang ?? 1), 1);
                 if ($jumlahOrang > $remaining) {
                     break;
                 }
 
-                $booking->forceFill(['status' => 'menunggu'])->save();
+                $waitingList->forceFill(['status' => 'menunggu'])->save();
                 $activated++;
             }
 
             $this->syncMejaStatus($table);
         });
+
+        if ($activated > 0) {
+            $this->forgetKitchenCache();
+        }
 
         return $activated;
     }

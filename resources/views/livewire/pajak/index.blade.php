@@ -9,8 +9,6 @@ new class extends Component {
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
-    public array $form = [];
     public string $search = '';
     public string $statusFilter = 'all';
 
@@ -20,77 +18,8 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->dispatch('modal-show', name: 'create-pajak');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $pajak = Pajak::query()
-            ->select(['id', 'nama', 'persentase', 'is_active'])
-            ->findOrFail($id);
-        $this->editingId = $pajak->id;
-
-        $this->form = [
-            'nama'       => $pajak->nama,
-            'persentase' => $pajak->persentase,
-            'is_active'  => (bool) $pajak->is_active,
-        ];
-
-        $this->dispatch('modal-show', name: 'edit-pajak');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $validated = validator($this->form, [
-            'nama'       => ['required', 'string', 'max:100', 'unique:pajaks,nama'],
-            'persentase' => ['required', 'numeric', 'min:0', 'max:100'],
-            'is_active'  => ['boolean'],
-        ])->validate();
-
-        $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
-
-        Pajak::create($validated);
-        Cache::forget('admin:pajak:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-pajak');
-        $this->dispatch('pajak-toast', message: __('Tax created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) return;
-
-        $validated = validator($this->form, [
-            'nama'       => ['required', 'string', 'max:100', 'unique:pajaks,nama,' . $this->editingId],
-            'persentase' => ['required', 'numeric', 'min:0', 'max:100'],
-            'is_active'  => ['boolean'],
-        ])->validate();
-
-        $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
-
-        Pajak::where('id', $this->editingId)->update($validated);
-        Cache::forget('admin:pajak:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-pajak');
-        $this->dispatch('pajak-toast', message: __('Tax updated successfully.'));
-    }
 
     public function confirmDelete(int $id): void
     {
@@ -109,15 +38,6 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-pajak-desktop');
             $this->dispatch('pajak-toast', message: __('Tax deleted successfully.'));
         }
-    }
-
-    protected function resetCreateForm(): void
-    {
-        $this->form = [
-            'nama'       => '',
-            'persentase' => 10.00,
-            'is_active'  => true,
-        ];
     }
 
     protected function authorizeManage(): void
@@ -179,14 +99,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Taxes') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('pajak.manage')
-                    <flux:button
-                        icon="plus"
-                        variant="primary"
-                        class="btn-brand"
-                        wire:click="openCreateModal"
-                    >
-                        {{ __('Create') }}
-                    </flux:button>
+                    <flux:link :href="route('pajak.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -317,15 +232,9 @@ new class extends Component {
 
                         @can('pajak.manage')
                             <div class="mt-4 flex items-center justify-end gap-2">
-                                <flux:button
-                                    size="sm"
-                                    icon="pencil-square"
-                                    variant="primary"
-                                    class="btn-accent"
-                                    wire:click="openEditModal({{ $p->id }})"
-                                >
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link :href="route('pajak.edit', $p, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-pajak">
                                     <flux:button
                                         size="sm"
@@ -382,15 +291,9 @@ new class extends Component {
 
                         @can('pajak.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button
-                                    size="sm"
-                                    icon="pencil-square"
-                                    variant="primary"
-                                    class="w-full btn-accent"
-                                    wire:click="openEditModal({{ $p->id }})"
-                                >
-                                    {{ __('Edit') }}
-                                </flux:button>
+                                <flux:link :href="route('pajak.edit', $p, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-pajak-desktop">
                                     <flux:button
                                         size="sm"
@@ -462,15 +365,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('pajak.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
-                                                    wire:click="openEditModal({{ $p->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('pajak.edit', $p, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-pajak-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -568,153 +472,6 @@ new class extends Component {
                     <flux:button variant="danger" wire:click="delete">
                         {{ __('Yes, delete') }}
                     </flux:button>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- Create tax modal -->
-        <flux:modal name="create-pajak" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Create Tax') }}</flux:heading>
-                        <flux:subheading>{{ __('Add a new tax configuration.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="create-pajak-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="space-y-6 px-3">
-                        <div class="space-y-4">
-                            <flux:input
-                                wire:model.defer="form.nama"
-                                :label="__('Name')"
-                                required
-                                maxlength="100"
-                            />
-                            @error('form.nama')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.persentase"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                :label="__('Percentage (%)')"
-                                required
-                            />
-                            @error('form.persentase')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:checkbox
-                                wire:model.defer="form.is_active"
-                                :label="__('Active')"
-                            />
-                            @error('form.is_active')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                            <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                <li>{{ __('Only one active tax will usually be applied in orders.') }}</li>
-                                <li>{{ __('Use clear names, e.g. "Pajak Restoran 10%".') }}</li>
-                                <li>{{ __('You can deactivate taxes without deleting them.') }}</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-pajak-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-pajak-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- Edit tax modal -->
-        <flux:modal name="edit-pajak" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Tax') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this tax.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="edit-pajak-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="space-y-6 px-3">
-                        <div class="space-y-4">
-                            <flux:input
-                                wire:model.defer="form.nama"
-                                :label="__('Name')"
-                                required
-                                maxlength="100"
-                            />
-                            @error('form.nama')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input
-                                wire:model.defer="form.persentase"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                :label="__('Percentage (%)')"
-                                required
-                            />
-                            @error('form.persentase')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:checkbox
-                                wire:model.defer="form.is_active"
-                                :label="__('Active')"
-                            />
-                            @error('form.is_active')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400">
-                            <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                            <ul class="mt-2 list-disc space-y-1 pl-4">
-                                <li>{{ __('Adjust the percentage carefully to match your current tax policy.') }}</li>
-                                <li>{{ __('Deactivate old taxes instead of deleting them to keep history consistent.') }}</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <div class="hidden md:flex items-center justify-end gap-3 pt-2 px-3">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-pajak-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-pajak-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                    </div>
                 </div>
             </div>
         </flux:modal>

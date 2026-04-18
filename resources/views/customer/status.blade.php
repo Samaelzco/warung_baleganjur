@@ -12,7 +12,7 @@
         };
         $isStepActive = fn (int $i) => $stepIndex >= $i;
         $statusLabel = match ($status) {
-            'booking' => __('Queued'),
+            'booking' => __('Waiting List'),
             'menunggu' => __('Waiting'),
             'diproses' => __('Preparing'),
             'siap' => __('Ready'),
@@ -195,7 +195,7 @@
                             <div class="h-3 w-3 rounded-full @if($isStepActive(0)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
                         </div>
                         <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(0)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
-                            {{ __('Queued') }}
+                            {{ __('Waiting List') }}
                         </div>
                     </div>
 
@@ -232,7 +232,7 @@
                 {{ __('Your order is being prepared. Dishes will be served gradually as they become ready.') }}
             </div>
 
-            <div id="bookingNote" class="@if($status !== 'booking') hidden @endif mt-3 rounded-2xl border border-purple-200/70 bg-purple-50/80 p-3 text-sm font-semibold text-purple-800 shadow-sm backdrop-blur dark:border-purple-900/40 dark:bg-purple-900/20 dark:text-purple-200">
+            <div id="waitingListNote" class="@if($status !== 'booking') hidden @endif mt-3 rounded-2xl border border-purple-200/70 bg-purple-50/80 p-3 text-sm font-semibold text-purple-800 shadow-sm backdrop-blur dark:border-purple-900/40 dark:bg-purple-900/20 dark:text-purple-200">
                 {{ __('Your order is queued and will be sent to the kitchen when the table is available.') }}
             </div>
 
@@ -324,7 +324,7 @@
 
             const labelQty = @json(__('Qty'));
             const labelMenu = @json(__('Menu'));
-            const labelQueued = @json(__('Queued'));
+            const labelWaitingList = @json(__('Waiting List'));
             const labelWaiting = @json(__('Waiting'));
             const labelPreparing = @json(__('Preparing'));
             const labelReady = @json(__('Ready'));
@@ -353,7 +353,7 @@
 
             const statusLabel = (status) => {
                 const s = String(status || '')
-                if (s === 'booking') return labelQueued
+                if (s === 'booking') return labelWaitingList
                 if (s === 'menunggu') return labelWaiting
                 if (s === 'diproses') return labelPreparing
                 if (s === 'siap') return labelReady
@@ -473,8 +473,8 @@
                 if (orderTaxText) orderTaxText.textContent = formatIDR(Number(order.tax_total || 0))
                 updateStepper(order.status)
                 if (processingNote) processingNote.classList.toggle('hidden', order.status !== 'diproses')
-                const bookingNote = document.getElementById('bookingNote')
-                if (bookingNote) bookingNote.classList.toggle('hidden', order.status !== 'booking')
+                const waitingListNote = document.getElementById('waitingListNote')
+                if (waitingListNote) waitingListNote.classList.toggle('hidden', order.status !== 'booking')
                 if (readyNote) readyNote.classList.toggle('hidden', order.status !== 'siap')
 
                 if (breakdownItemsList) {

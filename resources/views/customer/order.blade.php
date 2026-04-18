@@ -312,10 +312,10 @@
     </div>
 
     <!-- Cart drawer -->
-    <div id="cartDrawer" class="fixed inset-0 z-50 hidden">
+    <div id="cartDrawer" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none">
         <button type="button" class="absolute inset-0 bg-black/30" data-close-cart aria-label="{{ __('Close') }}"></button>
 
-        <div class="absolute inset-x-0 bottom-0">
+        <div data-cart-panel class="absolute inset-x-0 bottom-0 translate-y-6 transition-transform duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-none">
             <div class="mx-auto w-full max-w-3xl px-4 sm:px-6">
                 <div class="customer-card-depth rounded-t-3xl border border-neutral-200/70 bg-white/90 p-4 shadow-2xl backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/85">
                     <div class="flex items-start justify-between gap-3">
@@ -358,10 +358,10 @@
     </div>
 
     <!-- Customize sheet (per individual item) -->
-    <div id="customizeSheet" class="fixed inset-0 z-50 hidden">
+    <div id="customizeSheet" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none">
         <button type="button" class="absolute inset-0 bg-black/30" data-close-customize aria-label="{{ __('Close') }}"></button>
 
-        <div class="absolute inset-x-0 bottom-0">
+        <div data-customize-panel class="absolute inset-x-0 bottom-0 translate-y-6 transition-transform duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:transition-none">
             <div class="mx-auto w-full max-w-3xl px-4 sm:px-6">
                 <div class="customer-card-depth rounded-t-3xl border border-neutral-200/70 bg-white/90 p-4 shadow-2xl backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/85">
                     <div class="flex items-start justify-between gap-3">
@@ -403,14 +403,54 @@
             const storageKey = token ? `customerCart:${token}` : 'customerCart'
             const cartBar = document.getElementById('cartBar')
             const cartDrawer = document.getElementById('cartDrawer')
+            const cartPanel = cartDrawer?.querySelector('[data-cart-panel]')
             const cartItems = document.getElementById('cartItems')
             const cartTotalDrawer = document.getElementById('cartTotalDrawer')
             const cartTotal = document.getElementById('cartTotal')
             const checkoutBtn = document.getElementById('checkoutBtn')
             const drawerCheckoutBtn = document.getElementById('drawerCheckoutBtn')
             const customizeSheet = document.getElementById('customizeSheet')
+            const customizePanel = customizeSheet?.querySelector('[data-customize-panel]')
             const customizeTitle = document.getElementById('customizeTitle')
             const customizeList = document.getElementById('customizeList')
+            const cartTransitionMs = 220
+            let cartCloseTimer = null
+            let customizeCloseTimer = null
+
+            const openCartDrawer = () => {
+                if (!cartDrawer) return
+
+                if (cartCloseTimer) {
+                    window.clearTimeout(cartCloseTimer)
+                    cartCloseTimer = null
+                }
+
+                cartDrawer.classList.remove('hidden')
+                document.body.style.overflow = 'hidden'
+
+                window.requestAnimationFrame(() => {
+                    cartDrawer.classList.remove('opacity-0')
+                    cartDrawer.classList.add('opacity-100')
+                    cartPanel?.classList.remove('translate-y-6')
+                    cartPanel?.classList.add('translate-y-0')
+                })
+            }
+
+            const closeCartDrawer = () => {
+                if (!cartDrawer) return
+
+                cartDrawer.classList.remove('opacity-100')
+                cartDrawer.classList.add('opacity-0')
+                cartPanel?.classList.remove('translate-y-0')
+                cartPanel?.classList.add('translate-y-6')
+                document.body.style.overflow = ''
+
+                cartCloseTimer = window.setTimeout(() => {
+                    if (cartDrawer.classList.contains('opacity-0')) {
+                        cartDrawer.classList.add('hidden')
+                    }
+                }, cartTransitionMs)
+            }
 
             const cartMenuMap = (() => {
                 try {
@@ -442,11 +482,22 @@
             let customizeLockedCount = 0
 
             const closeCustomize = () => {
+                if (!customizeSheet) return
+
                 customizeMenuId = null
                 customizeUnits = []
                 customizeLockedCount = 0
-                customizeSheet?.classList.add('hidden')
+                customizeSheet.classList.remove('opacity-100')
+                customizeSheet.classList.add('opacity-0')
+                customizePanel?.classList.remove('translate-y-0')
+                customizePanel?.classList.add('translate-y-6')
                 document.body.style.overflow = ''
+
+                customizeCloseTimer = window.setTimeout(() => {
+                    if (customizeSheet.classList.contains('opacity-0')) {
+                        customizeSheet.classList.add('hidden')
+                    }
+                }, cartTransitionMs)
             }
 
             const unitsFromCart = (menuId, cart) => {
@@ -586,8 +637,20 @@
                 if (customizeTitle) customizeTitle.textContent = menu?.name || @json(__('Customize'));
                 renderCustomize()
 
+                if (customizeCloseTimer) {
+                    window.clearTimeout(customizeCloseTimer)
+                    customizeCloseTimer = null
+                }
+
                 customizeSheet.classList.remove('hidden')
                 document.body.style.overflow = 'hidden'
+
+                window.requestAnimationFrame(() => {
+                    customizeSheet.classList.remove('opacity-0')
+                    customizeSheet.classList.add('opacity-100')
+                    customizePanel?.classList.remove('translate-y-6')
+                    customizePanel?.classList.add('translate-y-0')
+                })
             }
 
             const pricingMap = (() => {
@@ -1086,8 +1149,7 @@
                 }
 
                 if (e.target.closest('[data-close-cart]')) {
-                    cartDrawer?.classList.add('hidden')
-                    document.body.style.overflow = ''
+                    closeCartDrawer()
                     return
                 }
 
@@ -1119,8 +1181,7 @@
             })
 
             checkoutBtn?.addEventListener('click', () => {
-                cartDrawer?.classList.remove('hidden')
-                document.body.style.overflow = 'hidden'
+                openCartDrawer()
                 recompute()
             })
 
@@ -1216,8 +1277,7 @@
             try {
                 const params = new URLSearchParams(window.location.search)
                 if (params.get('cart') === '1') {
-                    cartDrawer?.classList.remove('hidden')
-                    document.body.style.overflow = 'hidden'
+                    openCartDrawer()
                     recompute()
                 }
             } catch (e) {}

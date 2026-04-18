@@ -2,22 +2,16 @@
 
 use App\Models\Menu;
 use App\Models\KategoriMenu;
-use App\Models\Addon;
 use App\Services\MenuImageService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads;
 
 new class extends Component {
-    use WithPagination, WithFileUploads;
+    use WithPagination;
 
     public ?int $confirmingDeleteId = null;
-    public ?int $editingId = null;
-    public ?string $editingImagePath = null;
-    public array $form = [];
-    public $gambar = null;
     public string $search = '';
     public string $statusFilter = 'all';
     public ?int $kategoriFilter = null;
@@ -29,146 +23,9 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function mount(): void
-    {
-        $this->resetCreateForm();
-    }
-
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
     public function updatingKategoriFilter(): void { $this->resetPage(); }
-
-    public function openCreateModal(): void
-    {
-        $this->authorizeManage();
-        $this->resetCreateForm();
-        $this->gambar = null;
-        $this->editingImagePath = null;
-        $this->dispatch('modal-show', name: 'create-menu');
-    }
-
-    public function openEditModal(int $id): void
-    {
-        $this->authorizeManage();
-        $menu = Menu::query()
-            ->select([
-                'id',
-                'nama_menu',
-                'nama_menu_en',
-                'kategori_id',
-                'harga',
-                'status',
-                'deskripsi',
-                'deskripsi_en',
-            ])
-            ->with([
-                'addons' => fn ($q) => $q->select(['addons.id']),
-            ])
-            ->findOrFail($id);
-        $this->editingId = $menu->id;
-        $this->editingImagePath = $menu->gambar;
-
-        $this->form = [
-            'nama_menu'   => $menu->nama_menu,
-            'nama_menu_en' => $menu->nama_menu_en,
-            'kategori_id' => $menu->kategori_id,
-            'harga'       => $menu->harga,
-            'status'      => $menu->status,
-            'deskripsi'   => $menu->deskripsi,
-            'deskripsi_en' => $menu->deskripsi_en,
-            'addon_ids'   => $menu->addons->pluck('id')->all(),
-        ];
-
-        $this->gambar = null;
-        $this->dispatch('modal-show', name: 'edit-menu');
-    }
-
-    public function save(): void
-    {
-        $this->authorizeManage();
-        $data = [...$this->form, 'gambar' => $this->gambar];
-
-        $validated = validator($data, [
-            'nama_menu'   => ['required', 'string', 'max:150', 'unique:menus,nama_menu'],
-            'nama_menu_en' => ['nullable', 'string', 'max:150'],
-            'kategori_id' => ['required', 'integer', 'exists:kategori_menus,id'],
-            'harga'       => ['required', 'numeric', 'min:0'],
-            'status'      => ['required', 'in:tersedia,habis'],
-            'deskripsi'   => ['nullable', 'string'],
-            'deskripsi_en' => ['nullable', 'string'],
-            'addon_ids'   => ['nullable', 'array'],
-            'addon_ids.*' => ['integer', 'exists:addons,id'],
-            'gambar'      => ['nullable', 'image', 'max:2048'],
-        ])->validate();
-
-        $addonIds = $validated['addon_ids'] ?? [];
-        unset($validated['addon_ids']);
-
-        if ($this->gambar) {
-            $path = $this->gambar->store('menus', 'public');
-            $validated['gambar'] = $path;
-            MenuImageService::generateThumbnails($path);
-        } else {
-            unset($validated['gambar']);
-        }
-
-        $menu = Menu::create($validated);
-        $menu->addons()->sync($addonIds);
-        Cache::forget('customer:menus_available:v1');
-        Cache::forget('admin:menu:stats:v1');
-
-        $this->resetCreateForm();
-        $this->dispatch('modal-close', name: 'create-menu');
-        $this->dispatch('menu-toast', message: __('Menu created successfully.'));
-    }
-
-    public function update(): void
-    {
-        $this->authorizeManage();
-        if (!$this->editingId) return;
-
-        $data = [...$this->form, 'gambar' => $this->gambar];
-
-        $validated = validator($data, [
-            'nama_menu'   => ['required', 'string', 'max:150', 'unique:menus,nama_menu,' . $this->editingId],
-            'nama_menu_en' => ['nullable', 'string', 'max:150'],
-            'kategori_id' => ['required', 'integer', 'exists:kategori_menus,id'],
-            'harga'       => ['required', 'numeric', 'min:0'],
-            'status'      => ['required', 'in:tersedia,habis'],
-            'deskripsi'   => ['nullable', 'string'],
-            'deskripsi_en' => ['nullable', 'string'],
-            'addon_ids'   => ['nullable', 'array'],
-            'addon_ids.*' => ['integer', 'exists:addons,id'],
-            'gambar'      => ['nullable', 'image', 'max:2048'],
-        ])->validate();
-
-        $addonIds = $validated['addon_ids'] ?? [];
-        unset($validated['addon_ids']);
-
-        $menu = Menu::query()->select(['id', 'gambar'])->findOrFail($this->editingId);
-
-        if ($this->gambar) {
-            if ($menu->gambar) {
-                Storage::disk('public')->delete($menu->gambar);
-                MenuImageService::deleteThumbnails($menu->gambar);
-            }
-            $path = $this->gambar->store('menus', 'public');
-            $validated['gambar'] = $path;
-            $this->editingImagePath = $path;
-            MenuImageService::generateThumbnails($path);
-        } else {
-            unset($validated['gambar']);
-        }
-
-        $menu->update($validated);
-        $menu->addons()->sync($addonIds);
-        Cache::forget('customer:menus_available:v1');
-        Cache::forget('admin:menu:stats:v1');
-
-        $this->editingId = null;
-        $this->dispatch('modal-close', name: 'edit-menu');
-        $this->dispatch('menu-toast', message: __('Menu updated successfully.'));
-    }
 
     public function confirmDelete(int $id): void
     {
@@ -194,21 +51,6 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-menu-desktop');
             $this->dispatch('menu-toast', message: __('Menu deleted successfully.'));
         }
-    }
-
-    protected function resetCreateForm(): void
-    {
-        $this->form = [
-            'nama_menu'   => '',
-            'nama_menu_en' => '',
-            'kategori_id' => null,
-            'harga'       => null,
-            'status'      => 'tersedia',
-            'deskripsi'   => '',
-            'deskripsi_en' => '',
-            'addon_ids'   => [],
-        ];
-        $this->editingImagePath = null;
     }
 
     protected function authorizeManage(): void
@@ -289,7 +131,6 @@ new class extends Component {
         $availableCount = (int) ($stats['available'] ?? 0);
         $outCount       = (int) ($stats['out'] ?? 0);
         $kategories     = KategoriMenu::query()->select(['id', 'nama_kategori'])->orderBy('nama_kategori')->get();
-        $addons         = Addon::query()->select(['id', 'nama_addon', 'harga', 'status'])->orderBy('nama_addon')->get();
         $kategoriCount  = $kategories->count();
 
         $statusMeta = [
@@ -320,7 +161,9 @@ new class extends Component {
             <flux:heading size="xl" level="1">{{ __('Menus') }}</flux:heading>
             <div class="flex flex-wrap items-center gap-2">
                 @can('menu.manage')
-                    <flux:button icon="plus" variant="primary" class="btn-brand" wire:click="openCreateModal">{{ __('Create') }}</flux:button>
+                    <flux:link :href="route('menu.create', [], false)" wire:navigate>
+                        <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
+                    </flux:link>
                 @endcan
             </div>
         </div>
@@ -479,7 +322,9 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('menu.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="flex-1 btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:link class="flex-1" :href="route('menu.edit', $m, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-menu" class="flex-1">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -552,7 +397,9 @@ new class extends Component {
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
                             @can('menu.manage')
-                                <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent" wire:click="openEditModal({{ $m->id }})">{{ __('Edit') }}</flux:button>
+                                <flux:link :href="route('menu.edit', $m, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                </flux:link>
                                 <flux:modal.trigger name="confirm-delete-menu-desktop">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -641,15 +488,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('menu.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="pencil-square"
-                                                    variant="primary"
-                                                    class="btn-accent rounded-2xl shadow-sm transition"
-                                                    wire:click="openEditModal({{ $m->id }})"
-                                                >
-                                                    {{ __('Edit') }}
-                                                </flux:button>
+                                                <flux:link :href="route('menu.edit', $m, false)" wire:navigate>
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="pencil-square"
+                                                        variant="primary"
+                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                    >
+                                                        {{ __('Edit') }}
+                                                    </flux:button>
+                                                </flux:link>
                                                 <flux:modal.trigger name="confirm-delete-menu-desktop">
                                                     <flux:button
                                                         size="sm"
@@ -687,252 +535,6 @@ new class extends Component {
                 {{ $items->links() }}
             </div>
         </div>
-
-        <!-- create menu modal -->
-        <flux:modal name="create-menu" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Create Menu') }}</flux:heading>
-                        <flux:subheading>{{ __('Fill the details below to add a new menu item.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="create-menu-form" wire:submit.prevent="save" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-5">
-                        <div class="space-y-4 md:col-span-3">
-                            <flux:input wire:model.defer="form.nama_menu" :label="__('Menu Name')" required maxlength="150" />
-                            @error('form.nama_menu')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input wire:model.defer="form.nama_menu_en" :label="__('Menu Name (English)')" maxlength="150" placeholder="{{ __('Optional') }}" />
-                            @error('form.nama_menu_en')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <div data-flux-field>
-                                <flux:select wire:model.defer="form.kategori_id" :label="__('Category')">
-                                    <option value="">{{ __('Select category') }}</option>
-                                    @foreach($kategories as $kat)
-                                        <option value="{{ $kat->id }}">{{ $kat->nama_kategori }}</option>
-                                    @endforeach
-                                </flux:select>
-                                @error('form.kategori_id')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                                <div class="grid gap-4 sm:grid-cols-2">
-                                    <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" inputmode="numeric" placeholder="0" :label="__('Price (IDR)')" required />
-                                    @error('form.harga')
-                                        <p class="text-xs text-red-500 sm:col-span-2">{{ $message }}</p>
-                                    @enderror
-
-                                    <div data-flux-field>
-                                        <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                            <option value="tersedia">{{ __('Available') }}</option>
-                                            <option value="habis">{{ __('Out of stock') }}</option>
-                                        </flux:select>
-                                        @error('form.status')
-                                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-
-                                <flux:checkbox.group wire:model.defer="form.addon_ids" variant="pills" :label="__('Add-ons (optional)')">
-                                    @forelse ($addons as $addon)
-                                        <flux:checkbox
-                                            variant="pills"
-                                            value="{{ $addon->id }}"
-                                            :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')' . ($addon->status === 'habis' ? ' · ' . __('Out of stock') : '')"
-                                        />
-                                    @empty
-                                        <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons yet.') }}</div>
-                                    @endforelse
-                                    @error('form.addon_ids')
-                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                    @enderror
-                                    <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Selected add-ons will be selectable when ordering this menu.') }}</p>
-                                </flux:checkbox.group>
-
-                                <div>
-                                    <flux:textarea wire:model.defer="form.deskripsi" rows="4" :label="__('Description')" placeholder="{{ __('Optional, short description of this menu') }}"></flux:textarea>
-                                    @error('form.deskripsi')
-                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                    @enderror
-                                </div>
-
-                                <div>
-                                    <flux:textarea wire:model.defer="form.deskripsi_en" rows="4" :label="__('Description (English)')" placeholder="{{ __('Optional') }}"></flux:textarea>
-                                    @error('form.deskripsi_en')
-                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                        </div>
-
-                        <div class="space-y-4 md:col-span-2 md:pl-2">
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('Image') }}</flux:heading>
-                                <input type="file" wire:model="gambar" accept="image/*" class="mt-2 block w-full text-sm" />
-                                @error('gambar')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                                @if ($gambar)
-                                    <img src="{{ $gambar->temporaryUrl() }}" alt="preview" class="mt-2 h-24 w-24 rounded object-cover border" />
-                                @endif
-                            </div>
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('Tips') }}</flux:heading>
-                                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                    {{ __('Menus will appear on customer ordering page based on category and availability.') }}
-                                </p>
-                            </div>
-                            <div class="hidden md:flex items-center justify-end gap-3 pt-2">
-                                <flux:modal.close>
-                                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                                </flux:modal.close>
-                                <flux:button type="submit" form="create-menu-form" variant="primary" icon="plus" class="btn-brand">{{ __('Create') }}</flux:button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="create-menu-form" variant="primary" icon="plus" class="btn-brand w-full">{{ __('Create') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
-
-        <!-- edit menu modal -->
-        <flux:modal name="edit-menu" focusable class="mx-4 w-[calc(100%-2rem)] sm:mx-auto sm:max-w-4xl md:max-w-3xl lg:max-w-4xl">
-            <div class="flex flex-col max-h-[85dvh] overflow-y-auto no-scrollbar md:max-h-none md:overflow-visible">
-                <div class="sticky top-0 z-0 -mx-4 flex items-start justify-between gap-2 border-b border-neutral-200 bg-white/85 px-4 py-3 pr-12 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/70">
-                    <div>
-                        <flux:heading size="lg">{{ __('Edit Menu') }}</flux:heading>
-                        <flux:subheading>{{ __('Update the details for this menu item.') }}</flux:subheading>
-                    </div>
-                </div>
-
-                <form id="edit-menu-form" wire:submit.prevent="update" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
-                    <div class="grid gap-6 md:grid-cols-5">
-                        <div class="space-y-4 md:col-span-3">
-                            <flux:input wire:model.defer="form.nama_menu" :label="__('Menu Name')" required maxlength="150" />
-                            @error('form.nama_menu')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <flux:input wire:model.defer="form.nama_menu_en" :label="__('Menu Name (English)')" maxlength="150" placeholder="{{ __('Optional') }}" />
-                            @error('form.nama_menu_en')
-                                <p class="text-xs text-red-500">{{ $message }}</p>
-                            @enderror
-
-                            <div data-flux-field>
-                                <flux:select wire:model.defer="form.kategori_id" :label="__('Category')">
-                                    <option value="">{{ __('Select category') }}</option>
-                                    @foreach($kategories as $kat)
-                                        <option value="{{ $kat->id }}">{{ $kat->nama_kategori }}</option>
-                                    @endforeach
-                                </flux:select>
-                                @error('form.kategori_id')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" inputmode="numeric" placeholder="0" :label="__('Price (IDR)')" required />
-                                @error('form.harga')
-                                    <p class="text-xs text-red-500 sm:col-span-2">{{ $message }}</p>
-                                @enderror
-
-                                <div data-flux-field>
-                                    <flux:select wire:model.defer="form.status" :label="__('Status')">
-                                        <option value="tersedia">{{ __('Available') }}</option>
-                                        <option value="habis">{{ __('Out of stock') }}</option>
-                                    </flux:select>
-                                    @error('form.status')
-                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            </div>
-
-                            <flux:checkbox.group wire:model.defer="form.addon_ids" variant="pills" :label="__('Add-ons (optional)')">
-                                @forelse ($addons as $addon)
-                                    <flux:checkbox
-                                        variant="pills"
-                                        value="{{ $addon->id }}"
-                                        :label="$addon->nama_addon . ' (+Rp ' . number_format((float) $addon->harga, 0, ',', '.') . ')' . ($addon->status === 'habis' ? ' · ' . __('Out of stock') : '')"
-                                    />
-                                @empty
-                                    <div class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('No add-ons yet.') }}</div>
-                                @endforelse
-                                @error('form.addon_ids')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Selected add-ons will be selectable when ordering this menu.') }}</p>
-                            </flux:checkbox.group>
-
-                            <div>
-                                <flux:textarea wire:model.defer="form.deskripsi" rows="4" :label="__('Description')" placeholder="{{ __('Optional') }}"></flux:textarea>
-                                @error('form.deskripsi')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <flux:textarea wire:model.defer="form.deskripsi_en" rows="4" :label="__('Description (English)')" placeholder="{{ __('Optional') }}"></flux:textarea>
-                                @error('form.deskripsi_en')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <div class="space-y-4 md:col-span-2 md:pl-2">
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('Image') }}</flux:heading>
-                                <input type="file" wire:model="gambar" accept="image/*" class="mt-2 block w-full text-sm" />
-                                @error('gambar')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                                <div class="mt-2">
-                                    @if ($gambar)
-                                        <img src="{{ $gambar->temporaryUrl() }}" alt="preview" class="h-24 w-24 rounded object-cover border" />
-                                    @elseif ($editingImagePath)
-                                        <img src="{{ Storage::url($editingImagePath) }}" alt="current" class="h-24 w-24 rounded object-cover border" />
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="rounded-2xl border border-neutral-200/70 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-                                <flux:heading size="sm">{{ __('Info') }}</flux:heading>
-                                <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                    {{ __('Updating this menu will reflect on customer ordering page.') }}
-                                </p>
-                            </div>
-                            <div class="hidden md:flex items-center justify-end gap-3 pt-2">
-                                <flux:modal.close>
-                                    <flux:button type="button" variant="ghost" class="btn-ghost-accent">{{ __('Cancel') }}</flux:button>
-                                </flux:modal.close>
-                                <flux:button type="submit" form="edit-menu-form" variant="primary" icon="check" class="btn-brand">{{ __('Update') }}</flux:button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                <div class="sticky bottom-0 z-10 -mx-4 md:hidden border-t border-neutral-200 bg-white/90 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/80">
-                    <div class="grid grid-cols-2 gap-2">
-                        <flux:modal.close>
-                            <flux:button type="button" variant="ghost" class="btn-ghost-accent w-full">{{ __('Cancel') }}</flux:button>
-                        </flux:modal.close>
-                        <flux:button type="submit" form="edit-menu-form" variant="primary" icon="check" class="btn-brand w-full">{{ __('Update') }}</flux:button>
-                    </div>
-                </div>
-            </div>
-        </flux:modal>
 
         @php($selectedMenu = $items->firstWhere('id', $confirmingDeleteId))
 
