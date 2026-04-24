@@ -27,10 +27,36 @@ new class extends Component {
         $this->confirmingDeleteId = $id;
     }
 
+    public function toggleActive(int $id): void
+    {
+        $this->authorizeManage();
+
+        $diskon = Diskon::query()->select(['id', 'is_active'])->findOrFail($id);
+        $diskon->forceFill(['is_active' => !$diskon->is_active])->save();
+
+        Cache::forget('admin:diskon:stats:v1');
+
+        $this->dispatch('diskon-toast', message: $diskon->is_active
+            ? __('Discount activated successfully.')
+            : __('Discount deactivated successfully.'));
+    }
+
     public function delete(): void
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
+            $isUsedInOrders = \App\Models\Pesanan::query()
+                ->where('diskon_id', $this->confirmingDeleteId)
+                ->exists();
+
+            if ($isUsedInOrders) {
+                $this->dispatch('modal-close', name: 'confirm-delete-diskon');
+                $this->dispatch('modal-close', name: 'confirm-delete-diskon-desktop');
+                $this->dispatch('diskon-toast', message: __('This discount cannot be deleted because it is already used in orders.'));
+                $this->confirmingDeleteId = null;
+                return;
+            }
+
             Diskon::where('id', $this->confirmingDeleteId)->delete();
             Cache::forget('admin:diskon:stats:v1');
             $this->confirmingDeleteId = null;
@@ -249,10 +275,24 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('diskon.manage')
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="flex-1 btn-ghost-accent"
+                                    wire:click="toggleActive({{ $d->id }})"
+                                >
+                                    {{ $d->is_active ? __('Deactivate') : __('Activate') }}
+                                </flux:button>
                                 <flux:link class="flex-1" :href="route('diskon.edit', $d, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
-                                <flux:modal.trigger name="confirm-delete-diskon" class="flex-1">
+                            @endcan
+                        </div>
+
+                        <div class="mt-2">
+                            @can('diskon.manage')
+                                <flux:modal.trigger name="confirm-delete-diskon" class="w-full">
                                     <flux:button
                                         size="sm"
                                         icon="trash"
@@ -341,9 +381,21 @@ new class extends Component {
 
                         @can('diskon.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="w-full btn-ghost-accent"
+                                    wire:click="toggleActive({{ $d->id }})"
+                                >
+                                    {{ $d->is_active ? __('Deactivate') : __('Activate') }}
+                                </flux:button>
                                 <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
+                            </div>
+
+                            <div class="mt-2">
                                 <flux:modal.trigger name="confirm-delete-diskon-desktop">
                                     <flux:button
                                         size="sm"
@@ -454,6 +506,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('diskon.manage')
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
+                                                    variant="ghost"
+                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                    wire:click="toggleActive({{ $d->id }})"
+                                                    title="{{ $d->is_active ? __('Deactivate') : __('Activate') }}"
+                                                >
+                                                    {{ $d->is_active ? __('Deactivate') : __('Activate') }}
+                                                </flux:button>
                                                 <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
                                                     <flux:button
                                                         size="sm"
@@ -514,7 +576,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this discount?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
+                        {{ __('This action cannot be undone. Discounts that are already used in orders cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -548,7 +610,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this discount?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
+                        {{ __('This action cannot be undone. Discounts that are already used in orders cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 

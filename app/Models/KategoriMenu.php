@@ -13,6 +13,11 @@ class KategoriMenu extends Model
         'nama_kategori',
         'nama_kategori_en',
         'deskripsi',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'bool',
     ];
 
     public function getNamaKategoriLocalizedAttribute(): string

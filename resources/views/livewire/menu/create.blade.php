@@ -31,7 +31,16 @@ new class extends Component {
         $validated = validator($data, [
             'nama_menu' => ['required', 'string', 'max:150', 'unique:menus,nama_menu'],
             'nama_menu_en' => ['nullable', 'string', 'max:150'],
-            'kategori_id' => ['required', 'integer', 'exists:kategori_menus,id'],
+            'kategori_id' => [
+                'required',
+                'integer',
+                'exists:kategori_menus,id',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (!KategoriMenu::query()->whereKey($value)->where('is_active', true)->exists()) {
+                        $fail(__('The selected category is inactive.'));
+                    }
+                },
+            ],
             'harga' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'in:tersedia,habis'],
             'deskripsi' => ['nullable', 'string'],
@@ -65,7 +74,7 @@ new class extends Component {
 
 <section class="w-full space-y-6">
     @php
-        $kategories = KategoriMenu::query()->select(['id', 'nama_kategori'])->orderBy('nama_kategori')->get();
+        $kategories = KategoriMenu::query()->select(['id', 'nama_kategori'])->where('is_active', true)->orderBy('nama_kategori')->get();
         $addons = Addon::query()->select(['id', 'nama_addon', 'harga', 'status'])->orderBy('nama_addon')->get();
     @endphp
 

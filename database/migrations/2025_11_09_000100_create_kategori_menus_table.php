@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('nama_kategori', 100);
             $table->text('deskripsi')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }
@@ -21,4 +22,3 @@ return new class extends Migration
         Schema::dropIfExists('kategori_menus');
     }
 };
-

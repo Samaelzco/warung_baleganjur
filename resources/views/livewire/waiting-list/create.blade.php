@@ -257,7 +257,11 @@ new class extends Component {
 
 <section class="w-full space-y-6">
     @php
-        $mejas = Meja::query()->select(['id', 'nomor_meja', 'kapasitas'])->orderBy('nomor_meja')->get();
+        $mejas = Meja::query()
+            ->select(['id', 'nomor_meja', 'kapasitas'])
+            ->where('status', '!=', 'nonaktif')
+            ->orderBy('nomor_meja')
+            ->get();
         $menus = Menu::query()
             ->select(['id', 'nama_menu', 'harga', 'status'])
             ->with([

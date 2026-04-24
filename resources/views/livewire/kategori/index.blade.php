@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\KategoriMenu;
+use App\Models\Menu;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -27,10 +28,38 @@ new class extends Component {
         $this->confirmingDeleteId = $id;
     }
 
+    public function toggleActive(int $id): void
+    {
+        $this->authorizeManage();
+
+        $kategori = KategoriMenu::query()->findOrFail($id);
+        $kategori->forceFill(['is_active' => !$kategori->is_active])->save();
+
+        Cache::forget('customer:categories:v1');
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:kategori:stats:v1');
+
+        $this->dispatch('kategori-toast', message: $kategori->is_active
+            ? __('Category activated successfully.')
+            : __('Category deactivated successfully.'));
+    }
+
     public function delete(): void
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
+            $isUsedByMenus = \App\Models\Menu::query()
+                ->where('kategori_id', $this->confirmingDeleteId)
+                ->exists();
+
+            if ($isUsedByMenus) {
+                $this->dispatch('modal-close', name: 'confirm-delete-kategori');
+                $this->dispatch('modal-close', name: 'confirm-delete-kategori-desktop');
+                $this->dispatch('kategori-toast', message: __('This category cannot be deleted because it is still used by menus.'));
+                $this->confirmingDeleteId = null;
+                return;
+            }
+
             KategoriMenu::where('id', $this->confirmingDeleteId)->delete();
             Cache::forget('customer:categories:v1');
             Cache::forget('customer:menus_available:v1');
@@ -54,6 +83,7 @@ new class extends Component {
             'id',
             'nama_kategori',
             'nama_kategori_en',
+            'is_active',
             'created_at',
         ]);
 
@@ -68,13 +98,38 @@ new class extends Component {
         $items        = $query->orderBy('nama_kategori')->paginate(10);
         $stats = Cache::remember('admin:kategori:stats:v1', 10, fn () => [
             'total' => KategoriMenu::query()->count(),
+            'active' => KategoriMenu::query()->where('is_active', true)->count(),
+            'inactive' => KategoriMenu::query()->where('is_active', false)->count(),
+            'linked' => Menu::query()->distinct('kategori_id')->count('kategori_id'),
         ]);
         $totalCount = (int) ($stats['total'] ?? 0);
+        $activeCount = (int) ($stats['active'] ?? 0);
+        $inactiveCount = (int) ($stats['inactive'] ?? 0);
+        $linkedCount = (int) ($stats['linked'] ?? 0);
         $summaryMeta = [
             [
                 'label' => __('Categories'),
                 'count' => $totalCount,
                 'dot'   => 'bg-neutral-500',
+                'hint'  => __('All category records'),
+            ],
+            [
+                'label' => __('Active'),
+                'count' => $activeCount,
+                'dot'   => 'bg-emerald-500',
+                'hint'  => __('Shown in ordering flow'),
+            ],
+            [
+                'label' => __('Inactive'),
+                'count' => $inactiveCount,
+                'dot'   => 'bg-amber-500',
+                'hint'  => __('Hidden from ordering flow'),
+            ],
+            [
+                'label' => __('Linked'),
+                'count' => $linkedCount,
+                'dot'   => 'bg-sky-500',
+                'hint'  => __('Already used by menus'),
             ],
         ];
     @endphp
@@ -116,6 +171,39 @@ new class extends Component {
                     <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('records') }}</span>
                 </div>
             </div>
+            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
+                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    <span>{{ __('Active') }}</span>
+                </div>
+                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $activeCount }}</span>
+                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('records') }}</span>
+                </div>
+                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Shown in ordering flow') }}</p>
+            </div>
+            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
+                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
+                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                    <span>{{ __('Inactive') }}</span>
+                </div>
+                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $inactiveCount }}</span>
+                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('records') }}</span>
+                </div>
+                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Hidden from ordering flow') }}</p>
+            </div>
+            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
+                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
+                    <span class="h-2 w-2 rounded-full bg-sky-500"></span>
+                    <span>{{ __('Linked') }}</span>
+                </div>
+                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $linkedCount }}</span>
+                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('linked') }}</span>
+                </div>
+                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Already used by menus') }}</p>
+            </div>
         </div>
 
         <!-- Search (match menu filters) -->
@@ -143,13 +231,30 @@ new class extends Component {
                                 <div class="text-base font-semibold text-neutral-900 dark:text-white">{{ $k->nama_kategori }}</div>
                                 <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $k->created_at?->format('d M Y') }}</div>
                             </div>
+                            <span class="{{ $k->is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' }} inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium">
+                                {{ $k->is_active ? __('Active') : __('Inactive') }}
+                            </span>
                         </div>
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('kategori.manage')
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $k->is_active ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="flex-1 btn-ghost-accent"
+                                    wire:click="toggleActive({{ $k->id }})"
+                                >
+                                    {{ $k->is_active ? __('Deactivate') : __('Activate') }}
+                                </flux:button>
                                 <flux:link class="flex-1" :href="route('kategori.edit', $k, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
+                            @endcan
+                        </div>
+
+                        <div class="mt-2 flex items-center gap-2">
+                            @can('kategori.manage')
                                 <flux:modal.trigger name="confirm-delete-kategori" class="flex-1">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -177,13 +282,30 @@ new class extends Component {
                                 <div class="truncate text-base font-semibold text-neutral-900 dark:text-white">{{ $k->nama_kategori }}</div>
                                 <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $k->created_at?->format('d M Y') }}</div>
                             </div>
+                            <span class="{{ $k->is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' }} inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium">
+                                {{ $k->is_active ? __('Active') : __('Inactive') }}
+                            </span>
                         </div>
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
                             @can('kategori.manage')
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $k->is_active ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="w-full btn-ghost-accent"
+                                    wire:click="toggleActive({{ $k->id }})"
+                                >
+                                    {{ $k->is_active ? __('Deactivate') : __('Activate') }}
+                                </flux:button>
                                 <flux:link :href="route('kategori.edit', $k, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
+                            @endcan
+                        </div>
+
+                        <div class="mt-2">
+                            @can('kategori.manage')
                                 <flux:modal.trigger name="confirm-delete-kategori-desktop">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -210,7 +332,8 @@ new class extends Component {
                             <tr>
                                 <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="hidden xl:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Created') }}</th>
+                                <th class="hidden xl:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="hidden 2xl:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Created') }}</th>
                                 <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
@@ -227,12 +350,27 @@ new class extends Component {
                                             <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $k->nama_kategori }}</span>
                                         </div>
                                     </td>
-                                    <td class="hidden xl:table-cell px-6 py-4 align-middle text-neutral-500 dark:text-neutral-400">
+                                    <td class="hidden xl:table-cell px-6 py-4 align-middle">
+                                        <span class="{{ $k->is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' }} inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium">
+                                            {{ $k->is_active ? __('Active') : __('Inactive') }}
+                                        </span>
+                                    </td>
+                                    <td class="hidden 2xl:table-cell px-6 py-4 align-middle text-neutral-500 dark:text-neutral-400">
                                         {{ $k->created_at?->format('d M Y') }}
                                     </td>
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('kategori.manage')
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="{{ $k->is_active ? 'pause-circle' : 'check-circle' }}"
+                                                    variant="ghost"
+                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                    wire:click="toggleActive({{ $k->id }})"
+                                                    title="{{ $k->is_active ? __('Deactivate') : __('Activate') }}"
+                                                >
+                                                    {{ $k->is_active ? __('Deactivate') : __('Activate') }}
+                                                </flux:button>
                                                 <flux:link :href="route('kategori.edit', $k, false)" wire:navigate>
                                                     <flux:button
                                                         size="sm"
@@ -260,7 +398,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400" colspan="4">
+                                    <td class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400" colspan="5">
                                         <div class="flex flex-col items-center gap-3">
                                             <div class="h-12 w-12 rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-900/60 dark:text-neutral-500">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-full w-full p-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -293,7 +431,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this category?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
+                        {{ __('This action cannot be undone. Categories that are still used by menus cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -320,7 +458,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this category?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
+                        {{ __('This action cannot be undone. Categories that are still used by menus cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -348,7 +486,7 @@ new class extends Component {
                 message: '',
                 timeout: null,
                 handle(event) {
-                    this.message = event.detail?.message || '{{ __('Category deleted successfully.') }}';
+                    this.message = event.detail?.message || '{{ __('Category updated successfully.') }}';
                     this.show = true;
                     clearTimeout(this.timeout);
                     this.timeout = setTimeout(() => this.show = false, 3500);

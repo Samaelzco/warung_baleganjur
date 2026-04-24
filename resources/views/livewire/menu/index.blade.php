@@ -33,10 +33,39 @@ new class extends Component {
         $this->confirmingDeleteId = $id;
     }
 
+    public function toggleStatus(int $id): void
+    {
+        $this->authorizeManage();
+
+        $menu = Menu::query()->select(['id', 'status'])->findOrFail($id);
+        $nextStatus = $menu->status === 'tersedia' ? 'habis' : 'tersedia';
+
+        $menu->forceFill(['status' => $nextStatus])->save();
+
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:menu:stats:v1');
+
+        $this->dispatch('menu-toast', message: $nextStatus === 'habis'
+            ? __('Menu marked as out of stock.')
+            : __('Menu marked as available.'));
+    }
+
     public function delete(): void
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
+            $isUsedInOrders = \App\Models\PesananDetail::query()
+                ->where('menu_id', $this->confirmingDeleteId)
+                ->exists();
+
+            if ($isUsedInOrders) {
+                $this->dispatch('modal-close', name: 'confirm-delete-menu');
+                $this->dispatch('modal-close', name: 'confirm-delete-menu-desktop');
+                $this->dispatch('menu-toast', message: __('This menu cannot be deleted because it is already used in orders.'));
+                $this->confirmingDeleteId = null;
+                return;
+            }
+
             $menu = Menu::query()->select(['id', 'gambar'])->find($this->confirmingDeleteId);
             if ($menu && $menu->gambar) {
                 Storage::disk('public')->delete($menu->gambar);
@@ -322,10 +351,24 @@ new class extends Component {
 
                         <div class="mt-4 flex items-center gap-2">
                             @can('menu.manage')
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $m->status === 'tersedia' ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="flex-1 btn-ghost-accent"
+                                    wire:click="toggleStatus({{ $m->id }})"
+                                >
+                                    {{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}
+                                </flux:button>
                                 <flux:link class="flex-1" :href="route('menu.edit', $m, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
-                                <flux:modal.trigger name="confirm-delete-menu" class="flex-1">
+                            @endcan
+                        </div>
+
+                        <div class="mt-2 flex items-center gap-2">
+                            @can('menu.manage')
+                                <flux:modal.trigger name="confirm-delete-menu" class="w-full">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
                             @endcan
@@ -397,9 +440,23 @@ new class extends Component {
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
                             @can('menu.manage')
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $m->status === 'tersedia' ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="w-full btn-ghost-accent"
+                                    wire:click="toggleStatus({{ $m->id }})"
+                                >
+                                    {{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}
+                                </flux:button>
                                 <flux:link :href="route('menu.edit', $m, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
+                            @endcan
+                        </div>
+
+                        <div class="mt-2">
+                            @can('menu.manage')
                                 <flux:modal.trigger name="confirm-delete-menu-desktop">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -488,6 +545,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('menu.manage')
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="{{ $m->status === 'tersedia' ? 'pause-circle' : 'check-circle' }}"
+                                                    variant="ghost"
+                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                    wire:click="toggleStatus({{ $m->id }})"
+                                                    title="{{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}"
+                                                >
+                                                    {{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}
+                                                </flux:button>
                                                 <flux:link :href="route('menu.edit', $m, false)" wire:navigate>
                                                     <flux:button
                                                         size="sm"
@@ -548,7 +615,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this menu?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
+                        {{ __('This action cannot be undone. Menus that are already used in orders cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -576,7 +643,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this menu?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. This record will be permanently deleted.') }}
+                        {{ __('This action cannot be undone. Menus that are already used in orders cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 

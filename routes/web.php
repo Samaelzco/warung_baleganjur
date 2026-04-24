@@ -313,6 +313,7 @@ Route::get('meja/qr', function (\Illuminate\Http\Request $request, QrCodeService
 Route::get('waiting-list', function () {
     $mejas = \App\Models\Meja::query()
         ->select(['id', 'nomor_meja', 'status', 'kapasitas'])
+        ->where('status', '!=', 'nonaktif')
         ->orderBy('nomor_meja')
         ->get();
 
@@ -345,6 +346,7 @@ Route::get('waiting-list', function () {
 Route::get('waiting-list/data', function () {
     $mejas = \App\Models\Meja::query()
         ->select(['id', 'nomor_meja', 'status', 'kapasitas'])
+        ->where('status', '!=', 'nonaktif')
         ->orderBy('nomor_meja')
         ->get();
 
@@ -406,8 +408,11 @@ Route::get('waiting-list/qr', function (\Illuminate\Http\Request $request, QrCod
 })->name('customer.waiting-list.qr');
 
 Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
+    abort_if($meja->status === 'nonaktif', 404);
+
     $categories = Cache::remember('customer:categories:v1', 900, function () {
         return \App\Models\KategoriMenu::query()
+            ->where('is_active', true)
             ->orderBy('nama_kategori')
             ->get(['id', 'nama_kategori', 'nama_kategori_en']);
     });
@@ -442,6 +447,8 @@ Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
 })->name('customer.waiting-list.order');
 
 Route::get('waiting-list/{meja}/checkout', function (\App\Models\Meja $meja) {
+    abort_if($meja->status === 'nonaktif', 404);
+
     $menus = Cache::remember('customer:menus_available:v1', 900, function () {
         return \App\Models\Menu::query()
             ->with([
@@ -482,6 +489,8 @@ Route::get('waiting-list/{meja}/checkout', function (\App\Models\Meja $meja) {
 })->name('customer.waiting-list.checkout');
 
 Route::post('waiting-list/{meja}/submit', function (\Illuminate\Http\Request $request, \App\Models\Meja $meja, OrderStatusService $orderStatus) {
+    abort_if($meja->status === 'nonaktif', 404);
+
     $data = validator([
         'cart' => $request->input('cart', null),
         'voucher' => $request->input('voucher', null),
@@ -755,8 +764,9 @@ Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, stri
     $addMode = (bool) $request->boolean('add');
 
     $meja = \App\Models\Meja::query()
-        ->select(['id', 'nomor_meja', 'qr_token'])
+        ->select(['id', 'nomor_meja', 'qr_token', 'status'])
         ->where('qr_token', $token)
+        ->where('status', '!=', 'nonaktif')
         ->firstOrFail();
 
     $order = $addMode ? \App\Models\Pesanan::query()
@@ -815,8 +825,9 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
     $addMode = (bool) $request->boolean('add');
 
     $meja = \App\Models\Meja::query()
-        ->select(['id', 'nomor_meja', 'qr_token'])
+        ->select(['id', 'nomor_meja', 'qr_token', 'status'])
         ->where('qr_token', $token)
+        ->where('status', '!=', 'nonaktif')
         ->firstOrFail();
 
     $existing = \App\Models\Pesanan::query()
@@ -1307,8 +1318,9 @@ Route::get('{token}/status', function (string $token) {
     $token = \Illuminate\Support\Str::upper($token);
 
     $meja = \App\Models\Meja::query()
-        ->select(['id', 'nomor_meja', 'qr_token'])
+        ->select(['id', 'nomor_meja', 'qr_token', 'status'])
         ->where('qr_token', $token)
+        ->where('status', '!=', 'nonaktif')
         ->firstOrFail();
 
     $lastOrderId = session()->get('customer_last_order_id_' . $token);
@@ -1338,8 +1350,9 @@ Route::get('{token}/status.json', function (string $token) {
     $token = \Illuminate\Support\Str::upper($token);
 
     $meja = \App\Models\Meja::query()
-        ->select(['id', 'nomor_meja', 'qr_token'])
+        ->select(['id', 'nomor_meja', 'qr_token', 'status'])
         ->where('qr_token', $token)
+        ->where('status', '!=', 'nonaktif')
         ->firstOrFail();
 
     $lastOrderId = session()->get('customer_last_order_id_' . $token);
@@ -1434,8 +1447,9 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
     $addMode = (bool) $request->boolean('add');
 
     $meja = \App\Models\Meja::query()
-        ->select(['id', 'nomor_meja', 'qr_token'])
+        ->select(['id', 'nomor_meja', 'qr_token', 'status'])
         ->where('qr_token', $token)
+        ->where('status', '!=', 'nonaktif')
         ->firstOrFail();
 
     $orderQuery = $addMode ? \App\Models\Pesanan::query()
@@ -1456,6 +1470,7 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
 
     $categories = Cache::remember('customer:categories:v1', 900, function () {
         return \App\Models\KategoriMenu::query()
+            ->where('is_active', true)
             ->orderBy('nama_kategori')
             ->get(['id', 'nama_kategori', 'nama_kategori_en']);
     });

@@ -44,7 +44,7 @@ class TableWaitingListService
         $occupied = $this->occupiedSeats($model);
         $nextStatus = $occupied > 0 ? 'terisi' : 'kosong';
 
-        if ($model->status !== 'reservasi' && $model->status !== $nextStatus) {
+        if (!in_array($model->status, ['reservasi', 'nonaktif'], true) && $model->status !== $nextStatus) {
             $model->forceFill(['status' => $nextStatus])->save();
         }
     }

@@ -363,7 +363,11 @@ new class extends Component {
 
 <section class="w-full space-y-6">
     @php
-        $mejas = Meja::query()->select(['id', 'nomor_meja'])->orderBy('nomor_meja')->get();
+        $mejas = Meja::query()
+            ->select(['id', 'nomor_meja'])
+            ->where('status', '!=', 'nonaktif')
+            ->orderBy('nomor_meja')
+            ->get();
         $diskons = Diskon::query()->select(['id', 'kode'])->where('is_active', true)->orderBy('kode')->get();
         $pajaks = Pajak::query()->select(['id', 'nama', 'persentase'])->where('is_active', true)->orderBy('nama')->get();
         $users = User::query()->select(['id', 'name'])->orderBy('name')->get();

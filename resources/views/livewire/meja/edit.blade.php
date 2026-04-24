@@ -39,7 +39,7 @@ new class extends Component {
         $validated = validator($this->form, [
             'nomor_meja' => ['required', 'string', 'max:10'],
             'qr_token' => ['required', 'string', 'max:100', 'unique:mejas,qr_token,' . $this->meja->id],
-            'status' => ['required', 'in:kosong,terisi,reservasi'],
+            'status' => ['required', 'in:kosong,terisi,reservasi,nonaktif'],
             'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
         ])->validate();
 
@@ -81,6 +81,7 @@ new class extends Component {
                             <option value="kosong">{{ __('Empty') }}</option>
                             <option value="terisi">{{ __('Occupied') }}</option>
                             <option value="reservasi">{{ __('Reserved') }}</option>
+                            <option value="nonaktif">{{ __('Inactive') }}</option>
                         </flux:select>
                         @error('form.status')
                             <p class="mt-1 text-xs text-red-500">{{ $message }}</p>

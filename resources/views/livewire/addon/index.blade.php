@@ -28,10 +28,39 @@ new class extends Component {
         $this->confirmingDeleteId = $id;
     }
 
+    public function toggleStatus(int $id): void
+    {
+        $this->authorizeManage();
+
+        $addon = Addon::query()->select(['id', 'status'])->findOrFail($id);
+        $nextStatus = $addon->status === 'tersedia' ? 'habis' : 'tersedia';
+
+        $addon->forceFill(['status' => $nextStatus])->save();
+
+        Cache::forget('customer:menus_available:v1');
+        Cache::forget('admin:addon:stats:v1');
+
+        $this->dispatch('addon-toast', message: $nextStatus === 'habis'
+            ? __('Add-on marked as out of stock.')
+            : __('Add-on marked as available.'));
+    }
+
     public function delete(): void
     {
         $this->authorizeManage();
         if (!$this->confirmingDeleteId) {
+            return;
+        }
+
+        $isUsedInOrders = \Illuminate\Support\Facades\DB::table('pesanan_detail_addons')
+            ->where('addon_id', $this->confirmingDeleteId)
+            ->exists();
+
+        if ($isUsedInOrders) {
+            $this->dispatch('modal-close', name: 'confirm-delete-addon');
+            $this->dispatch('modal-close', name: 'confirm-delete-addon-desktop');
+            $this->dispatch('addon-toast', message: __('This add-on cannot be deleted because it is already used in orders.'));
+            $this->confirmingDeleteId = null;
             return;
         }
 
@@ -226,6 +255,15 @@ new class extends Component {
 
                         @can('addon.manage')
                             <div class="mt-4 flex items-center gap-2">
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="flex-1 btn-ghost-accent"
+                                    wire:click="toggleStatus({{ $addon->id }})"
+                                >
+                                    {{ $isAvailable ? __('Out of stock') : __('Available') }}
+                                </flux:button>
                                 <flux:link class="flex-1" :href="route('addon.edit', $addon, false)" wire:navigate>
                                     <flux:button
                                         size="sm"
@@ -236,7 +274,9 @@ new class extends Component {
                                         {{ __('Edit') }}
                                     </flux:button>
                                 </flux:link>
-                                <flux:modal.trigger name="confirm-delete-addon" class="flex-1">
+                            </div>
+                            <div class="mt-2">
+                                <flux:modal.trigger name="confirm-delete-addon" class="w-full">
                                     <flux:button
                                         size="sm"
                                         icon="trash"
@@ -282,6 +322,15 @@ new class extends Component {
 
                         @can('addon.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="w-full btn-ghost-accent"
+                                    wire:click="toggleStatus({{ $addon->id }})"
+                                >
+                                    {{ $isAvailable ? __('Out of stock') : __('Available') }}
+                                </flux:button>
                                 <flux:link :href="route('addon.edit', $addon, false)" wire:navigate>
                                     <flux:button
                                         size="sm"
@@ -292,6 +341,8 @@ new class extends Component {
                                         {{ __('Edit') }}
                                     </flux:button>
                                 </flux:link>
+                            </div>
+                            <div class="mt-2">
                                 <flux:modal.trigger name="confirm-delete-addon-desktop">
                                     <flux:button
                                         size="sm"
@@ -360,6 +411,16 @@ new class extends Component {
                                     <td class="px-6 py-4 align-middle">
                                         <div class="flex flex-wrap items-center gap-2">
                                             @can('addon.manage')
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
+                                                    variant="ghost"
+                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                    wire:click="toggleStatus({{ $addon->id }})"
+                                                    title="{{ $isAvailable ? __('Out of stock') : __('Available') }}"
+                                                >
+                                                    {{ $isAvailable ? __('Out of stock') : __('Available') }}
+                                                </flux:button>
                                                 <flux:link :href="route('addon.edit', $addon, false)" wire:navigate>
                                                     <flux:button
                                                         size="sm"
@@ -411,7 +472,7 @@ new class extends Component {
                 </div>
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this add-on?') }}</flux:heading>
-                    <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
+                    <flux:subheading>{{ __('This action cannot be undone. Add-ons that are already used in orders cannot be deleted.') }}</flux:subheading>
                 </div>
                 @if ($selectedAddon)
                     <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
@@ -436,7 +497,7 @@ new class extends Component {
             <div class="space-y-4 p-2">
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this add-on?') }}</flux:heading>
-                    <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
+                    <flux:subheading>{{ __('This action cannot be undone. Add-ons that are already used in orders cannot be deleted.') }}</flux:subheading>
                 </div>
                 @if ($selectedAddon)
                     <div class="rounded-2xl border border-red-200/60 bg-red-50/60 p-4 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">

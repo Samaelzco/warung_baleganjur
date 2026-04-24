@@ -10,6 +10,7 @@ new class extends Component {
     public array $form = [
         'nama_kategori' => '',
         'nama_kategori_en' => '',
+        'is_active' => true,
     ];
 
     public function mount(KategoriMenu $kategori): void
@@ -18,6 +19,7 @@ new class extends Component {
         $this->form = [
             'nama_kategori' => $kategori->nama_kategori,
             'nama_kategori_en' => $kategori->nama_kategori_en,
+            'is_active' => $kategori->is_active,
         ];
     }
 
@@ -26,6 +28,7 @@ new class extends Component {
         $validated = validator($this->form, [
             'nama_kategori' => ['required', 'string', 'max:100', 'unique:kategori_menus,nama_kategori,' . $this->kategori->id],
             'nama_kategori_en' => ['nullable', 'string', 'max:100'],
+            'is_active' => ['required', 'boolean'],
         ])->validate();
 
         $this->kategori->update($validated);
@@ -62,6 +65,16 @@ new class extends Component {
                     @error('form.nama_kategori_en')
                         <p class="text-xs text-red-500">{{ $message }}</p>
                     @enderror
+
+                    <div data-flux-field>
+                        <flux:select wire:model.defer="form.is_active" :label="__('Status')">
+                            <option value="1">{{ __('Active') }}</option>
+                            <option value="0">{{ __('Inactive') }}</option>
+                        </flux:select>
+                        @error('form.is_active')
+                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
                 </div>
 
                 <div class="space-y-4 md:col-span-2 md:pl-2">

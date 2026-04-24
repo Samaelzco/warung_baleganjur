@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -30,6 +31,18 @@ new class extends Component {
     {
         $this->authorizeManage();
         if (!$this->confirmingDeleteId) {
+            return;
+        }
+
+        $isAssigned = DB::table('model_has_roles')
+            ->where('role_id', $this->confirmingDeleteId)
+            ->exists();
+
+        if ($isAssigned) {
+            $this->dispatch('modal-close', name: 'confirm-delete-role');
+            $this->dispatch('modal-close', name: 'confirm-delete-role-desktop');
+            $this->dispatch('roles-toast', message: __('This role cannot be deleted because it is still assigned to users.'));
+            $this->confirmingDeleteId = null;
             return;
         }
 
@@ -338,7 +351,7 @@ new class extends Component {
 
             <div class="space-y-2">
                 <flux:heading size="lg">{{ __('Delete this role?') }}</flux:heading>
-                <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
+                <flux:subheading>{{ __('This action cannot be undone. Roles that are still assigned to users cannot be deleted.') }}</flux:subheading>
             </div>
 
             @if ($selectedRole)
@@ -362,7 +375,7 @@ new class extends Component {
         <div class="space-y-4 p-2">
             <div class="space-y-2">
                 <flux:heading size="lg">{{ __('Delete this role?') }}</flux:heading>
-                <flux:subheading>{{ __('This action cannot be undone. This record will be permanently deleted.') }}</flux:subheading>
+                <flux:subheading>{{ __('This action cannot be undone. Roles that are still assigned to users cannot be deleted.') }}</flux:subheading>
             </div>
 
             @if ($selectedRole)

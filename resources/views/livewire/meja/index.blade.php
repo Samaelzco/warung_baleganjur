@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Meja;
+use App\Models\Pesanan;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -26,7 +27,19 @@ new class extends Component {
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
-            Meja::where('id', $this->confirmingDeleteId)->delete();
+            $hasOrders = Pesanan::query()
+                ->where('meja_id', $this->confirmingDeleteId)
+                ->exists();
+
+            if ($hasOrders) {
+                $this->dispatch('modal-close', name: 'confirm-delete-meja');
+                $this->dispatch('modal-close', name: 'confirm-delete-meja-desktop');
+                $this->dispatch('meja-toast', message: __('This table cannot be deleted because it is already linked to orders.'));
+                $this->confirmingDeleteId = null;
+                return;
+            }
+
+            Meja::whereKey($this->confirmingDeleteId)->delete();
             Cache::forget('admin:meja:stats:v1');
             $this->confirmingDeleteId = null;
             // Close both mobile (bottom sheet) and desktop (centered) delete modals
@@ -34,6 +47,22 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-meja-desktop');
             $this->dispatch('meja-toast', message: __('Table deleted successfully.'));
         }
+    }
+
+    public function toggleActive(int $id): void
+    {
+        $this->authorizeManage();
+
+        $meja = Meja::query()->findOrFail($id);
+        $nextStatus = $meja->status === 'nonaktif' ? 'kosong' : 'nonaktif';
+
+        $meja->forceFill(['status' => $nextStatus])->save();
+
+        Cache::forget('admin:meja:stats:v1');
+
+        $this->dispatch('meja-toast', message: $nextStatus === 'nonaktif'
+            ? __('Table deactivated successfully.')
+            : __('Table activated successfully.'));
     }
 
     public function updatingSearch(): void { $this->resetPage(); }
@@ -86,6 +115,12 @@ new class extends Component {
                 'dot' => 'bg-purple-500',
                 'hint' => __('Booked in advance'),
             ],
+            'nonaktif' => [
+                'label' => __('Inactive'),
+                'badge' => 'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 dark:bg-neutral-900/70 dark:text-neutral-300 dark:ring-neutral-700/80',
+                'dot' => 'bg-neutral-500',
+                'hint' => __('Hidden from customer ordering'),
+            ],
         ];
 
         $stats = Cache::remember('admin:meja:stats:v1', 10, fn () => [
@@ -100,6 +135,7 @@ new class extends Component {
 
         $statusCounts = collect($stats['status_counts'] ?? []);
         $totalCount = (int) ($stats['total'] ?? 0);
+        $summaryStatusKeys = ['kosong', 'terisi', 'reservasi'];
     @endphp
 
     <div class="space-y-6">
@@ -124,7 +160,8 @@ new class extends Component {
                     <span class="font-semibold text-neutral-900 dark:text-white">{{ $totalCount }}</span>
                     <span class="text-neutral-500 dark:text-neutral-400">{{ __('Tables') }}</span>
                 </div>
-                @foreach ($statusMeta as $key => $meta)
+                @foreach ($summaryStatusKeys as $key)
+                    @php($meta = $statusMeta[$key])
                     <div class="whitespace-nowrap rounded-full border border-neutral-200/70 bg-white/85 px-3 py-2 text-[11px] shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/70">
                         <span class="inline-flex items-center gap-2">
                             <span class="h-2 w-2 rounded-full {{ $meta['dot'] }}"></span>
@@ -145,7 +182,8 @@ new class extends Component {
                     <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('records') }}</span>
                 </div>
             </div>
-            @foreach ($statusMeta as $key => $meta)
+            @foreach ($summaryStatusKeys as $key)
+                @php($meta = $statusMeta[$key])
                 <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
                     <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
                         <span class="h-2 w-2 rounded-full {{ $meta['dot'] }}"></span>
@@ -174,6 +212,7 @@ new class extends Component {
                     <option value="kosong">{{ __('Empty') }}</option>
                     <option value="terisi">{{ __('Occupied') }}</option>
                     <option value="reservasi">{{ __('Reserved') }}</option>
+                    <option value="nonaktif">{{ __('Inactive') }}</option>
                 </flux:select>
                 <flux:button
                     size="sm"
@@ -192,9 +231,14 @@ new class extends Component {
                 @forelse ($items as $m)
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
-                            <div>
+                            <div class="min-w-0">
                                 <div class="text-base font-semibold text-neutral-900 dark:text-white">{{ __('Table') }} {{ $m->nomor_meja }}</div>
-                                <div class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $m->created_at?->format('d M Y') }}</div>
+                                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                                    <span>{{ __('Created at') }} {{ $m->created_at?->format('d M Y') }}</span>
+                                    <span class="inline-flex items-center rounded-full border border-neutral-200/70 bg-neutral-50 px-2 py-1 text-[11px] font-semibold text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-950/40 dark:text-neutral-300">
+                                        {{ __('Capacity') }} {{ (int) ($m->kapasitas ?? 4) }}
+                                    </span>
+                                </div>
                             </div>
                             @php($status = $m->status)
                             <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold {{ $statusMeta[$status]['badge'] ?? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200' }}">
@@ -203,32 +247,45 @@ new class extends Component {
                             </span>
                         </div>
 
-                        <div class="mt-3 flex items-center gap-3">
+                        <div class="mt-4 flex items-center gap-3 rounded-2xl border border-neutral-200/70 bg-neutral-50/60 p-3 dark:border-neutral-800/70 dark:bg-neutral-950/30">
                             <div class="inline-flex items-center justify-center rounded-xl border border-neutral-200/70 bg-white p-1 shadow-sm dark:border-neutral-800/60 dark:bg-neutral-950">
-                                <img alt="QR" class="h-24 w-24 rounded-lg border border-white/70 bg-white object-contain dark:border-neutral-800" src="{{ route('meja.qr', ['token' => $m->qr_token, 'size' => 192, 'format' => 'svg'], false) }}" />
+                                <img alt="QR" class="h-20 w-20 rounded-lg border border-white/70 bg-white object-contain dark:border-neutral-800" src="{{ route('meja.qr', ['token' => $m->qr_token, 'size' => 192, 'format' => 'svg'], false) }}" />
                             </div>
-                            <div class="text-xs text-neutral-500 dark:text-neutral-400">
+                            <div class="min-w-0 flex-1 text-xs text-neutral-500 dark:text-neutral-400">
                                 <p class="font-medium text-neutral-800 dark:text-neutral-200">{{ __('Scan to order') }}</p>
-                                <p>{{ __('Last updated') }} {{ $m->updated_at?->diffForHumans() }}</p>
+                                <p class="mt-1">{{ __('Last updated') }} {{ $m->updated_at?->diffForHumans() }}</p>
+                                <div class="mt-2 inline-flex max-w-full items-center gap-2 rounded-2xl border border-neutral-200/80 bg-white px-3 py-2 font-mono text-[11px] tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
+                                    <span class="truncate">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::limit($m->qr_token, 16, '...')) }}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                            {{ __('Capacity') }}: <span class="font-semibold text-neutral-900 dark:text-white">{{ (int) ($m->kapasitas ?? 4) }}</span>
-                        </div>
-
-                        <div class="mt-3 inline-flex items-center gap-2 rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
-                            <span>{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::limit($m->qr_token, 12, '...')) }}</span>
-                        </div>
-
-                        <div class="mt-4 flex items-center gap-2">
-                            <flux:link class="flex-1" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
-                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
-                            </flux:link>
+                        <div class="mt-4 grid grid-cols-2 gap-2">
                             @can('meja.manage')
-                                <flux:link class="flex-1" :href="route('meja.edit', $m, false)" wire:navigate>
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
+                                    variant="ghost"
+                                    class="w-full btn-ghost-accent"
+                                    wire:click="toggleActive({{ $m->id }})"
+                                >
+                                    {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
+                                </flux:button>
+                                <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
+                            @else
+                                <flux:link class="col-span-2" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
+                                    <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
+                                </flux:link>
+                            @endcan
+                        </div>
+
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <flux:link :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
+                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print') }}</flux:button>
+                            </flux:link>
+                            @can('meja.manage')
                                 <flux:modal.trigger name="confirm-delete-meja" class="flex-1">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
@@ -286,6 +343,15 @@ new class extends Component {
                                 <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
                             </flux:link>
                             @can('meja.manage')
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
+                                    variant="ghost"
+                                    class="w-full btn-ghost-accent"
+                                    wire:click="toggleActive({{ $m->id }})"
+                                >
+                                    {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
+                                </flux:button>
                                 <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
@@ -376,6 +442,16 @@ new class extends Component {
                                             </div>
                                             @can('meja.manage')
                                                 <div class="flex flex-wrap justify-start gap-2 lg:contents">
+                                                    <flux:button
+                                                        size="sm"
+                                                        icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
+                                                        variant="ghost"
+                                                        class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                        wire:click="toggleActive({{ $m->id }})"
+                                                        title="{{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}"
+                                                    >
+                                                        {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
+                                                    </flux:button>
                                                     <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
                                                         <flux:button
                                                             size="sm"
@@ -496,7 +572,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this table?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. Orders linked to this table will lose their QR link.') }}
+                        {{ __('This action cannot be undone. Tables that already have linked orders cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 
@@ -525,7 +601,7 @@ new class extends Component {
                 <div class="space-y-2">
                     <flux:heading size="lg">{{ __('Delete this table?') }}</flux:heading>
                     <flux:subheading>
-                        {{ __('This action cannot be undone. Orders linked to this table will lose their QR link.') }}
+                        {{ __('This action cannot be undone. Tables that already have linked orders cannot be deleted.') }}
                     </flux:subheading>
                 </div>
 
