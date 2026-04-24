@@ -258,8 +258,8 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('pesanan/{pesanan}/edit', 'pesanan.edit')->middleware('can:pesanan.manage')->name('pesanan.edit');
 
     // Waiting list
-    Volt::route('admin/waiting-list', 'waiting-list.index')->middleware('can:pesanan.access')->name('waiting-list.index');
-    Volt::route('admin/waiting-list/create', 'waiting-list.create')->middleware('can:pesanan.manage')->name('waiting-list.create');
+    Volt::route('admin/waiting-list', 'waiting-list.index')->middleware('can:waiting-list.access')->name('waiting-list.index');
+    Volt::route('admin/waiting-list/create', 'waiting-list.create')->middleware('can:waiting-list.manage')->name('waiting-list.create');
 
     // Kitchen
     Volt::route('kitchen', 'kitchen.index')->middleware('can:kitchen.access')->name('kitchen.index');

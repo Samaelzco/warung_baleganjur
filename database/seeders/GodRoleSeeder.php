@@ -35,6 +35,8 @@ class GodRoleSeeder extends Seeder
                 'diskon.manage',
                 'pesanan.access',
                 'pesanan.manage',
+                'waiting-list.access',
+                'waiting-list.manage',
                 'kitchen.access',
                 'kitchen.manage',
                 'pembayaran.access',

@@ -32,6 +32,7 @@ class LoginResponse implements LoginResponseContract
             ['permission' => 'dashboard.access', 'path' => '/dashboard'],
             ['permission' => 'pembayaran.access', 'path' => '/pembayaran'],
             ['permission' => 'pesanan.access', 'path' => '/pesanan'],
+            ['permission' => 'waiting-list.access', 'path' => '/admin/waiting-list'],
             ['permission' => 'kitchen.access', 'path' => '/kitchen'],
             ['permission' => 'menu.access', 'path' => '/menu'],
             ['permission' => 'meja.access', 'path' => '/meja'],
@@ -60,6 +61,7 @@ class LoginResponse implements LoginResponseContract
             '/dashboard' => 'dashboard.access',
             '/pembayaran' => 'pembayaran.access',
             '/pesanan' => 'pesanan.access',
+            '/admin/waiting-list' => 'waiting-list.access',
             '/kitchen' => 'kitchen.access',
             '/menu' => 'menu.access',
             '/meja' => 'meja.access',
@@ -85,4 +87,3 @@ class LoginResponse implements LoginResponseContract
         return $user->can($map[$bestPrefix]);
     }
 }
-

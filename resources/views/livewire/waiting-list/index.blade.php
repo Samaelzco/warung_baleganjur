@@ -80,7 +80,7 @@ new class extends Component {
 
     protected function authorizeManage(): void
     {
-        abort_unless(auth()->check() && auth()->user()->can('pesanan.manage'), 403);
+        abort_unless(auth()->check() && auth()->user()->can('waiting-list.manage'), 403);
     }
 }; ?>
 
@@ -131,7 +131,7 @@ new class extends Component {
                 <flux:link class="order-2 sm:order-1" :href="route('customer.waiting-list.index')" target="_blank">
                     <flux:button icon="arrow-top-right-on-square" variant="ghost" class="btn-ghost-accent">{{ __('Open Customer Page') }}</flux:button>
                 </flux:link>
-                @can('pesanan.manage')
+                @can('waiting-list.manage')
                     <flux:link class="order-1 sm:order-2" :href="route('waiting-list.create', [], false)" wire:navigate>
                         <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
                     </flux:link>
@@ -287,7 +287,7 @@ new class extends Component {
                             </div>
                         </div>
 
-                        @can('pesanan.manage')
+                        @can('waiting-list.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
                                 <flux:button size="sm" icon="play" variant="primary" class="btn-brand w-full" wire:click="activate({{ $item->id }})" :disabled="!$canActivate">{{ __('Activate') }}</flux:button>
                                 <flux:button size="sm" icon="x-mark" variant="danger" class="w-full" wire:click="cancel({{ $item->id }})">{{ __('Cancel') }}</flux:button>
@@ -360,7 +360,7 @@ new class extends Component {
                             </div>
                         </div>
 
-                        @can('pesanan.manage')
+                        @can('waiting-list.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
                                 <flux:button size="sm" icon="play" variant="primary" class="btn-brand w-full" wire:click="activate({{ $item->id }})" :disabled="!$canActivate">{{ __('Activate') }}</flux:button>
                                 <flux:button size="sm" icon="x-mark" variant="danger" class="w-full" wire:click="cancel({{ $item->id }})">{{ __('Cancel') }}</flux:button>
@@ -438,7 +438,7 @@ new class extends Component {
                                 </td>
                                 <td class="px-6 py-4 align-middle">
                                     <div class="flex flex-col items-start gap-2 lg:flex-row lg:flex-wrap lg:items-center">
-                                        @can('pesanan.manage')
+                                        @can('waiting-list.manage')
                                             <flux:button
                                                 size="sm"
                                                 icon="play"
