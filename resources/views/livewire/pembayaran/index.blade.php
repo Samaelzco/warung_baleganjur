@@ -629,28 +629,28 @@ use Livewire\WithPagination;
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Order') }}</th>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Items') }}</th>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Table') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Total') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="hidden md:table-cell md:w-[10%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
+                                <th class="w-[22%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Order') }}</th>
+                                <th class="hidden md:table-cell md:w-[26%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Items') }}</th>
+                                <th class="hidden md:table-cell md:w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Table') }}</th>
+                                <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Total') }}</th>
+                                <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="w-[18%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $item)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad((string) $item->id, 3, '0', STR_PAD_LEFT) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center">
                                             <span class="font-mono text-sm font-semibold text-neutral-900 dark:text-white">{{ $item->kode_pesanan }}</span>
                                             <span class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                                                 {{ $item->customer_name ?: __('Guest') }}
@@ -660,7 +660,7 @@ use Livewire\WithPagination;
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         @php
                                             $detailGroups = $groupDetails($item);
                                         @endphp
@@ -672,34 +672,38 @@ use Livewire\WithPagination;
                                                     $addonNames = $group->flatMap(fn ($d) => $d->addons?->pluck('nama_addon') ?? collect())->filter()->unique()->values();
                                                 @endphp
                                                 <div class="flex items-start justify-between gap-3">
-                                                    <span class="min-w-0 truncate text-neutral-900 dark:text-white">
-                                                        {{ optional($first?->menu)->nama_menu ?? __('Menu') }}
+                                                    <div class="min-w-0 text-left">
+                                                        <span class="block truncate text-neutral-900 dark:text-white">
+                                                            {{ optional($first?->menu)->nama_menu ?? __('Menu') }}
+                                                        </span>
                                                         @if ($addonNames->isNotEmpty())
                                                             <span class="text-xs text-neutral-500 dark:text-neutral-400">
                                                                 (+{{ $addonNames->join(', ') }})
                                                             </span>
                                                         @endif
-                                                    </span>
+                                                    </div>
                                                     <span class="whitespace-nowrap font-semibold text-neutral-900 dark:text-white">x{{ $qtySum }}</span>
                                                 </div>
                                             @endforeach
                                         </div>
                                     </td>
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle text-neutral-600 dark:text-neutral-300">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-600 dark:border-neutral-800/70 dark:text-neutral-300">
                                         {{ optional($item->meja)->nomor_meja ?? '—' }}
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}</span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100 dark:bg-cyan-900/40 dark:text-cyan-200 dark:ring-cyan-800/60">
                                             <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
                                             {{ __('Ready') }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="px-6 py-4 align-middle text-center">
                                         @can('pembayaran.manage')
-                                            <flux:button size="sm" variant="primary" class="btn-brand rounded-2xl shadow-sm transition" wire:click="openPayModal({{ $item->id }})">{{ __('Pay') }}</flux:button>
+                                            <div class="mx-auto flex w-full max-w-[220px] justify-center">
+                                                <flux:button size="sm" variant="primary" class="btn-brand w-full rounded-2xl shadow-sm transition justify-center" wire:click="openPayModal({{ $item->id }})">{{ __('Pay') }}</flux:button>
+                                            </div>
                                         @endcan
                                     </td>
                                 </tr>

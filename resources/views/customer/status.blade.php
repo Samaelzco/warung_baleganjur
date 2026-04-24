@@ -3,9 +3,11 @@
         $idr = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
         $status = (string) ($order?->status ?? '');
         $justSubmitted = (bool) ($justSubmitted ?? false);
+        $justCancelled = (bool) ($justCancelled ?? false);
         $stepIndex = match ($status) {
             'booking' => 0,
             'menunggu' => 1,
+            'sedang_diubah' => 1,
             'diproses' => 2,
             'siap' => 3,
             default => -1,
@@ -14,6 +16,7 @@
         $statusLabel = match ($status) {
             'booking' => __('Waiting List'),
             'menunggu' => __('Waiting'),
+            'sedang_diubah' => __('Editing'),
             'diproses' => __('Preparing'),
             'siap' => __('Ready'),
             default => $status,
@@ -204,7 +207,7 @@
                             <div class="h-3 w-3 rounded-full @if($isStepActive(1)) bg-[var(--brand-primary)] @else bg-neutral-200/70 dark:bg-neutral-700/60 @endif" data-step-dot></div>
                         </div>
                         <div class="text-[11px] font-semibold tracking-wide @if($isStepActive(1)) text-neutral-900 dark:text-white @else text-neutral-500 dark:text-neutral-400 @endif" data-step-label>
-                            {{ __('Waiting') }}
+                            {{ $status === 'sedang_diubah' ? __('Editing') : __('Waiting') }}
                         </div>
                     </div>
 
@@ -232,6 +235,10 @@
                 {{ __('Your order is being prepared. Dishes will be served gradually as they become ready.') }}
             </div>
 
+            <div id="editingNote" class="@if($status !== 'sedang_diubah') hidden @endif mt-3 rounded-2xl border border-fuchsia-200/70 bg-fuchsia-50/80 p-3 text-sm font-semibold text-fuchsia-800 shadow-sm backdrop-blur dark:border-fuchsia-900/40 dark:bg-fuchsia-900/20 dark:text-fuchsia-200">
+                {{ __('Your order is being edited. Kitchen preparation is paused until you submit the changes.') }}
+            </div>
+
             <div id="waitingListNote" class="@if($status !== 'booking') hidden @endif mt-3 rounded-2xl border border-purple-200/70 bg-purple-50/80 p-3 text-sm font-semibold text-purple-800 shadow-sm backdrop-blur dark:border-purple-900/40 dark:bg-purple-900/20 dark:text-purple-200">
                 {{ __('Your order is queued and will be sent to the kitchen when the table is available.') }}
             </div>
@@ -240,6 +247,46 @@
                 {{ __('Please go to the cashier to complete payment.') }}
             </div>
         </div>
+
+        @if(($editOrderUrl || $continueEditUrl || $cancelOrderUrl) && in_array($status, ['menunggu', 'sedang_diubah'], true))
+            <div id="customerOrderActions" class="flex flex-col justify-center gap-2 sm:flex-row">
+                @if($editOrderUrl)
+                    <form method="POST" action="{{ $editOrderUrl }}">
+                        @csrf
+                        <button
+                            type="submit"
+                            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] sm:w-auto"
+                        >
+                            <flux:icon icon="pencil-square" class="size-4" />
+                            {{ __('Edit order') }}
+                        </button>
+                    </form>
+                @endif
+
+                @if($continueEditUrl)
+                    <a
+                        href="{{ $continueEditUrl }}"
+                        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] sm:w-auto"
+                    >
+                        <flux:icon icon="pencil-square" class="size-4" />
+                        {{ __('Continue editing') }}
+                    </a>
+                @endif
+
+                @if($cancelOrderUrl)
+                    <form method="POST" action="{{ $cancelOrderUrl }}">
+                        @csrf
+                        <button
+                            type="submit"
+                            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-200/70 bg-red-50/80 px-5 text-sm font-semibold text-red-700 shadow-sm backdrop-blur hover:bg-red-100/80 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200 dark:hover:bg-red-900/30 sm:w-auto"
+                        >
+                            <flux:icon icon="x-circle" class="size-4" />
+                            {{ __('Cancel order') }}
+                        </button>
+                    </form>
+                @endif
+            </div>
+        @endif
 
         @if($order && in_array($status, ['menunggu', 'diproses'], true) && empty($statusJsonUrl))
             <div class="flex justify-center">
@@ -279,7 +326,9 @@
             const orderTaxText = document.getElementById('orderTaxText')
             const breakdownItemsList = document.getElementById('breakdownItemsList')
             const processingNote = document.getElementById('processingNote')
+            const editingNote = document.getElementById('editingNote')
             const readyNote = document.getElementById('readyNote')
+            const customerOrderActions = document.getElementById('customerOrderActions')
             const pollHint = document.getElementById('pollHint')
 
             const breakdownEl = document.getElementById('orderBreakdown')
@@ -310,6 +359,11 @@
                 setTimeout(() => toast(@json(__('Order sent to kitchen.'))), 80)
             }
 
+            const cancelled = @json($justCancelled);
+            if (cancelled) {
+                setTimeout(() => toast(@json(__('Order cancelled successfully.'))), 80)
+            }
+
             try {
                 const url = new URL(window.location.href)
                 if (url.searchParams.get('noop') === '1') {
@@ -326,6 +380,7 @@
             const labelMenu = @json(__('Menu'));
             const labelWaitingList = @json(__('Waiting List'));
             const labelWaiting = @json(__('Waiting'));
+            const labelEditing = @json(__('Editing'));
             const labelPreparing = @json(__('Preparing'));
             const labelReady = @json(__('Ready'));
 
@@ -355,6 +410,7 @@
                 const s = String(status || '')
                 if (s === 'booking') return labelWaitingList
                 if (s === 'menunggu') return labelWaiting
+                if (s === 'sedang_diubah') return labelEditing
                 if (s === 'diproses') return labelPreparing
                 if (s === 'siap') return labelReady
                 return s
@@ -364,6 +420,7 @@
                 const s = String(status || '')
                 if (s === 'booking') return 0
                 if (s === 'menunggu') return 1
+                if (s === 'sedang_diubah') return 1
                 if (s === 'diproses') return 2
                 if (s === 'siap') return 3
                 return -1
@@ -387,6 +444,9 @@
                     }
 
                     if (label) {
+                        if (step === 'menunggu') {
+                            label.textContent = String(status || '') === 'sedang_diubah' ? labelEditing : labelWaiting
+                        }
                         label.classList.toggle('text-neutral-900', active)
                         label.classList.toggle('dark:text-white', active)
                         label.classList.toggle('text-neutral-500', !active)
@@ -473,9 +533,13 @@
                 if (orderTaxText) orderTaxText.textContent = formatIDR(Number(order.tax_total || 0))
                 updateStepper(order.status)
                 if (processingNote) processingNote.classList.toggle('hidden', order.status !== 'diproses')
+                if (editingNote) editingNote.classList.toggle('hidden', order.status !== 'sedang_diubah')
                 const waitingListNote = document.getElementById('waitingListNote')
                 if (waitingListNote) waitingListNote.classList.toggle('hidden', order.status !== 'booking')
                 if (readyNote) readyNote.classList.toggle('hidden', order.status !== 'siap')
+                if (customerOrderActions) {
+                    customerOrderActions.classList.toggle('hidden', !['menunggu', 'sedang_diubah'].includes(String(order.status || '')))
+                }
 
                 if (breakdownItemsList) {
                     const rows = Array.isArray(order.items) ? order.items : []
@@ -497,7 +561,7 @@
             }
 
             let inflight = false
-            const POLL_MS = 5000
+            const POLL_MS = 2000
             const schedule = () => {
                 if (stopped) return
                 if (timer) clearTimeout(timer)

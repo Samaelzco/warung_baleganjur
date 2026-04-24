@@ -192,7 +192,7 @@ new class extends Component {
             'jumlah_orang' => ['required', 'integer', 'min:1', 'max:99'],
             'discount_total' => ['nullable', 'numeric', 'min:0'],
             'tax_total' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'in:booking,menunggu,diproses,siap,selesai,batal'],
+            'status' => ['required', 'in:booking,menunggu,sedang_diubah,diproses,siap,selesai,batal'],
             'metode_pembayaran' => ['nullable', 'in:tunai,transfer,qris'],
             'dibayar' => ['nullable', 'numeric', 'min:0'],
             'kasir_id' => ['nullable', 'exists:users,id'],
@@ -440,7 +440,7 @@ new class extends Component {
             ->select(['id', 'nomor_meja', 'status'])
             ->where(function ($q) use ($pesanan) {
                 $q->where('status', '!=', 'nonaktif')
-                    ->orWhereKey($pesanan->meja_id);
+                    ->orWhere('id', $pesanan->meja_id);
             })
             ->orderBy('nomor_meja')
             ->get();
@@ -509,6 +509,7 @@ new class extends Component {
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:select wire:model="form.status" :label="__('Status')" required>
                         <option value="menunggu">{{ __('Waiting') }}</option>
+                        <option value="sedang_diubah">{{ __('Editing') }}</option>
                         <option value="booking">{{ __('Waiting List') }}</option>
                         <option value="diproses">{{ __('In progress') }}</option>
                         <option value="siap">{{ __('Ready') }}</option>

@@ -478,62 +478,64 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Image') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Category') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Price') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="hidden sm:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Image') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Name') }}</th>
+                                <th class="hidden lg:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Category') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Price') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="md:min-w-[280px] lg:min-w-0 border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse($items as $m)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad($m->id, 3, '0', STR_PAD_LEFT) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        @if($m->gambar)
-                                            @php($im = $imageMeta($m->gambar, 48))
-                                            <img
-                                                src="{{ $im['src'] }}"
-                                                @if (!empty($im['srcset']))
-                                                    srcset="{{ $im['srcset'] }}"
-                                                    sizes="{{ $im['sizes'] }}"
-                                                @endif
-                                                alt="{{ $m->nama_menu }}"
-                                                class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800"
-                                                width="48"
-                                                height="48"
-                                                loading="lazy"
-                                                decoding="async"
-                                                fetchpriority="low"
-                                            />
-                                        @else
-                                            <div class="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800"></div>
-                                        @endif
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex justify-center">
+                                            @if($m->gambar)
+                                                @php($im = $imageMeta($m->gambar, 48))
+                                                <img
+                                                    src="{{ $im['src'] }}"
+                                                    @if (!empty($im['srcset']))
+                                                        srcset="{{ $im['srcset'] }}"
+                                                        sizes="{{ $im['sizes'] }}"
+                                                    @endif
+                                                    alt="{{ $m->nama_menu }}"
+                                                    class="h-12 w-12 rounded-xl object-cover border border-white/70 dark:border-neutral-800"
+                                                    width="48"
+                                                    height="48"
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    fetchpriority="low"
+                                                />
+                                            @else
+                                                <div class="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800"></div>
+                                            @endif
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col gap-1">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center gap-1">
                                             <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $m->nama_menu }}</span>
                                             @if($m->deskripsi)
                                                 <span class="hidden sm:block text-xs text-neutral-500 dark:text-neutral-400">{{ \Illuminate\Support\Str::limit($m->deskripsi, 80) }}</span>
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle text-neutral-600 dark:text-neutral-300">
+                                    <td class="hidden lg:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-600 dark:border-neutral-800/70 dark:text-neutral-300">
                                         {{ $m->kategori?->nama_kategori ?? '—' }}
                                     </td>
-                                    <td class="px-6 py-4 align-middle text-neutral-800 dark:text-neutral-100">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-800 dark:border-neutral-800/70 dark:text-neutral-100">
                                         Rp {{ number_format($m->harga, 0, ',', '.') }}
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold
                                             {{ $m->status === 'tersedia'
                                                 ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800/60'
@@ -542,40 +544,44 @@ new class extends Component {
                                             {{ $m->status === 'tersedia' ? __('Available') : __('Out of stock') }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center gap-2">
+                                    <td class="px-6 py-4 align-middle text-center">
+                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @can('menu.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="{{ $m->status === 'tersedia' ? 'pause-circle' : 'check-circle' }}"
-                                                    variant="ghost"
-                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
-                                                    wire:click="toggleStatus({{ $m->id }})"
-                                                    title="{{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}"
-                                                >
-                                                    {{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}
-                                                </flux:button>
-                                                <flux:link :href="route('menu.edit', $m, false)" wire:navigate>
+                                                <div class="contents">
                                                     <flux:button
                                                         size="sm"
-                                                        icon="pencil-square"
-                                                        variant="primary"
-                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                        icon="{{ $m->status === 'tersedia' ? 'pause-circle' : 'check-circle' }}"
+                                                        variant="ghost"
+                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        wire:click="toggleStatus({{ $m->id }})"
+                                                        title="{{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}"
                                                     >
-                                                        {{ __('Edit') }}
+                                                        {{ $m->status === 'tersedia' ? __('Out of stock') : __('Available') }}
                                                     </flux:button>
-                                                </flux:link>
-                                                <flux:modal.trigger name="confirm-delete-menu-desktop">
-                                                    <flux:button
-                                                        size="sm"
-                                                        icon="trash"
-                                                        variant="danger"
-                                                        class="rounded-2xl shadow-sm transition"
-                                                        wire:click="confirmDelete({{ $m->id }})"
-                                                    >
-                                                        {{ __('Delete') }}
-                                                    </flux:button>
-                                                </flux:modal.trigger>
+                                                    <flux:link :href="route('menu.edit', $m, false)" wire:navigate>
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="pencil-square"
+                                                            variant="primary"
+                                                            class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                            title="{{ __('Edit') }}"
+                                                        >
+                                                            {{ __('Edit') }}
+                                                        </flux:button>
+                                                    </flux:link>
+                                                    <flux:modal.trigger name="confirm-delete-menu-desktop">
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="trash"
+                                                            variant="danger"
+                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            wire:click="confirmDelete({{ $m->id }})"
+                                                            title="{{ __('Delete') }}"
+                                                        >
+                                                            {{ __('Delete') }}
+                                                        </flux:button>
+                                                    </flux:modal.trigger>
+                                                </div>
                                             @endcan
                                         </div>
                                     </td>

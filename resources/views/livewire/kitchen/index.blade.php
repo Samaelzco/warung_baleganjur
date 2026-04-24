@@ -55,7 +55,7 @@ new class extends Component {
     protected function currentActiveMaxId(): ?int
     {
         $max = Pesanan::query()
-            ->whereIn('status', ['menunggu', 'diproses', 'siap'])
+            ->whereIn('status', ['menunggu', 'sedang_diubah', 'diproses', 'siap'])
             ->max('id');
 
         return $max ? (int) $max : null;
@@ -95,7 +95,7 @@ new class extends Component {
 
 <section class="w-full">
     @php
-        $activeStatuses = ['menunggu', 'diproses', 'siap'];
+        $activeStatuses = ['menunggu', 'sedang_diubah', 'diproses', 'siap'];
 
         $detailGroupKey = function ($d) {
             $addonSig = ($d->addons ?? collect())
@@ -201,6 +201,7 @@ new class extends Component {
         $statusCounts = (array) ($counts['rows'] ?? []);
         $totalCount = (int) ($counts['total'] ?? 0);
         $waitingCount = (int) ($statusCounts['menunggu'] ?? 0);
+        $editingCount = (int) ($statusCounts['sedang_diubah'] ?? 0);
         $inProgressCount = (int) ($statusCounts['diproses'] ?? 0);
         $readyCount = (int) ($statusCounts['siap'] ?? 0);
 
@@ -217,6 +218,13 @@ new class extends Component {
                 'badge' => 'bg-amber-50 text-amber-700 ring-1 ring-amber-100 dark:bg-amber-900/40 dark:text-amber-200 dark:ring-amber-800/60',
                 'dot'   => 'bg-amber-500',
                 'hint'  => __('Queued for preparation'),
+            ],
+            'sedang_diubah' => [
+                'label' => __('Editing'),
+                'count' => $editingCount,
+                'badge' => 'bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-100 dark:bg-fuchsia-900/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/60',
+                'dot'   => 'bg-fuchsia-500',
+                'hint'  => __('Customer is editing this order'),
             ],
             'diproses' => [
                 'label' => __('In progress'),
@@ -279,7 +287,7 @@ new class extends Component {
         </div>
 
         <!-- summary desktop -->
-        <div class="hidden sm:grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="hidden sm:grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
                 <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">{{ __('Active Orders') }}</p>
                 <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
@@ -297,6 +305,17 @@ new class extends Component {
                     <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('orders') }}</span>
                 </div>
                 <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Queued for preparation') }}</p>
+            </div>
+            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
+                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
+                    <span class="h-2 w-2 rounded-full bg-fuchsia-500"></span>
+                    <span>{{ __('Editing') }}</span>
+                </div>
+                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $editingCount }}</span>
+                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('orders') }}</span>
+                </div>
+                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Customer is editing this order') }}</p>
             </div>
             <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
                 <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
@@ -337,6 +356,7 @@ new class extends Component {
                 >
                     <option value="all">{{ __('All Status') }}</option>
                     <option value="menunggu">{{ __('Waiting') }}</option>
+                    <option value="sedang_diubah">{{ __('Editing') }}</option>
                     <option value="diproses">{{ __('In progress') }}</option>
                     <option value="siap">{{ __('Ready') }}</option>
                 </flux:select>
@@ -367,7 +387,7 @@ new class extends Component {
                 }"
                 x-init="init()"
                 x-show="active && !modalOpen"
-                wire:poll.visible.5s="pollKitchen"
+                wire:poll.visible.2s="pollKitchen"
                 class="fixed left-0 top-0 h-1 w-1 opacity-0 pointer-events-none"
                 aria-hidden="true"
             ></div>
@@ -463,6 +483,8 @@ new class extends Component {
                         <div class="mt-4 flex items-center gap-2">
                             @if ($item->status === 'menunggu')
                                 <flux:button size="sm" variant="primary" class="flex-1 btn-brand" wire:click="setStatus({{ $item->id }}, 'diproses')">{{ __('Start') }}</flux:button>
+                            @elseif ($item->status === 'sedang_diubah')
+                                <flux:button size="sm" variant="ghost" class="flex-1 btn-ghost-accent opacity-70" disabled>{{ __('Customer editing') }}</flux:button>
                             @elseif ($item->status === 'diproses')
                                 <flux:button size="sm" variant="primary" class="flex-1 btn-brand" wire:click="setStatus({{ $item->id }}, 'siap')">{{ __('Mark Ready') }}</flux:button>
                             @elseif ($item->status === 'siap')
@@ -573,6 +595,8 @@ new class extends Component {
                             <div class="mt-4 flex items-center gap-2">
                                 @if ($item->status === 'menunggu')
                                     <flux:button size="sm" variant="primary" class="flex-1 btn-brand" wire:click="setStatus({{ $item->id }}, 'diproses')">{{ __('Start') }}</flux:button>
+                                @elseif ($item->status === 'sedang_diubah')
+                                    <flux:button size="sm" variant="ghost" class="flex-1 btn-ghost-accent opacity-70" disabled>{{ __('Customer editing') }}</flux:button>
                                 @elseif ($item->status === 'diproses')
                                     <flux:button size="sm" variant="primary" class="flex-1 btn-brand" wire:click="setStatus({{ $item->id }}, 'siap')">{{ __('Mark Ready') }}</flux:button>
                                 @elseif ($item->status === 'siap')
@@ -597,16 +621,16 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Table') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Order') }}</th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Customer') }}</th>
-                                <th class="hidden xl:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Items') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="hidden md:table-cell md:w-[10%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
+                                <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Table') }}</th>
+                                <th class="w-[18%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Order') }}</th>
+                                <th class="hidden lg:table-cell lg:w-[16%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Customer') }}</th>
+                                <th class="hidden xl:table-cell xl:w-[22%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Items') }}</th>
+                                <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="w-[20%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
@@ -622,21 +646,21 @@ new class extends Component {
                                     data-order-fp="{{ $fp }}"
                                     data-order-code="{{ $item->kode_pesanan }}"
                                 >
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad((string) $item->id, 3, '0', STR_PAD_LEFT) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="h-12 w-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center border border-white/70 dark:border-neutral-800">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-white/70 bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-800">
                                             <span class="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                                                 {{ optional($item->meja)->nomor_meja ?? '-' }}
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
-                                            <div class="flex items-center gap-2">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center">
+                                            <div class="flex flex-wrap items-center justify-center gap-2">
                                                 <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $item->kode_pesanan }}</span>
                                                 <span wire:ignore class="kitchen-updated-badge inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold">
                                                     <span class="h-2 w-2 rounded-full kitchen-updated-dot"></span>
@@ -648,15 +672,15 @@ new class extends Component {
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle text-neutral-600 dark:text-neutral-300">
-                                        <div class="flex flex-col gap-1">
+                                    <td class="hidden lg:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-600 dark:border-neutral-800/70 dark:text-neutral-300">
+                                        <div class="flex flex-col items-center gap-1">
                                             <span class="font-medium text-neutral-900 dark:text-white">{{ $item->customer_name ?: __('Guest') }}</span>
                                             @if ($item->customer_note)
-                                                <span class="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">{{ $item->customer_note }}</span>
+                                                <span class="max-w-xs text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2">{{ $item->customer_note }}</span>
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="hidden xl:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden xl:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <div class="space-y-2">
                                             <div class="flex items-center justify-between gap-3 text-[11px] font-semibold tracking-wide text-neutral-500 dark:text-neutral-400">
                                                 <span>{{ __('Items') }}</span>
@@ -675,35 +699,39 @@ new class extends Component {
                                                     @endphp
 
                                                     <div class="flex items-start justify-between gap-3">
-                                                        <span class="min-w-0 truncate text-neutral-900 dark:text-white">
-                                                            {{ optional($first?->menu)->nama_menu ?? __('Menu') }}
+                                                        <div class="min-w-0 text-left">
+                                                            <span class="block truncate text-neutral-900 dark:text-white">
+                                                                {{ optional($first?->menu)->nama_menu ?? __('Menu') }}
+                                                            </span>
                                                             @if ($addonNames->isNotEmpty())
                                                                 <div class="mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
                                                                     + {{ $addonNames->join(', ') }}
                                                                 </div>
                                                             @endif
-                                                        </span>
+                                                        </div>
                                                         <span class="whitespace-nowrap font-semibold text-neutral-900 dark:text-white">x{{ $qtySum }}</span>
                                                     </div>
                                                 @endforeach
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold {{ $meta['badge'] ?? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200' }}">
                                             <span class="h-2 w-2 rounded-full {{ $meta['dot'] ?? 'bg-neutral-400' }}"></span>
                                             {{ $meta['label'] ?? ucfirst($item->status) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="px-6 py-4 align-middle text-center">
                                         @can('kitchen.manage')
-                                            <div class="flex flex-wrap items-center gap-2">
+                                            <div class="mx-auto flex w-full max-w-[220px] justify-center">
                                                 @if ($item->status === 'menunggu')
-                                                    <flux:button size="sm" variant="primary" class="btn-brand rounded-2xl shadow-sm transition" wire:click="setStatus({{ $item->id }}, 'diproses')">{{ __('Start') }}</flux:button>
+                                                    <flux:button size="sm" variant="primary" class="btn-brand w-full rounded-2xl shadow-sm transition justify-center" wire:click="setStatus({{ $item->id }}, 'diproses')">{{ __('Start') }}</flux:button>
+                                                @elseif ($item->status === 'sedang_diubah')
+                                                    <flux:button size="sm" variant="ghost" class="btn-ghost-accent w-full rounded-2xl shadow-sm transition justify-center opacity-70" disabled>{{ __('Customer editing') }}</flux:button>
                                                 @elseif ($item->status === 'diproses')
-                                                    <flux:button size="sm" variant="primary" class="btn-brand rounded-2xl shadow-sm transition" wire:click="setStatus({{ $item->id }}, 'siap')">{{ __('Mark Ready') }}</flux:button>
+                                                    <flux:button size="sm" variant="primary" class="btn-brand w-full rounded-2xl shadow-sm transition justify-center" wire:click="setStatus({{ $item->id }}, 'siap')">{{ __('Mark Ready') }}</flux:button>
                                                 @elseif ($item->status === 'siap')
-                                                    <flux:button size="sm" variant="ghost" class="btn-ghost-accent rounded-2xl shadow-sm transition" wire:click="setStatus({{ $item->id }}, 'diproses')">{{ __('Back') }}</flux:button>
+                                                    <flux:button size="sm" variant="ghost" class="btn-ghost-accent w-full rounded-2xl shadow-sm transition justify-center" wire:click="setStatus({{ $item->id }}, 'diproses')">{{ __('Back') }}</flux:button>
                                                 @endif
                                             </div>
                                         @else

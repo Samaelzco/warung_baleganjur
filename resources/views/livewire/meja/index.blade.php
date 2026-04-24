@@ -261,6 +261,9 @@ new class extends Component {
                         </div>
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
+                            <flux:link class="w-full" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
+                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print') }}</flux:button>
+                            </flux:link>
                             @can('meja.manage')
                                 <flux:button
                                     size="sm"
@@ -271,24 +274,14 @@ new class extends Component {
                                 >
                                     {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
                                 </flux:button>
-                                <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
+                                <flux:link class="w-full" :href="route('meja.edit', $m, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
-                            @else
-                                <flux:link class="col-span-2" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
-                                    <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
-                                </flux:link>
-                            @endcan
-                        </div>
-
-                        <div class="mt-2 grid grid-cols-2 gap-2">
-                            <flux:link :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
-                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print') }}</flux:button>
-                            </flux:link>
-                            @can('meja.manage')
-                                <flux:modal.trigger name="confirm-delete-meja" class="flex-1">
+                                <flux:modal.trigger name="confirm-delete-meja" class="w-full">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
+                            @else
+                                <div></div>
                             @endcan
                         </div>
                     </div>
@@ -339,8 +332,8 @@ new class extends Component {
                         </div>
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
-                            <flux:link class="col-span-2" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
-                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print (PDF)') }}</flux:button>
+                            <flux:link class="w-full" :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
+                                <flux:button size="sm" icon="printer" variant="ghost" class="w-full btn-ghost-accent">{{ __('Print') }}</flux:button>
                             </flux:link>
                             @can('meja.manage')
                                 <flux:button
@@ -352,12 +345,14 @@ new class extends Component {
                                 >
                                     {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
                                 </flux:button>
-                                <flux:link :href="route('meja.edit', $m, false)" wire:navigate>
+                                <flux:link class="w-full" :href="route('meja.edit', $m, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
-                                <flux:modal.trigger name="confirm-delete-meja-desktop">
+                                <flux:modal.trigger name="confirm-delete-meja-desktop" class="w-full">
                                     <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
+                            @else
+                                <div></div>
                             @endcan
                         </div>
                     </div>
@@ -376,77 +371,76 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full md:min-w-[1100px] lg:min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed border-separate border-spacing-0 md:min-w-[1100px] lg:min-w-full text-sm text-left">
                         <thead>
                         <tr>
-                            <th class="hidden sm:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
-                            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Table') }}</th>
-                            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                            <th class="hidden md:table-cell md:min-w-[220px] lg:min-w-0 px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('QR Code') }}</th>
-                            <th class="hidden md:table-cell md:min-w-[200px] lg:min-w-0 px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('QR Token') }}</th>
-                            <th class="md:min-w-[280px] lg:min-w-0 px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                            <th class="hidden sm:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
+                            <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Table') }}</th>
+                            <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                            <th class="hidden md:table-cell md:w-[260px] lg:w-[280px] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('QR Code') }}</th>
+                            <th class="hidden md:table-cell md:w-[220px] lg:w-[240px] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('QR Token') }}</th>
+                            <th class="md:min-w-[280px] lg:min-w-0 border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                         </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse($items as $m)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="hidden sm:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad($m->id, 3, '0', STR_PAD_LEFT) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center">
                                             <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ __('Table') }} {{ $m->nomor_meja }}</span>
                                             <span class="hidden sm:block text-xs text-neutral-500 dark:text-neutral-400">{{ __('Created at') }} {{ $m->created_at?->format('d M Y') }}</span>
                                         </div>
                                     </td>
-                                     <td class="px-6 py-4 align-middle">
+                                     <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                          @php($status = $m->status)
                                          <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold {{ $statusMeta[$status]['badge'] ?? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200' }}">
                                              <span class="h-2 w-2 rounded-full {{ $statusMeta[$status]['dot'] ?? 'bg-neutral-400' }}"></span>
                                              {{ $statusMeta[$status]['label'] ?? ucfirst($status) }}
                                          </span>
                                       </td>
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
-                                        <div class="flex items-center gap-4">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="mx-auto flex min-h-[96px] w-full max-w-[220px] items-center justify-center gap-4">
                                             <div class="shrink-0 inline-flex items-center justify-center rounded-2xl border border-neutral-200/70 bg-white p-1 shadow-sm dark:border-neutral-800/60 dark:bg-neutral-950">
                                                 <img alt="QR" class="h-16 w-16 lg:h-20 lg:w-20 rounded-xl border border-white/70 bg-white object-contain dark:border-neutral-800" src="{{ route('meja.qr', ['token' => $m->qr_token, 'size' => 192, 'format' => 'svg'], false) }}" />
                                             </div>
-                                            <div class="hidden lg:block text-xs text-neutral-500 dark:text-neutral-400">
+                                            <div class="hidden w-24 text-left text-xs text-neutral-500 dark:text-neutral-400 lg:block">
                                                 <p class="font-medium text-neutral-800 dark:text-neutral-200">{{ __('Scan to order') }}</p>
                                                 <p>{{ __('Last updated') }} {{ $m->updated_at?->diffForHumans() }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
-                                        <div class="inline-flex items-center gap-2 rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
-                                            <span>{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::limit($m->qr_token, 12, '...')) }}</span>
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="mx-auto inline-flex w-full max-w-[180px] items-center justify-center gap-2 overflow-hidden rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
+                                            <span class="truncate">{{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::limit($m->qr_token, 12, '...')) }}</span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col items-start gap-2 lg:flex-row lg:flex-wrap lg:items-center">
-                                            <div class="flex flex-wrap items-center justify-start gap-2 lg:contents">
+                                    <td class="px-6 py-4 align-middle text-center">
+                                        <div class="mx-auto grid w-full max-w-[240px] grid-cols-2 gap-2">
+                                            <div class="contents">
                                                 <flux:link :href="route('meja.print', ['ids' => $m->id], false)" target="_blank">
                                                     <flux:button
                                                         size="sm"
                                                         icon="printer"
                                                         variant="ghost"
-                                                        class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                         title="{{ __('Print (PDF)') }}"
                                                     >
-                                                        <span class="hidden md:inline lg:hidden">{{ __('Print') }}</span>
-                                                        <span class="md:hidden lg:inline">{{ __('Print (PDF)') }}</span>
+                                                        {{ __('Print') }}
                                                     </flux:button>
                                                 </flux:link>
                                             </div>
                                             @can('meja.manage')
-                                                <div class="flex flex-wrap justify-start gap-2 lg:contents">
+                                                <div class="contents">
                                                     <flux:button
                                                         size="sm"
                                                         icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
                                                         variant="ghost"
-                                                        class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                         wire:click="toggleActive({{ $m->id }})"
                                                         title="{{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}"
                                                     >
@@ -457,7 +451,7 @@ new class extends Component {
                                                             size="sm"
                                                             icon="pencil-square"
                                                             variant="primary"
-                                                            class="btn-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                            class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                             title="{{ __('Edit') }}"
                                                         >
                                                             {{ __('Edit') }}
@@ -468,7 +462,7 @@ new class extends Component {
                                                             size="sm"
                                                             icon="trash"
                                                             variant="danger"
-                                                            class="rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                             wire:click="confirmDelete({{ $m->id }})"
                                                             title="{{ __('Delete') }}"
                                                         >

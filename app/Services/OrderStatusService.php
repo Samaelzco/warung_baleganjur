@@ -29,6 +29,7 @@ class OrderStatusService
             'id' => (int) $pesanan->id,
             'kode_pesanan' => (string) $pesanan->kode_pesanan,
             'status' => (string) $pesanan->status,
+            'status_token' => (string) ($pesanan->status_token ?? ''),
             'subtotal' => (float) ($pesanan->subtotal ?? 0),
             'discount_total' => (float) ($pesanan->discount_total ?? 0),
             'tax_total' => (float) ($pesanan->tax_total ?? 0),

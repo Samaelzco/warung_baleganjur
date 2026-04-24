@@ -372,76 +372,77 @@ new class extends Component {
         <div class="mt-2 hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Price') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="hidden sm:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Name') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Price') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="md:min-w-[280px] lg:min-w-0 border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $addon)
                                 @php($isAvailable = $addon->status === 'tersedia')
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad($addon->id, 3, '0', STR_PAD_LEFT) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center">
                                             <span class="text-sm font-semibold text-neutral-900 dark:text-white">{{ $addon->nama_addon }}</span>
-                                            <span class="hidden sm:block text-[11px] text-neutral-500 dark:text-neutral-400">
-                                                {{ $isAvailable ? __('Available for selection') : __('Hidden from selection') }}
-                                            </span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle text-neutral-800 dark:text-neutral-100">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-800 dark:border-neutral-800/70 dark:text-neutral-100">
                                         Rp {{ number_format((float) $addon->harga, 0, ',', '.') }}
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold {{ $isAvailable ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800/60' : 'bg-red-50 text-red-700 ring-1 ring-red-100 dark:bg-red-900/40 dark:text-red-200 dark:ring-red-800/60' }}">
                                             <span class="h-2 w-2 rounded-full {{ $isAvailable ? 'bg-emerald-500' : 'bg-red-500' }}"></span>
                                             {{ $isAvailable ? __('Available') : __('Out of stock') }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center gap-2">
+                                    <td class="px-6 py-4 align-middle text-center">
+                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @can('addon.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
-                                                    variant="ghost"
-                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
-                                                    wire:click="toggleStatus({{ $addon->id }})"
-                                                    title="{{ $isAvailable ? __('Out of stock') : __('Available') }}"
-                                                >
-                                                    {{ $isAvailable ? __('Out of stock') : __('Available') }}
-                                                </flux:button>
-                                                <flux:link :href="route('addon.edit', $addon, false)" wire:navigate>
+                                                <div class="contents">
                                                     <flux:button
                                                         size="sm"
-                                                        icon="pencil-square"
-                                                        variant="primary"
-                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                        icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
+                                                        variant="ghost"
+                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        wire:click="toggleStatus({{ $addon->id }})"
+                                                        title="{{ $isAvailable ? __('Out of stock') : __('Available') }}"
                                                     >
-                                                        {{ __('Edit') }}
+                                                        {{ $isAvailable ? __('Out of stock') : __('Available') }}
                                                     </flux:button>
-                                                </flux:link>
-                                                <flux:modal.trigger name="confirm-delete-addon-desktop">
-                                                    <flux:button
-                                                        size="sm"
-                                                        icon="trash"
-                                                        variant="danger"
-                                                        class="rounded-2xl shadow-sm transition"
-                                                        wire:click="confirmDelete({{ $addon->id }})"
-                                                    >
-                                                        {{ __('Delete') }}
-                                                    </flux:button>
-                                                </flux:modal.trigger>
+                                                    <flux:link :href="route('addon.edit', $addon, false)" wire:navigate>
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="pencil-square"
+                                                            variant="primary"
+                                                            class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                            title="{{ __('Edit') }}"
+                                                        >
+                                                            {{ __('Edit') }}
+                                                        </flux:button>
+                                                    </flux:link>
+                                                    <flux:modal.trigger name="confirm-delete-addon-desktop">
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="trash"
+                                                            variant="danger"
+                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            wire:click="confirmDelete({{ $addon->id }})"
+                                                            title="{{ __('Delete') }}"
+                                                        >
+                                                            {{ __('Delete') }}
+                                                        </flux:button>
+                                                    </flux:modal.trigger>
+                                                </div>
                                             @endcan
                                         </div>
                                     </td>

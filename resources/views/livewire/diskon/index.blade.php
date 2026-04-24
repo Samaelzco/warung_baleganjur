@@ -425,28 +425,28 @@ new class extends Component {
         <div class="mt-2 hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('ID') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Code') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Value') }}</th>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Requirements') }}</th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Period') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Status') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="hidden sm:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Code') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Value') }}</th>
+                                <th class="hidden md:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Requirements') }}</th>
+                                <th class="hidden lg:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Period') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="md:min-w-[280px] lg:min-w-0 border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse($items as $d)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad($d->id, 3, '0', STR_PAD_LEFT) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center">
                                             <span class="font-mono text-sm font-semibold text-neutral-900 dark:text-white">
                                                 {{ $d->kode }}
                                             </span>
@@ -455,7 +455,7 @@ new class extends Component {
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-sm font-medium text-neutral-900 dark:text-neutral-50">
                                             @if($d->tipe === 'percent')
                                                 -{{ number_format($d->nilai, 2) }}%
@@ -464,7 +464,7 @@ new class extends Component {
                                             @endif
                                         </span>
                                     </td>
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-xs text-neutral-500 dark:text-neutral-400">
                                             @if($d->min_subtotal !== null)
                                                 {{ __('Min. subtotal') }}: Rp {{ number_format($d->min_subtotal, 0, ',', '.') }}
@@ -473,7 +473,7 @@ new class extends Component {
                                             @endif
                                         </span>
                                     </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden lg:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-xs text-neutral-500 dark:text-neutral-400">
                                             @php
                                                 $start = $d->tanggal_mulai;
@@ -490,7 +490,7 @@ new class extends Component {
                                             @endif
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         @if($d->is_active)
                                             <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-100 dark:ring-emerald-800/60">
                                                 <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -503,40 +503,44 @@ new class extends Component {
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center gap-2">
+                                    <td class="px-6 py-4 align-middle text-center">
+                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @can('diskon.manage')
-                                                <flux:button
-                                                    size="sm"
-                                                    icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
-                                                    variant="ghost"
-                                                    class="btn-ghost-accent rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
-                                                    wire:click="toggleActive({{ $d->id }})"
-                                                    title="{{ $d->is_active ? __('Deactivate') : __('Activate') }}"
-                                                >
-                                                    {{ $d->is_active ? __('Deactivate') : __('Activate') }}
-                                                </flux:button>
-                                                <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
+                                                <div class="contents">
                                                     <flux:button
                                                         size="sm"
-                                                        icon="pencil-square"
-                                                        variant="primary"
-                                                        class="btn-accent rounded-2xl shadow-sm transition"
+                                                        icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
+                                                        variant="ghost"
+                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        wire:click="toggleActive({{ $d->id }})"
+                                                        title="{{ $d->is_active ? __('Deactivate') : __('Activate') }}"
                                                     >
-                                                        {{ __('Edit') }}
+                                                        {{ $d->is_active ? __('Deactivate') : __('Activate') }}
                                                     </flux:button>
-                                                </flux:link>
-                                                <flux:modal.trigger name="confirm-delete-diskon-desktop">
-                                                    <flux:button
-                                                        size="sm"
-                                                        icon="trash"
-                                                        variant="danger"
-                                                        class="rounded-2xl shadow-sm transition"
-                                                        wire:click="confirmDelete({{ $d->id }})"
-                                                    >
-                                                        {{ __('Delete') }}
-                                                    </flux:button>
-                                                </flux:modal.trigger>
+                                                    <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="pencil-square"
+                                                            variant="primary"
+                                                            class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                            title="{{ __('Edit') }}"
+                                                        >
+                                                            {{ __('Edit') }}
+                                                        </flux:button>
+                                                    </flux:link>
+                                                    <flux:modal.trigger name="confirm-delete-diskon-desktop">
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="trash"
+                                                            variant="danger"
+                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            wire:click="confirmDelete({{ $d->id }})"
+                                                            title="{{ __('Delete') }}"
+                                                        >
+                                                            {{ __('Delete') }}
+                                                        </flux:button>
+                                                    </flux:modal.trigger>
+                                                </div>
                                             @endcan
                                         </div>
                                     </td>

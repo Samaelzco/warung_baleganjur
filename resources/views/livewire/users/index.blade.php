@@ -308,21 +308,21 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full md:min-w-[900px] lg:min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Email') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Role') }}</th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="w-[24%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Name') }}</th>
+                                <th class="w-[30%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Email') }}</th>
+                                <th class="w-[24%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Role') }}</th>
+                                <th class="w-[22%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $user)
                                 @php($roleNames = $user->roles->pluck('name')->values())
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex items-center gap-3">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="mx-auto flex w-fit min-w-[220px] items-center gap-3 text-left">
                                             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-100 text-sm font-semibold text-neutral-800 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-100 dark:ring-neutral-700">
                                                 {{ $user->initials() }}
                                             </span>
@@ -332,10 +332,10 @@ new class extends Component {
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-sm">{{ $user->email }}</span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         @if ($roleNames->isEmpty())
                                             <span class="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-600 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-200 dark:ring-neutral-700">
                                                 <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
@@ -348,15 +348,15 @@ new class extends Component {
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex items-center gap-2 flex-nowrap">
+                                    <td class="px-6 py-4 align-middle text-center">
+                                        <div class="mx-auto grid w-full max-w-[220px] grid-cols-1 gap-2 xl:grid-cols-2">
                                             @can('users.manage')
                                                 <flux:link :href="route('users.edit', $user, false)" wire:navigate>
                                                     <flux:button
                                                         size="sm"
                                                         icon="pencil-square"
                                                         variant="primary"
-                                                        class="btn-accent rounded-2xl shadow-sm transition md:w-24"
+                                                        class="btn-accent w-full rounded-2xl shadow-sm transition justify-center"
                                                     >
                                                         {{ __('Edit') }}
                                                     </flux:button>
@@ -366,7 +366,7 @@ new class extends Component {
                                                         size="sm"
                                                         icon="trash"
                                                         variant="danger"
-                                                        class="rounded-2xl shadow-sm transition md:w-24"
+                                                        class="w-full rounded-2xl shadow-sm transition justify-center"
                                                         wire:click="confirmDelete({{ $user->id }})"
                                                         :disabled="auth()->id() === $user->id"
                                                     >

@@ -103,7 +103,7 @@ new class extends Component {
 
         $stats = Cache::remember('admin:pesanan:stats:v1', 10, fn () => [
             'total'     => Pesanan::query()->count(),
-            'open'      => Pesanan::query()->whereIn('status', ['menunggu', 'diproses', 'siap'])->count(),
+            'open'      => Pesanan::query()->whereIn('status', ['menunggu', 'sedang_diubah', 'diproses', 'siap'])->count(),
             'completed' => Pesanan::query()->where('status', 'selesai')->count(),
             'cancelled' => Pesanan::query()->where('status', 'batal')->count(),
         ]);
@@ -123,6 +123,11 @@ new class extends Component {
                 'label' => __('Waiting'),
                 'badge' => 'bg-amber-50 text-amber-700 ring-1 ring-amber-100 dark:bg-amber-900/40 dark:text-amber-200 dark:ring-amber-800/60',
                 'dot'   => 'bg-amber-500',
+            ],
+            'sedang_diubah' => [
+                'label' => __('Editing'),
+                'badge' => 'bg-fuchsia-50 text-fuchsia-700 ring-1 ring-fuchsia-100 dark:bg-fuchsia-900/40 dark:text-fuchsia-200 dark:ring-fuchsia-800/60',
+                'dot'   => 'bg-fuchsia-500',
             ],
             'diproses' => [
                 'label' => __('In progress'),
@@ -258,6 +263,7 @@ new class extends Component {
                     <option value="all">{{ __('All Status') }}</option>
                     <option value="booking">{{ __('Waiting List') }}</option>
                     <option value="menunggu">{{ __('Waiting') }}</option>
+                    <option value="sedang_diubah">{{ __('Editing') }}</option>
                     <option value="diproses">{{ __('In progress') }}</option>
                     <option value="siap">{{ __('Ready') }}</option>
                     <option value="selesai">{{ __('Completed') }}</option>
@@ -286,9 +292,9 @@ new class extends Component {
             </div>
         </div>
 
-        <!-- Mobile cards -->
-        <div class="block sm:hidden">
-            <div class="mt-2 grid gap-3">
+        <!-- Mobile / tablet cards -->
+        <div class="block lg:hidden">
+            <div class="mt-2 grid gap-3 sm:grid-cols-2">
                 @forelse ($items as $item)
                     @php($status = $item->status)
                     @php($meta = $statusMeta[$status] ?? null)
@@ -410,7 +416,7 @@ new class extends Component {
                         </div>
                     </div>
                 @empty
-                    <div class="rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400">
+                    <div class="rounded-2xl border border-neutral-200/80 bg-white p-6 text-center text-sm text-neutral-500 dark:border-neutral-800/70 dark:bg-neutral-900 dark:text-neutral-400 sm:col-span-2">
                         {{ __('No orders found.') }}
                     </div>
                 @endforelse
@@ -421,34 +427,34 @@ new class extends Component {
         </div>
 
         <!-- Desktop table -->
-        <div class="hidden sm:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
+        <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
+                    <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Order Code') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Table') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Customer') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Status') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Total') }}
                                 </th>
-                                <th class="hidden md:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="hidden md:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Payment') }}
                                 </th>
-                                <th class="hidden lg:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="hidden lg:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Order Time') }}
                                 </th>
-                                <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
+                                <th class="md:min-w-[280px] lg:min-w-0 border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">
                                     {{ __('Actions') }}
                                 </th>
                             </tr>
@@ -458,20 +464,20 @@ new class extends Component {
                                 @php($status = $item->status)
                                 @php($meta = $statusMeta[$status] ?? null)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-col">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex flex-col items-center">
                                             <span class="font-mono text-sm font-semibold text-neutral-900 dark:text-white">
                                                 {{ $item->kode_pesanan }}
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-sm text-neutral-900 dark:text-white">
                                             {{ optional($item->meja)->nomor_meja ?? '-' }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex min-w-0 flex-col">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        <div class="flex min-w-0 flex-col items-center">
                                             <span class="truncate text-sm text-neutral-900 dark:text-white">
                                                 {{ $item->customer_name ?: __('Guest') }}
                                             </span>
@@ -482,18 +488,18 @@ new class extends Component {
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold {{ $meta['badge'] ?? 'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-700' }}">
                                             <span class="h-2 w-2 rounded-full {{ $meta['dot'] ?? 'bg-neutral-400' }}"></span>
                                             {{ $meta['label'] ?? ucfirst($status) }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle text-neutral-800 dark:text-neutral-100">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-800 dark:border-neutral-800/70 dark:text-neutral-100">
                                         <span class="font-semibold">
                                             Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}
                                         </span>
                                     </td>
-                                    <td class="hidden md:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <div class="flex flex-col text-sm text-neutral-900 dark:text-white">
                                             @if ($item->metode_pembayaran === 'tunai')
                                                 <span>{{ __('Cash') }}</span>
@@ -511,62 +517,68 @@ new class extends Component {
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="hidden lg:table-cell px-6 py-4 align-middle">
+                                    <td class="hidden lg:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-xs text-neutral-800 dark:text-neutral-200">
                                             {{ optional($item->waktu_pesan)->format('d M Y H:i') ?? '-' }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 align-middle">
-                                        <div class="flex flex-wrap items-center gap-2">
+                                    <td class="px-6 py-4 align-middle text-center">
+                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @php($canPrintReceipt = $item->status === 'selesai' && !blank($item->metode_pembayaran))
 
                                             @can('pembayaran.access')
                                                 @if ($canPrintReceipt)
-                                                    <flux:link :href="route('pembayaran.receipt', $item) . '?print=1'" target="_blank" rel="noopener">
+                                                    <div class="contents">
+                                                        <flux:link :href="route('pembayaran.receipt', $item) . '?print=1'" target="_blank" rel="noopener">
+                                                            <flux:button
+                                                                size="sm"
+                                                                icon="printer"
+                                                                variant="ghost"
+                                                                class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                            >
+                                                                {{ __('Receipt') }}
+                                                            </flux:button>
+                                                        </flux:link>
+                                                    </div>
+                                                @else
+                                                    <div class="contents">
                                                         <flux:button
                                                             size="sm"
                                                             icon="printer"
                                                             variant="ghost"
-                                                            class="btn-ghost-accent rounded-2xl shadow-sm transition"
+                                                            class="btn-disabled-muted w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                            disabled
+                                                            title="{{ __('Receipt is available after the order is completed and paid.') }}"
                                                         >
                                                             {{ __('Receipt') }}
                                                         </flux:button>
-                                                    </flux:link>
-                                                @else
-                                                    <flux:button
-                                                        size="sm"
-                                                        icon="printer"
-                                                        variant="ghost"
-                                                        class="btn-disabled-muted rounded-2xl shadow-sm transition"
-                                                        disabled
-                                                        title="{{ __('Receipt is available after the order is completed and paid.') }}"
-                                                    >
-                                                        {{ __('Receipt') }}
-                                                    </flux:button>
+                                                    </div>
                                                 @endif
                                             @endcan
 
                                             @can('pesanan.manage')
-                                                <flux:link :href="route('pesanan.edit', $item, false)" wire:navigate>
-                                                    <flux:button
-                                                        size="sm"
-                                                        icon="pencil-square"
-                                                        variant="primary"
-                                                        class="btn-accent rounded-2xl shadow-sm transition"
-                                                    >
-                                                        {{ __('Edit') }}
-                                                    </flux:button>
-                                                </flux:link>
-                                                <flux:modal.trigger name="confirm-delete-pesanan-desktop">
-                                                    <flux:button
-                                                        size="sm"
-                                                        variant="danger"
-                                                        class="rounded-2xl shadow-sm transition"
-                                                        wire:click="confirmDelete({{ $item->id }})"
-                                                    >
-                                                        {{ __('Delete') }}
-                                                    </flux:button>
-                                                </flux:modal.trigger>
+                                                <div class="contents">
+                                                    <flux:link :href="route('pesanan.edit', $item, false)" wire:navigate>
+                                                        <flux:button
+                                                            size="sm"
+                                                            icon="pencil-square"
+                                                            variant="primary"
+                                                            class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        >
+                                                            {{ __('Edit') }}
+                                                        </flux:button>
+                                                    </flux:link>
+                                                    <flux:modal.trigger name="confirm-delete-pesanan-desktop">
+                                                        <flux:button
+                                                            size="sm"
+                                                            variant="danger"
+                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            wire:click="confirmDelete({{ $item->id }})"
+                                                        >
+                                                            {{ __('Delete') }}
+                                                        </flux:button>
+                                                    </flux:modal.trigger>
+                                                </div>
                                             @endcan
                                         </div>
                                     </td>

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class TableWaitingListService
 {
-    public const ACTIVE_STATUSES = ['menunggu', 'diproses', 'siap'];
+    public const ACTIVE_STATUSES = ['menunggu', 'sedang_diubah', 'diproses', 'siap'];
 
     public function occupiedSeats(int|Meja $meja): int
     {

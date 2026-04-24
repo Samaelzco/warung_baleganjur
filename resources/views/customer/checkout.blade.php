@@ -1,8 +1,9 @@
 <x-layouts.customer :title="__('Checkout')">
     @php
         $addMode = (bool) ($addMode ?? false);
-        $backUrl = $backUrl ?? route('customer.order', ['token' => $token] + ($addMode ? ['add' => 1] : []));
-        $submitUrl = $submitUrl ?? route('customer.checkout.submit', ['token' => $token] + ($addMode ? ['add' => 1] : []));
+        $editMode = (bool) ($editMode ?? false);
+        $backUrl = $backUrl ?? route('customer.order', ['token' => $token] + ($addMode ? ['add' => 1] : []) + ($editMode ? ['edit' => 1, 'order' => $order?->id, 'status_token' => $order?->status_token] : []));
+        $submitUrl = $submitUrl ?? route('customer.checkout.submit', ['token' => $token] + ($addMode ? ['add' => 1] : []) + ($editMode ? ['edit' => 1, 'order' => $order?->id, 'status_token' => $order?->status_token] : []));
 
         $idr0 = fn () => 'Rp 0';
 
@@ -295,7 +296,12 @@
 
             const token = root.getAttribute('data-table-token') || ''
             const addMode = @json($addMode);
+            const editMode = @json($editMode);
             const existingDiskonId = @json($order?->diskon_id);
+            const initialVoucherCode = @json($order?->diskon?->kode ?? '');
+            const initialCustomerName = @json((string) ($order?->customer_name ?? ''));
+            const initialCustomerNote = @json((string) ($order?->customer_note ?? ''));
+            const initialJumlahOrang = @json((int) ($order?->jumlah_orang ?? 1));
             const cartKey = token ? `customerCart:${token}` : 'customerCart'
             const voucherKey = token ? `customerVoucher:${token}` : 'customerVoucher'
             const noteKey = token ? `customerNote:${token}` : 'customerNote'
@@ -765,8 +771,8 @@
                     })
                 }
 
-                if (customerName) customerName.value = ''
-                if (jumlahOrang) jumlahOrang.value = '1'
+                if (customerName) customerName.value = editMode ? initialCustomerName : ''
+                if (jumlahOrang) jumlahOrang.value = String(editMode ? Math.max(initialJumlahOrang, 1) : 1)
                 setTimeout(() => customerName?.focus(), 50)
             }
 
@@ -904,13 +910,27 @@
 
             if (noteInput) {
                 const saved = readNote()
-                if (saved && !noteInput.value) noteInput.value = saved
+                if (editMode) {
+                    noteInput.value = initialCustomerNote
+                    writeNote(initialCustomerNote)
+                } else if (saved && !noteInput.value) {
+                    noteInput.value = saved
+                }
 
                 let noteTimer = null
                 noteInput.addEventListener('input', () => {
                     if (noteTimer) clearTimeout(noteTimer)
                     noteTimer = setTimeout(() => writeNote(noteInput.value || ''), 250)
                 })
+            }
+
+            if (voucherInput) {
+                if (editMode && initialVoucherCode) {
+                    voucherInput.value = String(initialVoucherCode).toUpperCase()
+                    writeVoucher(initialVoucherCode)
+                } else {
+                    voucherInput.value = readVoucher()
+                }
             }
 
             render()

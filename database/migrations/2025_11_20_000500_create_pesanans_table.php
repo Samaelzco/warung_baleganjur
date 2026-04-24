@@ -22,7 +22,7 @@ return new class extends Migration
             $table->decimal('tax_total', 12, 2)->default(0);
             $table->decimal('total_harga', 12, 2)->default(0);
 
-            $table->enum('status', ['menunggu', 'diproses', 'siap', 'selesai', 'batal'])->default('menunggu');
+            $table->enum('status', ['booking', 'menunggu', 'sedang_diubah', 'diproses', 'siap', 'selesai', 'batal'])->default('menunggu');
             $table->enum('metode_pembayaran', ['tunai', 'transfer', 'qris'])->nullable();
 
             $table->decimal('dibayar', 12, 2)->nullable();
@@ -49,4 +49,3 @@ return new class extends Migration
         Schema::dropIfExists('pesanans');
     }
 };
-

@@ -382,15 +382,15 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                <table class="min-w-full md:min-w-[1100px] lg:min-w-full text-sm text-left">
+                <table class="min-w-full table-fixed text-sm">
                     <thead>
                         <tr>
-                            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Waiting Code') }}</th>
-                            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Customer') }}</th>
-                            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Table') }}</th>
-                            <th class="hidden xl:table-cell px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Items') }}</th>
-                            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Total') }}</th>
-                            <th class="md:min-w-[260px] lg:min-w-0 px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">{{ __('Actions') }}</th>
+                            <th class="w-[18%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Waiting Code') }}</th>
+                            <th class="w-[20%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Customer') }}</th>
+                            <th class="w-[16%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Table') }}</th>
+                            <th class="hidden w-[22%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400 xl:table-cell">{{ __('Items') }}</th>
+                            <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Total') }}</th>
+                            <th class="w-[22%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
@@ -401,49 +401,49 @@ new class extends Component {
                                 $canActivate = $item->meja && $remaining >= $guests;
                             @endphp
                             <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
-                                <td class="px-6 py-4 align-middle">
+                                <td class="border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80">
                                     <div class="inline-flex items-center gap-2 rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
                                         <span>{{ $item->kode_pesanan }}</span>
                                     </div>
                                     <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{{ $item->waktu_pesan?->format('d M Y H:i') }}</div>
                                 </td>
-                                <td class="px-6 py-4 align-middle">
-                                    <div class="flex flex-col">
+                                <td class="border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80">
+                                    <div class="flex flex-col items-center">
                                         <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $item->customer_name ?: __('Guest') }}</span>
                                         <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Guests') }}: {{ $guests }}</span>
                                     </div>
                                     @if ($item->customer_note)
-                                        <div class="mt-1 max-w-xs text-xs text-neutral-500 dark:text-neutral-400">{{ \Illuminate\Support\Str::limit($item->customer_note, 100) }}</div>
+                                        <div class="mx-auto mt-1 max-w-xs text-xs text-neutral-500 dark:text-neutral-400">{{ \Illuminate\Support\Str::limit($item->customer_note, 100) }}</div>
                                     @endif
                                 </td>
-                                <td class="px-6 py-4 align-middle">
-                                    <div class="flex flex-col">
+                                <td class="border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80">
+                                    <div class="flex flex-col items-center">
                                         <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ __('Table') }} {{ $item->meja?->nomor_meja ?? '-' }}</span>
                                         <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ __('Remaining') }} {{ $remaining }} / {{ (int) ($item->meja?->kapasitas ?? 0) }}</span>
                                     </div>
                                 </td>
-                                <td class="hidden xl:table-cell px-6 py-4 align-middle">
+                                <td class="hidden border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80 xl:table-cell">
                                     <div class="space-y-1">
                                         @foreach ($item->details as $detail)
                                             <div class="flex max-w-xs items-start justify-between gap-3 text-xs text-neutral-600 dark:text-neutral-300">
-                                                <span class="truncate">{{ $detail->menu?->nama_menu ?? __('Menu') }}</span>
+                                                <span class="truncate text-left">{{ $detail->menu?->nama_menu ?? __('Menu') }}</span>
                                                 <span class="shrink-0 font-semibold text-neutral-900 dark:text-white">x{{ (int) $detail->qty }}</span>
                                             </div>
                                         @endforeach
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 align-middle">
+                                <td class="border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80">
                                     <div class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}</div>
                                     <div class="mt-1 text-xs text-neutral-500 dark:text-neutral-400 xl:hidden">{{ (int) ($item->details?->sum('qty') ?? 0) }} {{ __('items') }}</div>
                                 </td>
-                                <td class="px-6 py-4 align-middle">
-                                    <div class="flex flex-col items-start gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+                                <td class="px-6 py-4 text-center align-middle">
+                                    <div class="mx-auto grid w-full max-w-[240px] grid-cols-1 gap-2 sm:grid-cols-2">
                                         @can('waiting-list.manage')
                                             <flux:button
                                                 size="sm"
                                                 icon="play"
                                                 variant="primary"
-                                                class="btn-brand rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                class="btn-brand w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                 wire:click="activate({{ $item->id }})"
                                                 :disabled="!$canActivate"
                                                 title="{{ __('Activate') }}"
@@ -454,7 +454,7 @@ new class extends Component {
                                                 size="sm"
                                                 icon="x-mark"
                                                 variant="danger"
-                                                class="rounded-2xl shadow-sm transition whitespace-nowrap justify-center md:w-24 lg:w-auto"
+                                                class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                 wire:click="cancel({{ $item->id }})"
                                                 title="{{ __('Cancel') }}"
                                             >

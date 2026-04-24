@@ -36,7 +36,7 @@
             ->all();
     @endphp
 
-    <div class="space-y-6" data-table-token="{{ $token }}" data-add-mode="{{ !empty($addMode) ? '1' : '0' }}">
+    <div class="space-y-6" data-table-token="{{ $token }}" data-add-mode="{{ !empty($addMode) ? '1' : '0' }}" data-edit-mode="{{ !empty($editMode) ? '1' : '0' }}">
         <header class="sticky top-0 z-30 -mx-4 space-y-4 border-b border-neutral-200/70 bg-white/80 px-4 pb-2 pt-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/60">
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
@@ -393,12 +393,14 @@
     <script id="menuPricingJson" type="application/json">@json($menuPricingIndex)</script>
     <script id="baselineCartJson" type="application/json">@json($baselineCart ?? [])</script>
     <script id="baselineMinQtyJson" type="application/json">@json($baselineMinQty ?? [])</script>
+    <script id="prefillCartJson" type="application/json">@json($prefillCart ?? [])</script>
 
     <script>
         (() => {
             const root = document.querySelector('[data-table-token]')
             const token = root?.dataset.tableToken || ''
             const addMode = root?.dataset.addMode === '1'
+            const editMode = root?.dataset.editMode === '1'
 
             const storageKey = token ? `customerCart:${token}` : 'customerCart'
             const cartBar = document.getElementById('cartBar')
@@ -782,6 +784,16 @@
                 }
             })()
 
+            const prefillCart = (() => {
+                try {
+                    const raw = document.getElementById('prefillCartJson')?.textContent || '{}'
+                    const data = JSON.parse(raw)
+                    return data && typeof data === 'object' ? data : {}
+                } catch (e) {
+                    return {}
+                }
+            })()
+
             const getMinQty = (id) => {
                 if (!addMode) return 0
                 return Math.max(Number(baselineMinQty[String(id)] || 0), 0)
@@ -825,6 +837,12 @@
                 }
 
                 if (changed) writeCart(cart)
+            }
+
+            const seedEditCart = () => {
+                if (!editMode) return
+                const cart = prefillCart && typeof prefillCart === 'object' ? prefillCart : {}
+                writeCart(cart)
             }
 
             const getMenuIndex = () => {
@@ -1193,6 +1211,7 @@
             })
 
             // Init cart UI
+            seedEditCart()
             seedBaseline()
             recompute()
 
