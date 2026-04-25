@@ -9,9 +9,7 @@ use App\Services\OrderStatusService;
 use App\Services\QrCodeService;
 use App\Services\TableWaitingListService;
 
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+Route::redirect('/', '/login')->name('home');
 
 Route::post('locale', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate([
