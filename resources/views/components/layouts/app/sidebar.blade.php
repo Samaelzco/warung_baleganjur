@@ -7,8 +7,17 @@
         <flux:sidebar sticky stashable class="print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-            <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
-                <x-app-logo />
+            <a href="{{ route('dashboard') }}" class="me-5 flex items-center justify-center py-2" wire:navigate>
+                <img
+                    src="{{ asset('img/logo/logo 2 black.svg') }}"
+                    alt="Warung Baleganjur Logo"
+                    class="h-14 w-auto max-w-[180px] object-contain dark:hidden"
+                />
+                <img
+                    src="{{ asset('img/logo/logo 2.svg') }}"
+                    alt="Warung Baleganjur Logo"
+                    class="hidden h-14 w-auto max-w-[180px] object-contain dark:block"
+                />
             </a>
 
                 <flux:navlist variant="outline">

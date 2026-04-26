@@ -131,8 +131,11 @@ new class extends Component {
                 <flux:link class="order-2 sm:order-1" :href="route('customer.waiting-list.index')" target="_blank">
                     <flux:button icon="arrow-top-right-on-square" variant="ghost" class="btn-ghost-accent">{{ __('Open Customer Page') }}</flux:button>
                 </flux:link>
+                <flux:link class="order-3 sm:order-2" :href="route('customer.waiting-list.qr.pdf', [], false)" target="_blank">
+                    <flux:button icon="printer" variant="ghost" class="btn-ghost-accent">{{ __('Download PDF') }}</flux:button>
+                </flux:link>
                 @can('waiting-list.manage')
-                    <flux:link class="order-1 sm:order-2" :href="route('waiting-list.create', [], false)" wire:navigate>
+                    <flux:link class="order-1 sm:order-3" :href="route('waiting-list.create', [], false)" wire:navigate>
                         <flux:button icon="plus" variant="primary" class="btn-brand">{{ __('Create') }}</flux:button>
                     </flux:link>
                 @endcan
@@ -289,8 +292,11 @@ new class extends Component {
 
                         @can('waiting-list.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button size="sm" icon="play" variant="primary" class="btn-brand w-full" wire:click="activate({{ $item->id }})" :disabled="!$canActivate">{{ __('Activate') }}</flux:button>
-                                <flux:button size="sm" icon="x-mark" variant="danger" class="w-full" wire:click="cancel({{ $item->id }})">{{ __('Cancel') }}</flux:button>
+                                <flux:button size="sm" icon="play" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="activate({{ $item->id }})" :disabled="!$canActivate">{{ __('Activate') }}</flux:button>
+                                <flux:link :href="route('waiting-list.edit', $item, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center">{{ __('Edit') }}</flux:button>
+                                </flux:link>
+                                <flux:button size="sm" icon="x-mark" variant="danger" class="col-span-2 w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="cancel({{ $item->id }})">{{ __('Cancel') }}</flux:button>
                             </div>
                         @endcan
                     </div>
@@ -362,8 +368,11 @@ new class extends Component {
 
                         @can('waiting-list.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
-                                <flux:button size="sm" icon="play" variant="primary" class="btn-brand w-full" wire:click="activate({{ $item->id }})" :disabled="!$canActivate">{{ __('Activate') }}</flux:button>
-                                <flux:button size="sm" icon="x-mark" variant="danger" class="w-full" wire:click="cancel({{ $item->id }})">{{ __('Cancel') }}</flux:button>
+                                <flux:button size="sm" icon="play" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="activate({{ $item->id }})" :disabled="!$canActivate">{{ __('Activate') }}</flux:button>
+                                <flux:link :href="route('waiting-list.edit', $item, false)" wire:navigate>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center">{{ __('Edit') }}</flux:button>
+                                </flux:link>
+                                <flux:button size="sm" icon="x-mark" variant="danger" class="col-span-2 w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="cancel({{ $item->id }})">{{ __('Cancel') }}</flux:button>
                             </div>
                         @endcan
                     </div>
@@ -382,15 +391,16 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                <table class="min-w-full table-fixed text-sm">
+                <table class="min-w-full table-fixed text-sm xl:min-w-[1320px]">
                     <thead>
                         <tr>
-                            <th class="w-[18%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Waiting Code') }}</th>
-                            <th class="w-[20%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Customer') }}</th>
-                            <th class="w-[16%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Table') }}</th>
-                            <th class="hidden w-[22%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400 xl:table-cell">{{ __('Items') }}</th>
-                            <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Total') }}</th>
-                            <th class="w-[22%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Actions') }}</th>
+                            <th class="w-[14%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Waiting Code') }}</th>
+                            <th class="w-[16%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Customer') }}</th>
+                            <th class="w-[12%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Table') }}</th>
+                            <th class="hidden w-[13%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400 xl:table-cell">{{ __('Items') }}</th>
+                            <th class="w-[9%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Total') }}</th>
+                            <th class="w-[11%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Order Time') }}</th>
+                            <th class="w-[25%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
@@ -405,7 +415,6 @@ new class extends Component {
                                     <div class="inline-flex items-center gap-2 rounded-2xl border border-neutral-200/80 bg-neutral-50 px-3 py-2 font-mono text-xs tracking-wide text-neutral-600 dark:border-neutral-800/70 dark:bg-neutral-900/60 dark:text-neutral-300">
                                         <span>{{ $item->kode_pesanan }}</span>
                                     </div>
-                                    <div class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{{ $item->waktu_pesan?->format('d M Y H:i') }}</div>
                                 </td>
                                 <td class="border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80">
                                     <div class="flex flex-col items-center">
@@ -436,20 +445,36 @@ new class extends Component {
                                     <div class="font-semibold text-neutral-900 dark:text-white">Rp {{ number_format((float) $item->total_harga, 0, ',', '.') }}</div>
                                     <div class="mt-1 text-xs text-neutral-500 dark:text-neutral-400 xl:hidden">{{ (int) ($item->details?->sum('qty') ?? 0) }} {{ __('items') }}</div>
                                 </td>
+                                <td class="border-r border-neutral-200/80 px-6 py-4 text-center align-middle dark:border-neutral-800/80">
+                                    <span class="text-xs text-neutral-800 dark:text-neutral-200">
+                                        {{ optional($item->waktu_pesan)->format('d M Y H:i') ?? '-' }}
+                                    </span>
+                                </td>
                                 <td class="px-6 py-4 text-center align-middle">
-                                    <div class="mx-auto grid w-full max-w-[240px] grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div class="mx-auto grid w-full min-w-[360px] max-w-[460px] grid-cols-3 gap-2">
                                         @can('waiting-list.manage')
                                             <flux:button
                                                 size="sm"
                                                 icon="play"
                                                 variant="primary"
-                                                class="btn-brand w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                 wire:click="activate({{ $item->id }})"
                                                 :disabled="!$canActivate"
                                                 title="{{ __('Activate') }}"
                                             >
                                                 {{ __('Activate') }}
                                             </flux:button>
+                                            <flux:link :href="route('waiting-list.edit', $item, false)" wire:navigate>
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="pencil-square"
+                                                    variant="primary"
+                                                    class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                    title="{{ __('Edit') }}"
+                                                >
+                                                    {{ __('Edit') }}
+                                                </flux:button>
+                                            </flux:link>
                                             <flux:button
                                                 size="sm"
                                                 icon="x-mark"

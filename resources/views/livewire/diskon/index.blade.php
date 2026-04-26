@@ -279,13 +279,13 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="flex-1 btn-ghost-accent"
+                                    class="btn-ghost-accent flex-1 rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleActive({{ $d->id }})"
                                 >
                                     {{ $d->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
                                 <flux:link class="flex-1" :href="route('diskon.edit', $d, false)" wire:navigate>
-                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center">{{ __('Edit') }}</flux:button>
                                 </flux:link>
                             @endcan
                         </div>
@@ -297,7 +297,7 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full"
+                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $d->id }})"
                                     >
                                         {{ __('Delete') }}
@@ -385,13 +385,13 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="w-full btn-ghost-accent"
+                                    class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleActive({{ $d->id }})"
                                 >
                                     {{ $d->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
                                 <flux:link :href="route('diskon.edit', $d, false)" wire:navigate>
-                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center">{{ __('Edit') }}</flux:button>
                                 </flux:link>
                             </div>
 
@@ -401,7 +401,7 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full"
+                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $d->id }})"
                                     >
                                         {{ __('Delete') }}
@@ -504,7 +504,7 @@ new class extends Component {
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 align-middle text-center">
-                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div class="mx-auto grid w-full max-w-[420px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @can('diskon.manage')
                                                 <div class="contents">
                                                     <flux:button

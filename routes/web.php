@@ -258,6 +258,7 @@ Route::middleware(['auth'])->group(function () {
     // Waiting list
     Volt::route('admin/waiting-list', 'waiting-list.index')->middleware('can:waiting-list.access')->name('waiting-list.index');
     Volt::route('admin/waiting-list/create', 'waiting-list.create')->middleware('can:waiting-list.manage')->name('waiting-list.create');
+    Volt::route('admin/waiting-list/{pesanan}/edit', 'waiting-list.edit')->middleware('can:waiting-list.manage')->name('waiting-list.edit');
 
     // Kitchen
     Volt::route('kitchen', 'kitchen.index')->middleware('can:kitchen.access')->name('kitchen.index');
@@ -404,6 +405,38 @@ Route::get('waiting-list/qr', function (\Illuminate\Http\Request $request, QrCod
 
     return $qrCode->response($url, (int) $request->query('size', 512), 'svg');
 })->name('customer.waiting-list.qr');
+
+Route::get('waiting-list/qr/pdf', function (\Illuminate\Http\Request $request) {
+    $host = $request->getSchemeAndHttpHost();
+    $url = $host . '/waiting-list';
+    $qrSize = 720;
+
+    $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+        new \BaconQrCode\Renderer\RendererStyle\RendererStyle($qrSize),
+        new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+    );
+    $writer = new \BaconQrCode\Writer($renderer);
+    $svg = $writer->writeString($url);
+
+    $html = view('waiting-list.qr-pdf', [
+        'url' => $url,
+        'qrDataUri' => 'data:image/svg+xml;base64,' . base64_encode($svg),
+        'generatedAt' => now(),
+    ])->render();
+
+    $dompdf = new \Dompdf\Dompdf([
+        'defaultFont' => 'DejaVu Sans',
+        'isRemoteEnabled' => false,
+    ]);
+    $dompdf->loadHtml($html, 'UTF-8');
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+
+    return response($dompdf->output(), 200, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="waiting-list-qr.pdf"',
+    ]);
+})->name('customer.waiting-list.qr.pdf');
 
 Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
     abort_if($meja->status === 'nonaktif', 404);

@@ -242,13 +242,13 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $k->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="flex-1 btn-ghost-accent"
+                                    class="btn-ghost-accent flex-1 rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleActive({{ $k->id }})"
                                 >
                                     {{ $k->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
                                 <flux:link class="flex-1" :href="route('kategori.edit', $k, false)" wire:navigate>
-                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center">{{ __('Edit') }}</flux:button>
                                 </flux:link>
                             @endcan
                         </div>
@@ -256,7 +256,7 @@ new class extends Component {
                         <div class="mt-2 flex items-center gap-2">
                             @can('kategori.manage')
                                 <flux:modal.trigger name="confirm-delete-kategori" class="flex-1">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
+                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
                             @endcan
                         </div>
@@ -293,13 +293,13 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $k->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="w-full btn-ghost-accent"
+                                    class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleActive({{ $k->id }})"
                                 >
                                     {{ $k->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
                                 <flux:link :href="route('kategori.edit', $k, false)" wire:navigate>
-                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
+                                    <flux:button size="sm" icon="pencil-square" variant="primary" class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center">{{ __('Edit') }}</flux:button>
                                 </flux:link>
                             @endcan
                         </div>
@@ -307,7 +307,7 @@ new class extends Component {
                         <div class="mt-2">
                             @can('kategori.manage')
                                 <flux:modal.trigger name="confirm-delete-kategori-desktop">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
+                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
                                 </flux:modal.trigger>
                             @endcan
                         </div>
@@ -359,7 +359,7 @@ new class extends Component {
                                         {{ $k->created_at?->format('d M Y') }}
                                     </td>
                                     <td class="px-6 py-4 align-middle text-center">
-                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div class="mx-auto grid w-full max-w-[420px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @can('kategori.manage')
                                                 <div class="contents">
                                                     <flux:button

@@ -819,5 +819,14 @@
     "Update order details, items, payment, and kitchen status.": "Perbarui detail pesanan, item, pembayaran, dan status dapur.",
     "Update profile and access for this user.": "Perbarui profil dan akses untuk user ini.",
     "Use a clear tax name, e.g. Restaurant Tax 10%.": "Gunakan nama pajak yang jelas, contoh Pajak Restoran 10%.",
-    "Created when saved": "Dibuat saat disimpan"
+    "Created when saved": "Dibuat saat disimpan",
+    "Run your restaurant from one simple dashboard.": "Kelola restoran Anda dari satu dasbor sederhana.",
+    "Manage QR orders, tables, kitchen display, payments, and sales reports for Warung Baleganjur.": "Atur pesanan QR, meja, kitchen display, pembayaran, dan laporan penjualan untuk Warung Baleganjur.",
+    "Edit Waiting List": "Ubah Daftar Tunggu",
+    "Update waiting list details and pre-ordered items.": "Perbarui detail daftar tunggu dan item pesanan awal.",
+    "Waiting list updated successfully.": "Daftar tunggu berhasil diperbarui.",
+    "Queued At": "Masuk Antrean",
+    "Download PDF": "Unduh PDF",
+    "Waiting List QR": "QR Daftar Tunggu",
+    "Scan to open customer waiting list page": "Pindai untuk membuka halaman daftar tunggu pelanggan"
 }

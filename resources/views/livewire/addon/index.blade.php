@@ -259,7 +259,7 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="flex-1 btn-ghost-accent"
+                                    class="btn-ghost-accent flex-1 rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleStatus({{ $addon->id }})"
                                 >
                                     {{ $isAvailable ? __('Out of stock') : __('Available') }}
@@ -269,7 +269,7 @@ new class extends Component {
                                         size="sm"
                                         icon="pencil-square"
                                         variant="primary"
-                                        class="w-full btn-accent rounded-2xl shadow-sm transition"
+                                        class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     >
                                         {{ __('Edit') }}
                                     </flux:button>
@@ -281,7 +281,7 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full rounded-2xl shadow-sm transition"
+                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $addon->id }})"
                                     >
                                         {{ __('Delete') }}
@@ -326,7 +326,7 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $isAvailable ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="w-full btn-ghost-accent"
+                                    class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleStatus({{ $addon->id }})"
                                 >
                                     {{ $isAvailable ? __('Out of stock') : __('Available') }}
@@ -336,7 +336,7 @@ new class extends Component {
                                         size="sm"
                                         icon="pencil-square"
                                         variant="primary"
-                                        class="w-full btn-accent rounded-2xl shadow-sm transition"
+                                        class="btn-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     >
                                         {{ __('Edit') }}
                                     </flux:button>
@@ -348,7 +348,7 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full rounded-2xl shadow-sm transition"
+                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $addon->id }})"
                                     >
                                         {{ __('Delete') }}
@@ -406,7 +406,7 @@ new class extends Component {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 align-middle text-center">
-                                        <div class="mx-auto grid w-full max-w-[280px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                        <div class="mx-auto grid w-full max-w-[420px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                                             @can('addon.manage')
                                                 <div class="contents">
                                                     <flux:button
