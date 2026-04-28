@@ -7,9 +7,11 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\LoginResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Fortify;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
@@ -30,6 +32,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->configureActions();
         $this->configureViews();
+        $this->configureAuthentication();
         $this->configureRateLimiting();
     }
 
@@ -54,6 +57,30 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::registerView(fn () => view('livewire.auth.register'));
         Fortify::resetPasswordView(fn () => view('livewire.auth.reset-password'));
         Fortify::requestPasswordResetLinkView(fn () => view('livewire.auth.forgot-password'));
+    }
+
+    /**
+     * Configure user authentication.
+     */
+    private function configureAuthentication(): void
+    {
+        Fortify::authenticateUsing(function (Request $request) {
+            $user = \App\Models\User::query()
+                ->where('email', $request->input(Fortify::username()))
+                ->first();
+
+            if (!$user || !Hash::check((string) $request->input('password'), $user->password)) {
+                return null;
+            }
+
+            if (!$user->is_active) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => __('This account is inactive. Please contact an administrator.'),
+                ]);
+            }
+
+            return $user;
+        });
     }
 
     /**

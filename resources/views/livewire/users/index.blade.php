@@ -13,20 +13,43 @@ new class extends Component {
     public ?int $confirmingDeleteId = null;
     public string $search = '';
     public string $roleFilter = 'all';
+    public string $statusFilter = 'all';
 
     protected $queryString = [
         'search' => ['except' => ''],
         'roleFilter' => ['except' => 'all'],
+        'statusFilter' => ['except' => 'all'],
         'page' => ['except' => 1],
     ];
 
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingRoleFilter(): void { $this->resetPage(); }
+    public function updatingStatusFilter(): void { $this->resetPage(); }
 
     public function confirmDelete(int $id): void
     {
         $this->authorizeManage();
         $this->confirmingDeleteId = $id;
+    }
+
+    public function toggleActive(int $id): void
+    {
+        $this->authorizeManage();
+        abort_unless(auth()->check(), 403);
+
+        if ((int) auth()->id() === $id) {
+            $this->dispatch('users-toast', message: __('You cannot deactivate your own account.'));
+            return;
+        }
+
+        $user = User::query()->select(['id', 'is_active'])->findOrFail($id);
+        $user->forceFill(['is_active' => !$user->is_active])->save();
+
+        Cache::forget('admin:users:stats:v1');
+
+        $this->dispatch('users-toast', message: $user->is_active
+            ? __('User activated successfully.')
+            : __('User deactivated successfully.'));
     }
 
     public function delete(): void
@@ -67,6 +90,8 @@ new class extends Component {
 
         $stats = Cache::remember('admin:users:stats:v1', 10, fn () => [
             'total' => User::query()->count(),
+            'active' => User::query()->where('is_active', true)->count(),
+            'inactive' => User::query()->where('is_active', false)->count(),
             'role_counts' => DB::table('model_has_roles')
                 ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
                 ->where('model_has_roles.model_type', User::class)
@@ -78,10 +103,12 @@ new class extends Component {
         ]);
 
         $totalCount = (int) ($stats['total'] ?? 0);
+        $activeCount = (int) ($stats['active'] ?? 0);
+        $inactiveCount = (int) ($stats['inactive'] ?? 0);
         $roleCounts = collect($stats['role_counts'] ?? []);
 
         $query = User::query()
-            ->select(['id', 'name', 'email'])
+            ->select(['id', 'name', 'email', 'is_active'])
             ->with(['roles:id,name']);
 
         if (!empty($search)) {
@@ -97,6 +124,12 @@ new class extends Component {
             } else {
                 $query->whereHas('roles', fn ($q) => $q->where('name', $roleFilter));
             }
+        }
+
+        if ($statusFilter === 'active') {
+            $query->where('is_active', true);
+        } elseif ($statusFilter === 'inactive') {
+            $query->where('is_active', false);
         }
 
         $items = $query->orderBy('name')->paginate(10);
@@ -121,6 +154,20 @@ new class extends Component {
                     <span class="font-semibold text-neutral-900 dark:text-white">{{ $totalCount }}</span>
                     <span class="text-neutral-500 dark:text-neutral-400">{{ __('Users') }}</span>
                 </div>
+                <div class="whitespace-nowrap rounded-full border border-neutral-200/70 bg-white/85 px-3 py-2 text-[11px] shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/70">
+                    <span class="inline-flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                        <span class="text-neutral-600 dark:text-neutral-300">{{ __('Active') }}</span>
+                        <span class="font-semibold text-neutral-900 dark:text-white">{{ $activeCount }}</span>
+                    </span>
+                </div>
+                <div class="whitespace-nowrap rounded-full border border-neutral-200/70 bg-white/85 px-3 py-2 text-[11px] shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/70">
+                    <span class="inline-flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
+                        <span class="text-neutral-600 dark:text-neutral-300">{{ __('Inactive') }}</span>
+                        <span class="font-semibold text-neutral-900 dark:text-white">{{ $inactiveCount }}</span>
+                    </span>
+                </div>
                 @foreach ($roles as $role)
                     <div class="whitespace-nowrap rounded-full border border-neutral-200/70 bg-white/85 px-3 py-2 text-[11px] shadow-sm dark:border-neutral-700/60 dark:bg-neutral-900/70">
                         <span class="inline-flex items-center gap-2">
@@ -143,7 +190,31 @@ new class extends Component {
                 </div>
             </div>
 
-            @foreach ($roles->take(3) as $role)
+            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
+                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    <span>{{ __('Active') }}</span>
+                </div>
+                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $activeCount }}</span>
+                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Users') }}</span>
+                </div>
+                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Can access the system') }}</p>
+            </div>
+
+            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
+                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
+                    <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
+                    <span>{{ __('Inactive') }}</span>
+                </div>
+                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $inactiveCount }}</span>
+                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Users') }}</span>
+                </div>
+                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Kept for history without access') }}</p>
+            </div>
+
+            @foreach ($roles->take(1) as $role)
                 <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
                     <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
                         <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -165,16 +236,24 @@ new class extends Component {
             </div>
             <div class="flex items-center gap-2 min-w-0 sm:justify-end">
                 <flux:select
+                    wire:model.live="statusFilter"
+                    class="flex-1 min-w-0 sm:flex-none sm:w-44 rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
+                >
+                    <option value="all">{{ __('All Status') }}</option>
+                    <option value="active">{{ __('Active') }}</option>
+                    <option value="inactive">{{ __('Inactive') }}</option>
+                </flux:select>
+                <flux:select
                     wire:model.live="roleFilter"
                     class="flex-1 min-w-0 sm:flex-none sm:w-44 rounded-full border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--brand-accent)] focus:ring-offset-2 focus:ring-offset-[color:var(--brand-accent-foreground)]"
                 >
-                    <option value="all">{{ __('All') }}</option>
+                    <option value="all">{{ __('All Role') }}</option>
                     <option value="none">{{ __('No role') }}</option>
                     @foreach ($roles as $role)
                         <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
                     @endforeach
                 </flux:select>
-                <flux:button size="sm" variant="ghost" class="btn-ghost-accent whitespace-nowrap shrink-0" wire:click="$wire.set('search','');$wire.set('roleFilter','all')">{{ __('Clear') }}</flux:button>
+                <flux:button size="sm" variant="ghost" class="btn-ghost-accent whitespace-nowrap shrink-0" wire:click="$wire.set('search','');$wire.set('roleFilter','all');$wire.set('statusFilter','all')">{{ __('Clear') }}</flux:button>
             </div>
         </div>
 
@@ -208,14 +287,38 @@ new class extends Component {
                             @endif
                         </div>
 
-                        <div class="mt-4 flex items-center gap-2">
+                        <div class="mt-3">
+                            @if ($user->is_active)
+                                <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-100 dark:ring-emerald-800/60">
+                                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                    {{ __('Active') }}
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-semibold text-neutral-600 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-200 dark:ring-neutral-700">
+                                    <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
+                                    {{ __('Inactive') }}
+                                </span>
+                            @endif
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-2">
                             @can('users.manage')
-                                <flux:link class="flex-1" :href="route('users.edit', $user, false)" wire:navigate>
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $user->is_active ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="btn-ghost-accent w-full justify-center"
+                                    wire:click="toggleActive({{ $user->id }})"
+                                    :disabled="auth()->id() === $user->id"
+                                >
+                                    {{ $user->is_active ? __('Deactivate') : __('Activate') }}
+                                </flux:button>
+                                <flux:link :href="route('users.edit', $user, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">
                                         {{ __('Edit') }}
                                     </flux:button>
                                 </flux:link>
-                                <flux:modal.trigger name="confirm-delete-user" class="flex-1">
+                                <flux:modal.trigger name="confirm-delete-user" class="col-span-2">
                                     <flux:button
                                         size="sm"
                                         icon="trash"
@@ -271,14 +374,38 @@ new class extends Component {
                             @endif
                         </div>
 
+                        <div class="mt-3">
+                            @if ($user->is_active)
+                                <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-100 dark:ring-emerald-800/60">
+                                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                    {{ __('Active') }}
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-semibold text-neutral-600 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-200 dark:ring-neutral-700">
+                                    <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
+                                    {{ __('Inactive') }}
+                                </span>
+                            @endif
+                        </div>
+
                         @can('users.manage')
                             <div class="mt-4 grid grid-cols-2 gap-2">
+                                <flux:button
+                                    size="sm"
+                                    icon="{{ $user->is_active ? 'pause-circle' : 'check-circle' }}"
+                                    variant="ghost"
+                                    class="btn-ghost-accent w-full justify-center"
+                                    wire:click="toggleActive({{ $user->id }})"
+                                    :disabled="auth()->id() === $user->id"
+                                >
+                                    {{ $user->is_active ? __('Deactivate') : __('Activate') }}
+                                </flux:button>
                                 <flux:link :href="route('users.edit', $user, false)" wire:navigate>
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">
                                         {{ __('Edit') }}
                                     </flux:button>
                                 </flux:link>
-                                <flux:modal.trigger name="confirm-delete-user-desktop">
+                                <flux:modal.trigger name="confirm-delete-user-desktop" class="col-span-2">
                                     <flux:button
                                         size="sm"
                                         icon="trash"
@@ -311,10 +438,11 @@ new class extends Component {
                     <table class="min-w-full table-fixed text-sm">
                         <thead>
                             <tr>
-                                <th class="w-[24%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="w-[30%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Email') }}</th>
-                                <th class="w-[24%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Role') }}</th>
-                                <th class="w-[22%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
+                                <th class="w-[19%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Name') }}</th>
+                                <th class="w-[23%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Email') }}</th>
+                                <th class="w-[17%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Role') }}</th>
+                                <th class="w-[13%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
+                                <th class="w-[28%] border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
@@ -348,9 +476,33 @@ new class extends Component {
                                             </span>
                                         @endif
                                     </td>
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
+                                        @if ($user->is_active)
+                                            <span class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-100 dark:ring-emerald-800/60">
+                                                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                                {{ __('Active') }}
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-[11px] font-semibold text-neutral-600 ring-1 ring-neutral-200 dark:bg-neutral-800/60 dark:text-neutral-200 dark:ring-neutral-700">
+                                                <span class="h-2 w-2 rounded-full bg-neutral-400"></span>
+                                                {{ __('Inactive') }}
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td class="px-6 py-4 align-middle text-center">
-                                        <div class="mx-auto grid w-full max-w-[220px] grid-cols-1 gap-2 xl:grid-cols-2">
+                                        <div class="mx-auto grid w-full min-w-[340px] max-w-[460px] grid-cols-3 gap-2">
                                             @can('users.manage')
+                                                <flux:button
+                                                    size="sm"
+                                                    icon="{{ $user->is_active ? 'pause-circle' : 'check-circle' }}"
+                                                    variant="ghost"
+                                                    class="btn-ghost-accent w-full rounded-2xl shadow-sm transition justify-center"
+                                                    wire:click="toggleActive({{ $user->id }})"
+                                                    :disabled="auth()->id() === $user->id"
+                                                    title="{{ $user->is_active ? __('Deactivate') : __('Activate') }}"
+                                                >
+                                                    {{ $user->is_active ? __('Deactivate') : __('Activate') }}
+                                                </flux:button>
                                                 <flux:link :href="route('users.edit', $user, false)" wire:navigate>
                                                     <flux:button
                                                         size="sm"
@@ -379,7 +531,7 @@ new class extends Component {
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                                    <td colspan="5" class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
                                         {{ __('No users found.') }}
                                     </td>
                                 </tr>

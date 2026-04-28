@@ -65,6 +65,8 @@ new class extends Component {
         $menu->addons()->sync($addonIds);
 
         Cache::forget('customer:menus_available:v1');
+        Cache::forget('customer:menus_orderable_display:v1');
+        Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
         Cache::forget('admin:menu:stats:v1');
 
         session()->flash('menu_toast', __('Menu created successfully.'));

@@ -438,6 +438,37 @@ Route::get('waiting-list/qr/pdf', function (\Illuminate\Http\Request $request) {
     ]);
 })->name('customer.waiting-list.qr.pdf');
 
+Route::get('waiting-list/{meja}/menu-updates', function (\Illuminate\Http\Request $request, \App\Models\Meja $meja) {
+    abort_if($meja->status === 'nonaktif', 404);
+
+    $version = (int) Cache::get('customer:menu_version', 1);
+    $clientVersion = (int) $request->query('version', 0);
+
+    if ($clientVersion === $version) {
+        return response()->json([
+            'version' => $version,
+            'changed' => false,
+            'menus' => [],
+        ]);
+    }
+
+    $menus = \App\Models\Menu::query()
+        ->whereIn('status', ['tersedia', 'habis'])
+        ->orderBy('id')
+        ->get(['id', 'status'])
+        ->map(fn ($menu) => [
+            'id' => (int) $menu->id,
+            'available' => $menu->status === 'tersedia',
+        ])
+        ->values();
+
+    return response()->json([
+        'version' => $version,
+        'changed' => true,
+        'menus' => $menus,
+    ]);
+})->name('customer.waiting-list.menu-updates');
+
 Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
     abort_if($meja->status === 'nonaktif', 404);
 
@@ -448,7 +479,7 @@ Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
             ->get(['id', 'nama_kategori', 'nama_kategori_en']);
     });
 
-    $menus = Cache::remember('customer:menus_available:v1', 900, function () {
+    $menus = Cache::remember('customer:menus_orderable_display:v1', 900, function () {
         return \App\Models\Menu::query()
             ->with([
                 'kategori:id,nama_kategori,nama_kategori_en',
@@ -456,7 +487,7 @@ Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
                     $q->where('status', 'tersedia')->orderBy('nama_addon');
                 },
             ])
-            ->where('status', 'tersedia')
+            ->whereIn('status', ['tersedia', 'habis'])
             ->orderBy('kategori_id')
             ->orderBy('nama_menu')
             ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
@@ -474,6 +505,8 @@ Route::get('waiting-list/{meja}', function (\App\Models\Meja $meja) {
         'categories' => $categories,
         'menus' => $menus,
         'checkoutUrl' => route('customer.waiting-list.checkout', ['meja' => $meja->id]),
+        'menuUpdatesUrl' => route('customer.waiting-list.menu-updates', ['meja' => $meja->id]),
+        'menuVersion' => (int) Cache::get('customer:menu_version', 1),
     ]);
 })->name('customer.waiting-list.order');
 
@@ -847,6 +880,45 @@ Route::get('{token}/cart', function (\Illuminate\Http\Request $request, string $
 })
     ->where('token', '[A-Za-z0-9]{10}')
     ->name('customer.cart');
+
+Route::get('{token}/menu-updates', function (\Illuminate\Http\Request $request, string $token) {
+    $token = \Illuminate\Support\Str::upper($token);
+
+    \App\Models\Meja::query()
+        ->select(['id'])
+        ->where('qr_token', $token)
+        ->where('status', '!=', 'nonaktif')
+        ->firstOrFail();
+
+    $version = (int) Cache::get('customer:menu_version', 1);
+    $clientVersion = (int) $request->query('version', 0);
+
+    if ($clientVersion === $version) {
+        return response()->json([
+            'version' => $version,
+            'changed' => false,
+            'menus' => [],
+        ]);
+    }
+
+    $menus = \App\Models\Menu::query()
+        ->whereIn('status', ['tersedia', 'habis'])
+        ->orderBy('id')
+        ->get(['id', 'status'])
+        ->map(fn ($menu) => [
+            'id' => (int) $menu->id,
+            'available' => $menu->status === 'tersedia',
+        ])
+        ->values();
+
+    return response()->json([
+        'version' => $version,
+        'changed' => true,
+        'menus' => $menus,
+    ]);
+})
+    ->where('token', '[A-Za-z0-9]{10}')
+    ->name('customer.menu-updates');
 
 Route::get('{token}/checkout', function (\Illuminate\Http\Request $request, string $token) {
     $token = \Illuminate\Support\Str::upper($token);
@@ -1700,7 +1772,7 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
             ->get(['id', 'nama_kategori', 'nama_kategori_en']);
     });
 
-    $menus = Cache::remember('customer:menus_available:v1', 900, function () {
+    $menus = Cache::remember('customer:menus_orderable_display:v1', 900, function () {
         return \App\Models\Menu::query()
             ->with([
                 'kategori:id,nama_kategori,nama_kategori_en',
@@ -1708,7 +1780,7 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
                     $q->where('status', 'tersedia')->orderBy('nama_addon');
                 },
             ])
-            ->where('status', 'tersedia')
+            ->whereIn('status', ['tersedia', 'habis'])
             ->orderBy('kategori_id')
             ->orderBy('nama_menu')
             ->get(['id', 'kategori_id', 'nama_menu', 'nama_menu_en', 'deskripsi', 'deskripsi_en', 'harga', 'gambar', 'status']);
@@ -1773,6 +1845,8 @@ Route::get('{token}', function (\Illuminate\Http\Request $request, string $token
         'checkoutUrl' => $editMode
             ? route('customer.checkout', ['token' => $token, 'edit' => 1, 'order' => $order?->id, 'status_token' => $editStatusToken])
             : null,
+        'menuUpdatesUrl' => route('customer.menu-updates', ['token' => $token]),
+        'menuVersion' => (int) Cache::get('customer:menu_version', 1),
     ]);
 })
     ->where('token', '[A-Za-z0-9]{10}')

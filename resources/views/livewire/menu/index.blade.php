@@ -43,6 +43,8 @@ new class extends Component {
         $menu->forceFill(['status' => $nextStatus])->save();
 
         Cache::forget('customer:menus_available:v1');
+        Cache::forget('customer:menus_orderable_display:v1');
+        Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
         Cache::forget('admin:menu:stats:v1');
 
         $this->dispatch('menu-toast', message: $nextStatus === 'habis'
@@ -74,6 +76,8 @@ new class extends Component {
 
             Menu::where('id', $this->confirmingDeleteId)->delete();
             Cache::forget('customer:menus_available:v1');
+            Cache::forget('customer:menus_orderable_display:v1');
+            Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
             Cache::forget('admin:menu:stats:v1');
             $this->confirmingDeleteId = null;
             $this->dispatch('modal-close', name: 'confirm-delete-menu');

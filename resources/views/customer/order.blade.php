@@ -6,6 +6,7 @@
         $menuPricingIndex = $menus
             ->map(fn ($m) => [
                 'id' => (int) $m->id,
+                'available' => $m->status === 'tersedia',
                 'price' => (float) $m->harga,
                 'addons' => $m->addons
                     ->map(fn ($a) => [
@@ -21,6 +22,7 @@
         $menuCartIndex = $menus
             ->map(fn ($m) => [
                 'id' => (int) $m->id,
+                'available' => $m->status === 'tersedia',
                 'name' => (string) $m->nama_menu_localized,
                 'price' => (float) $m->harga,
                 'addons' => $m->addons
@@ -36,7 +38,14 @@
             ->all();
     @endphp
 
-    <div class="space-y-6" data-table-token="{{ $token }}" data-add-mode="{{ !empty($addMode) ? '1' : '0' }}" data-edit-mode="{{ !empty($editMode) ? '1' : '0' }}">
+    <div
+        class="space-y-6"
+        data-table-token="{{ $token }}"
+        data-add-mode="{{ !empty($addMode) ? '1' : '0' }}"
+        data-edit-mode="{{ !empty($editMode) ? '1' : '0' }}"
+        data-menu-updates-url="{{ $menuUpdatesUrl ?? '' }}"
+        data-menu-version="{{ $menuVersion ?? 1 }}"
+    >
         <header class="sticky top-0 z-30 -mx-4 space-y-4 border-b border-neutral-200/70 bg-white/80 px-4 pb-2 pt-4 shadow-sm backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/60">
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
@@ -163,17 +172,19 @@
                             @php
                                 $menuName = (string) $m->nama_menu_localized;
                                 $menuDesc = (string) ($m->deskripsi_localized ?? '');
+                                $isAvailable = $m->status === 'tersedia';
                             @endphp
                             <div
-                                class="customer-card-depth flex items-start gap-4 rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur transition-colors dark:border-neutral-800/70 dark:bg-neutral-900/40"
+                                class="customer-card-depth flex items-start gap-4 rounded-3xl border border-neutral-200/70 bg-white/70 p-4 shadow-sm backdrop-blur transition-colors dark:border-neutral-800/70 dark:bg-neutral-900/40 {{ $isAvailable ? '' : 'opacity-75' }}"
                                 data-menu-group="cat-{{ (int) $kategoriId }}"
                                 data-menu-card
                                 data-menu-id="{{ $m->id }}"
+                                data-menu-available="{{ $isAvailable ? '1' : '0' }}"
                                 data-menu-name="{{ $menuName }}"
                                 data-menu-price="{{ (float) $m->harga }}"
                                 data-menu-search="{{ \Illuminate\Support\Str::lower(trim($menuName . ' ' . $menuDesc)) }}"
                             >
-                                <div class="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
+                                <div class="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-neutral-100 ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
                                     @if (!empty($m->gambar))
                                         @php
                                             $img = (string) $m->gambar;
@@ -198,7 +209,8 @@
                                                 srcset="{{ $thumb160 }} 160w, {{ $thumb320 }} 320w, {{ $thumb480 }} 480w, {{ $thumb640 }} 640w"
                                                 sizes="80px"
                                             @endif
-                                            class="h-full w-full object-cover"
+                                            class="{{ $isAvailable ? 'h-full w-full object-cover' : 'h-full w-full object-cover grayscale opacity-60' }}"
+                                            data-menu-image-media
                                             width="80"
                                             height="80"
                                             loading="lazy"
@@ -206,13 +218,19 @@
                                             fetchpriority="low"
                                         />
                                     @else
-                                        <div class="h-full w-full bg-linear-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900"></div>
+                                        <div data-menu-image-media class="h-full w-full bg-linear-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900 {{ $isAvailable ? '' : 'grayscale opacity-60' }}"></div>
                                     @endif
+                                    <div data-menu-out-overlay class="{{ $isAvailable ? 'hidden' : '' }} absolute inset-0 bg-white/25 dark:bg-black/20"></div>
                                 </div>
 
                                 <div class="min-w-0 flex-1">
-                                    <div class="line-clamp-1 text-base font-semibold text-neutral-900 dark:text-white">
-                                        {{ $menuName }}
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="line-clamp-1 text-base font-semibold text-neutral-900 dark:text-white">
+                                            {{ $menuName }}
+                                        </div>
+                                        <span data-menu-out-badge class="{{ $isAvailable ? 'hidden' : '' }} shrink-0 rounded-full bg-red-50 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-red-700 ring-1 ring-red-100 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-800/60">
+                                            {{ __('Out of stock') }}
+                                        </span>
                                     </div>
                                     @if (!empty($menuDesc))
                                         <div class="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500 dark:text-neutral-400">
@@ -238,6 +256,7 @@
                                                     class="mt-1 hidden items-center gap-1 text-xs font-semibold text-[var(--brand-primary)] hover:opacity-90"
                                                     data-action="customize"
                                                     aria-label="{{ __('Customize') }}"
+                                                    @disabled(! $isAvailable)
                                                 >
                                                     {{ __('Customize') }}
                                                 </button>
@@ -245,14 +264,25 @@
                                         </div>
 
                                         <div class="shrink-0 flex w-[8.5rem] justify-end" data-menu-actions>
-                                            <button
-                                                type="button"
-                                                class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-white shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] dark:text-black"
-                                                data-action="add"
-                                                aria-label="{{ __('Add') }}"
-                                            >
-                                                <span class="text-2xl font-bold">+</span>
-                                            </button>
+                                            @if ($isAvailable)
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-white shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] dark:text-black"
+                                                    data-action="add"
+                                                    aria-label="{{ __('Add') }}"
+                                                >
+                                                    <span class="text-2xl font-bold">+</span>
+                                                </button>
+                                            @else
+                                                <button
+                                                    type="button"
+                                                    class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200/70 bg-neutral-100/80 text-neutral-400 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/50 dark:text-neutral-500"
+                                                    disabled
+                                                    aria-label="{{ __('Out of stock') }}"
+                                                >
+                                                    <span class="text-2xl font-bold">+</span>
+                                                </button>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -401,6 +431,8 @@
             const token = root?.dataset.tableToken || ''
             const addMode = root?.dataset.addMode === '1'
             const editMode = root?.dataset.editMode === '1'
+            const menuUpdatesUrl = root?.dataset.menuUpdatesUrl || ''
+            let menuVersion = Number(root?.dataset.menuVersion || 1)
 
             const storageKey = token ? `customerCart:${token}` : 'customerCart'
             const cartBar = document.getElementById('cartBar')
@@ -464,6 +496,7 @@
                         if (!id) continue
                         map.set(id, {
                             id,
+                            available: m.available !== false,
                             name: String(m.name || ''),
                             price: Number(m.price || 0),
                             addons: Array.isArray(m.addons) ? m.addons.map(a => ({
@@ -664,6 +697,7 @@
                         const id = String(m.id ?? '')
                         if (!id) continue
                         map.set(id, {
+                            available: m.available !== false,
                             price: Number(m.price || 0),
                             addons: Array.isArray(m.addons) ? m.addons.map(a => ({
                                 id: String(a.id ?? ''),
@@ -853,6 +887,7 @@
                     if (!id) continue
                     index.set(id, {
                         id,
+                        available: card.dataset.menuAvailable !== '0',
                         name: card.dataset.menuName || '',
                         price: Number(card.dataset.menuPrice || 0),
                         card,
@@ -865,6 +900,22 @@
                 const host = menu.card.querySelector('[data-menu-actions]')
                 if (!host) return
                 const customizeBtn = menu.card.querySelector('[data-action="customize"]')
+                const available = menu.available !== false
+
+                if (!available) {
+                    menu.card.classList.remove('customer-menu-card--selected', 'shadow-md')
+                    customizeBtn?.classList.add('hidden')
+                    customizeBtn?.setAttribute('disabled', 'disabled')
+                    host.innerHTML = `
+                        <button type="button"
+                            class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-neutral-200/70 bg-neutral-100/80 text-neutral-400 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900/50 dark:text-neutral-500"
+                            disabled
+                            aria-label="{{ __('Out of stock') }}">
+                            <span class="text-2xl font-bold">+</span>
+                        </button>
+                    `
+                    return
+                }
 
                 // Selected state (border primary)
                 menu.card.classList.toggle('customer-menu-card--selected', qty > 0)
@@ -907,6 +958,35 @@
                 `
             }
 
+            const applyMenuAvailability = (menuId, available) => {
+                const id = String(menuId || '')
+                if (!id) return false
+
+                const card = document.querySelector(`[data-menu-card][data-menu-id="${CSS.escape(id)}"]`)
+                if (!card) return false
+
+                const isAvailable = available === true
+                card.dataset.menuAvailable = isAvailable ? '1' : '0'
+                card.classList.toggle('opacity-75', !isAvailable)
+
+                card.querySelectorAll('[data-menu-image-media]').forEach((el) => {
+                    el.classList.toggle('grayscale', !isAvailable)
+                    el.classList.toggle('opacity-60', !isAvailable)
+                })
+
+                card.querySelectorAll('[data-menu-out-overlay], [data-menu-out-badge]').forEach((el) => {
+                    el.classList.toggle('hidden', isAvailable)
+                })
+
+                const cartEntry = cartMenuMap.get(id)
+                if (cartEntry) cartEntry.available = isAvailable
+
+                const priceEntry = pricingMap.get(id)
+                if (priceEntry) priceEntry.available = isAvailable
+
+                return true
+            }
+
             const recompute = () => {
                 const cart = readCart()
                 const menuIndex = getMenuIndex()
@@ -919,7 +999,7 @@
                     const parsed = parseKey(key, Array.isArray(row?.addons) ? row.addons : null)
                     const menuId = String(parsed.menuId || '')
                     const menu = menuIndex.get(menuId)
-                    if (!menu) continue
+                    if (!menu || menu.available === false) continue
 
                     const pricing = pricingMap.get(menuId)
                     const base = Number(pricing?.price ?? menu.price ?? 0)
@@ -938,7 +1018,8 @@
                     const q = Math.max(Number(row?.qty || 0), 0)
                     const parsed = parseKey(oldKey, Array.isArray(row?.addons) ? row.addons : null)
                     const menuId = String(parsed.menuId || '')
-                    if (q <= 0 || !menuIndex.has(menuId)) {
+                    const indexedMenu = menuIndex.get(menuId)
+                    if (q <= 0 || !indexedMenu || indexedMenu.available === false) {
                         delete cart[oldKey]
                         continue
                     }
@@ -1133,6 +1214,7 @@
                     const card = btn.closest('[data-menu-card]')
                     const id = String(card?.dataset.menuId || '')
                     if (!id) return
+                    if (card?.dataset.menuAvailable === '0') return
                     const action = btn.dataset.action
                     const hasAddons = (cartMenuMap.get(id)?.addons || []).length > 0
 
@@ -1214,6 +1296,78 @@
             seedEditCart()
             seedBaseline()
             recompute()
+
+            let menuPollTimer = null
+            let menuPollStopped = false
+            let menuPollInflight = false
+            const MENU_POLL_MS = 2000
+
+            const stopMenuPolling = () => {
+                menuPollStopped = true
+                if (menuPollTimer) window.clearTimeout(menuPollTimer)
+                menuPollTimer = null
+            }
+
+            const scheduleMenuPolling = () => {
+                if (menuPollStopped || !menuUpdatesUrl) return
+                if (menuPollTimer) window.clearTimeout(menuPollTimer)
+                menuPollTimer = window.setTimeout(pollMenuUpdates, MENU_POLL_MS)
+            }
+
+            const pollMenuUpdates = async () => {
+                if (!menuUpdatesUrl || menuPollStopped) return
+                if (document.hidden) {
+                    scheduleMenuPolling()
+                    return
+                }
+                if (menuPollInflight) {
+                    scheduleMenuPolling()
+                    return
+                }
+
+                menuPollInflight = true
+
+                try {
+                    const url = new URL(menuUpdatesUrl, window.location.origin)
+                    url.searchParams.set('version', String(menuVersion || 0))
+
+                    const response = await fetch(url.toString(), {
+                        headers: { Accept: 'application/json' },
+                        cache: 'no-store',
+                    })
+
+                    if (!response.ok) return
+
+                    const data = await response.json()
+                    const nextVersion = Number(data?.version || menuVersion || 1)
+
+                    if (nextVersion === menuVersion || data?.changed === false) {
+                        menuVersion = nextVersion
+                        return
+                    }
+
+                    let touched = false
+                    for (const menu of Array.isArray(data?.menus) ? data.menus : []) {
+                        touched = applyMenuAvailability(menu?.id, menu?.available === true) || touched
+                    }
+
+                    menuVersion = nextVersion
+                    if (root) root.dataset.menuVersion = String(menuVersion)
+                    if (touched) recompute()
+                } catch (_) {
+                } finally {
+                    menuPollInflight = false
+                    scheduleMenuPolling()
+                }
+            }
+
+            if (menuUpdatesUrl) {
+                pollMenuUpdates()
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) pollMenuUpdates()
+                })
+                window.addEventListener('beforeunload', () => stopMenuPolling())
+            }
 
             // Search (debounced 2s)
             const searchToggle = document.getElementById('searchToggle')
