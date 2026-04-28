@@ -10,6 +10,7 @@ class Pajak extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'nama',
         'persentase',
         'is_active',
@@ -19,5 +20,9 @@ class Pajak extends Model
         'persentase' => 'decimal:2',
         'is_active' => 'boolean',
     ];
-}
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}

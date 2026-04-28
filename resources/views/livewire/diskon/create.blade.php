@@ -28,6 +28,7 @@ new class extends Component {
         ])->validate();
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
+        $validated['user_id'] = auth()->id();
 
         Diskon::create($validated);
         Cache::forget('admin:diskon:stats:v1');

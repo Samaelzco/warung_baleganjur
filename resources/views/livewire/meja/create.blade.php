@@ -43,6 +43,8 @@ new class extends Component {
             'kapasitas' => ['required', 'integer', 'min:1', 'max:99'],
         ])->validate();
 
+        $validated['user_id'] = auth()->id();
+
         Meja::create($validated);
         Cache::forget('admin:meja:stats:v1');
 

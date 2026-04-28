@@ -10,6 +10,7 @@ class Diskon extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'kode',
         'tipe',
         'nilai',
@@ -26,5 +27,9 @@ class Diskon extends Model
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
     ];
-}
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+}

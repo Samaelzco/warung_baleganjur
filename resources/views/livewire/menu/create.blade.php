@@ -61,6 +61,8 @@ new class extends Component {
             unset($validated['gambar']);
         }
 
+        $validated['user_id'] = auth()->id();
+
         $menu = Menu::create($validated);
         $menu->addons()->sync($addonIds);
 

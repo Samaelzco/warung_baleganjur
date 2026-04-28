@@ -21,6 +21,8 @@ new class extends Component {
             'status' => ['required', 'in:tersedia,habis'],
         ])->validate();
 
+        $validated['user_id'] = auth()->id();
+
         Addon::create($validated);
         Cache::forget('customer:menus_available:v1');
         Cache::forget('admin:addon:stats:v1');

@@ -20,6 +20,7 @@ new class extends Component {
         ])->validate();
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
+        $validated['user_id'] = auth()->id();
 
         Pajak::create($validated);
         Cache::forget('admin:pajak:stats:v1');

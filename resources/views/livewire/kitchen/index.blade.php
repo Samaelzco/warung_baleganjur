@@ -70,7 +70,7 @@ new class extends Component {
             return;
         }
 
-        $pesanan = Pesanan::query()->select(['id', 'status'])->whereKey($id)->firstOrFail();
+        $pesanan = Pesanan::query()->select(['id', 'status', 'chef_id'])->whereKey($id)->firstOrFail();
 
         $allowedTargets = match ($pesanan->status) {
             'menunggu' => ['diproses'],
@@ -83,7 +83,13 @@ new class extends Component {
             return;
         }
 
-        $pesanan->update(['status' => $toStatus]);
+        $payload = ['status' => $toStatus];
+
+        if ($toStatus === 'diproses' && blank($pesanan->chef_id)) {
+            $payload['chef_id'] = auth()->id();
+        }
+
+        $pesanan->update($payload);
         Cache::forget('kitchen:status_counts');
     }
 

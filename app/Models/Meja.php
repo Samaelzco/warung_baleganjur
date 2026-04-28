@@ -10,6 +10,7 @@ class Meja extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'nomor_meja',
         'qr_token',
         'status',
@@ -19,4 +20,9 @@ class Meja extends Model
     protected $casts = [
         'kapasitas' => 'integer',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

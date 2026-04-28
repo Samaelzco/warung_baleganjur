@@ -10,6 +10,7 @@ class Addon extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'nama_addon',
         'nama_addon_en',
         'harga',
@@ -34,5 +35,10 @@ class Addon extends Model
     public function menus()
     {
         return $this->belongsToMany(Menu::class, 'addon_menu');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }
