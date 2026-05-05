@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" modified="2026-05-01T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="class-diagram-warung-baleganjur" name="Class Diagram">
+    <mxGraphModel dx="2400" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Class Diagram Warung Baleganjur" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="540" y="30" width="720" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="&lt;b&gt;User&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+name: string&lt;br&gt;+email: string&lt;br&gt;+password: string&lt;br&gt;+is_active: boolean&lt;hr&gt;+initials(): string&lt;br&gt;+roles()" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="60" y="130" width="210" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="role" value="&lt;b&gt;Role&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+name: string&lt;br&gt;+guard_name: string&lt;hr&gt;+permissions()" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="60" y="390" width="210" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="permission" value="&lt;b&gt;Permission&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+name: string&lt;br&gt;+guard_name: string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="60" y="610" width="210" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="meja" value="&lt;b&gt;Meja&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+nomor_meja: string&lt;br&gt;+qr_token: string&lt;br&gt;+status: string&lt;br&gt;+kapasitas: integer" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="360" y="120" width="230" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="kategori" value="&lt;b&gt;KategoriMenu&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+nama_kategori: string&lt;br&gt;+nama_kategori_en: string&lt;br&gt;+deskripsi: text&lt;br&gt;+is_active: boolean&lt;hr&gt;+nama_kategori_localized(): string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="680" y="120" width="270" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="menu" value="&lt;b&gt;Menu&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+kategori_id: bigint&lt;br&gt;+nama_menu: string&lt;br&gt;+nama_menu_en: string&lt;br&gt;+deskripsi: text&lt;br&gt;+deskripsi_en: text&lt;br&gt;+harga: decimal&lt;br&gt;+gambar: string&lt;br&gt;+status: string&lt;hr&gt;+kategori()&lt;br&gt;+addons()&lt;br&gt;+pesananDetails()&lt;br&gt;+nama_menu_localized(): string&lt;br&gt;+deskripsi_localized(): string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="680" y="360" width="290" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="addon" value="&lt;b&gt;Addon&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+nama_addon: string&lt;br&gt;+nama_addon_en: string&lt;br&gt;+harga: decimal&lt;br&gt;+status: string&lt;hr&gt;+menus()&lt;br&gt;+nama_addon_localized(): string" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="380" width="260" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="addon_menu" value="&lt;b&gt;AddonMenu&lt;/b&gt;&lt;hr&gt;+menu_id: bigint&lt;br&gt;+addon_id: bigint" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="650" width="230" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pesanan" value="&lt;b&gt;Pesanan&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+meja_id: bigint&lt;br&gt;+kode_pesanan: string&lt;br&gt;+status_token: string&lt;br&gt;+customer_name: string&lt;br&gt;+customer_note: string&lt;br&gt;+jumlah_orang: integer&lt;br&gt;+subtotal: decimal&lt;br&gt;+discount_total: decimal&lt;br&gt;+tax_total: decimal&lt;br&gt;+total_harga: decimal&lt;br&gt;+status: string&lt;br&gt;+metode_pembayaran: string&lt;br&gt;+dibayar: decimal&lt;br&gt;+kembalian: decimal&lt;br&gt;+referensi_pembayaran: string&lt;br&gt;+user_id: bigint&lt;br&gt;+diskon_id: bigint&lt;br&gt;+pajak_id: bigint&lt;br&gt;+waktu_pesan: datetime&lt;br&gt;+waktu_selesai: datetime&lt;hr&gt;+meja()&lt;br&gt;+details()&lt;br&gt;+diskon()&lt;br&gt;+pajak()&lt;br&gt;+user()" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="360" y="390" width="260" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="pesanan_detail" value="&lt;b&gt;PesananDetail&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+pesanan_id: bigint&lt;br&gt;+menu_id: bigint&lt;br&gt;+qty: integer&lt;br&gt;+harga: decimal&lt;br&gt;+subtotal: decimal&lt;hr&gt;+pesanan()&lt;br&gt;+menu()&lt;br&gt;+addons()" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="680" y="790" width="270" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="pesanan_detail_addon" value="&lt;b&gt;PesananDetailAddon&lt;/b&gt;&lt;hr&gt;+pesanan_detail_id: bigint&lt;br&gt;+addon_id: bigint&lt;br&gt;+harga: decimal" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="850" width="260" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pajak" value="&lt;b&gt;Pajak&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+nama: string&lt;br&gt;+persentase: decimal&lt;br&gt;+is_active: boolean" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="60" y="790" width="220" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="diskon" value="&lt;b&gt;Diskon&lt;/b&gt;&lt;hr&gt;+id: bigint&lt;br&gt;+kode: string&lt;br&gt;+tipe: string&lt;br&gt;+nilai: decimal&lt;br&gt;+min_subtotal: decimal&lt;br&gt;+is_active: boolean&lt;br&gt;+tanggal_mulai: date&lt;br&gt;+tanggal_selesai: date" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;fontSize=12;fillColor=#ffffff;strokeColor=#111827;" vertex="1" parent="1">
+          <mxGeometry x="360" y="960" width="260" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_role" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="user" target="role">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_role_permission" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="role" target="permission">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_pesanan" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.95;entryX=0;entryY=0.52;" edge="1" parent="1" source="user" target="pesanan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="320" y="310" />
+              <mxPoint x="320" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_meja_pesanan" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="meja" target="pesanan">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_kategori_menu" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="kategori" target="menu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_menu_detail" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="menu" target="pesanan_detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_pesanan_detail" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.88;entryX=0;entryY=0.5;" edge="1" parent="1" source="pesanan" target="pesanan_detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_menu_addon_menu" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.78;entryX=0;entryY=0.45;" edge="1" parent="1" source="menu" target="addon_menu">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1020" y="633" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_addon_addon_menu" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="addon" target="addon_menu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_detail_pivot" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pesanan_detail" target="pesanan_detail_addon">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_addon_detail_pivot" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.45;entryX=1;entryY=0.35;" edge="1" parent="1" source="addon" target="pesanan_detail_addon">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="475" />
+              <mxPoint x="1470" y="889" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pajak_pesanan" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;entryX=0;entryY=0.92;" edge="1" parent="1" source="pajak" target="pesanan">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_diskon_pesanan" value="" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;html=1;rounded=0;orthogonalLoop=1;jettySize=auto;orthogonal=1;strokeColor=#111827;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.5;exitY=0;entryX=0.65;entryY=1;" edge="1" parent="1" source="diskon" target="pesanan">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_role-card-left" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_user_role">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_user_role-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_user_role">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_role_permission-card-left" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_role_permission">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_role_permission-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_role_permission">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_user_pesanan-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_user_pesanan">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_user_pesanan-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_user_pesanan">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_meja_pesanan-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_meja_pesanan">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_meja_pesanan-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_meja_pesanan">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_kategori_menu-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_kategori_menu">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_kategori_menu-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_kategori_menu">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_menu_detail-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_menu_detail">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_menu_detail-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_menu_detail">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pesanan_detail-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_pesanan_detail">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pesanan_detail-card-right" value="1..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_pesanan_detail">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_menu_addon_menu-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_menu_addon_menu">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_menu_addon_menu-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_menu_addon_menu">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_addon_addon_menu-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_addon_addon_menu">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_addon_addon_menu-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_addon_addon_menu">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_detail_pivot-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_detail_pivot">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_detail_pivot-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_detail_pivot">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_addon_detail_pivot-card-left" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_addon_detail_pivot">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_addon_detail_pivot-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_addon_detail_pivot">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pajak_pesanan-card-left" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_pajak_pesanan">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pajak_pesanan-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_pajak_pesanan">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_diskon_pesanan-card-left" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_diskon_pesanan">
+          <mxGeometry x="-0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_diskon_pesanan-card-right" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="e_diskon_pesanan">
+          <mxGeometry x="0.85" y="0" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

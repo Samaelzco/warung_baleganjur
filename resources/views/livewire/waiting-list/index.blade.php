@@ -391,7 +391,7 @@ new class extends Component {
         <div class="hidden lg:block rounded-3xl border border-neutral-200/80 bg-gradient-to-b from-white/95 via-white/90 to-white/70 shadow-2xl shadow-neutral-200/60 backdrop-blur-xl dark:border-neutral-800/80 dark:from-neutral-950/80 dark:via-neutral-950/60 dark:to-neutral-950/40 dark:shadow-black/30">
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
-                <table class="min-w-full table-fixed text-sm xl:min-w-[1320px]">
+                <table class="w-full min-w-[1320px] table-fixed text-sm">
                     <thead>
                         <tr>
                             <th class="w-[14%] border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/80 dark:text-neutral-400">{{ __('Waiting Code') }}</th>
@@ -491,7 +491,7 @@ new class extends Component {
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                                <td colspan="7" class="px-6 py-8 text-center text-sm text-neutral-500 dark:text-neutral-400">
                                     <div class="flex flex-col items-center gap-3">
                                         <div class="h-12 w-12 rounded-full bg-neutral-100 text-neutral-400 dark:bg-neutral-900/60 dark:text-neutral-500">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-full w-full p-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
