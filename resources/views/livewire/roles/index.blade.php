@@ -1,13 +1,13 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
@@ -19,20 +19,26 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function updatingSearch(): void { $this->resetPage(); }
+    public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
 
     public function confirmDelete(int $id): void
     {
         $this->authorizeManage();
+        $this->abortIfProtectedRole($id);
         $this->confirmingDeleteId = $id;
     }
 
     public function delete(): void
     {
         $this->authorizeManage();
-        if (!$this->confirmingDeleteId) {
+        if (! $this->confirmingDeleteId) {
             return;
         }
+
+        $this->abortIfProtectedRole($this->confirmingDeleteId);
 
         $isAssigned = DB::table('model_has_roles')
             ->where('role_id', $this->confirmingDeleteId)
@@ -43,11 +49,12 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-role-desktop');
             $this->dispatch('roles-toast', message: __('This role cannot be deleted because it is still assigned to users.'));
             $this->confirmingDeleteId = null;
+
             return;
         }
 
         Role::whereKey($this->confirmingDeleteId)->delete();
-        Cache::forget('admin:roles:stats:v1');
+        Cache::forget('admin:roles:stats:v2');
         $this->confirmingDeleteId = null;
 
         $this->dispatch('modal-close', name: 'confirm-delete-role');
@@ -59,6 +66,11 @@ new class extends Component {
     {
         abort_unless(auth()->check() && auth()->user()->can('roles.manage'), 403);
     }
+
+    protected function abortIfProtectedRole(int $id): void
+    {
+        abort_if(Role::whereKey($id)->where('name', 'Super Admin')->exists(), 404);
+    }
 }; ?>
 
 <section class="w-full">
@@ -66,6 +78,7 @@ new class extends Component {
         $query = Role::query()
             ->select(['id', 'name'])
             ->withCount('permissions')
+            ->where('name', '!=', 'Super Admin')
             ->orderBy('name');
 
         if (!empty($search)) {
@@ -74,10 +87,13 @@ new class extends Component {
 
         $items = $query->paginate(10);
 
-        $stats = Cache::remember('admin:roles:stats:v1', 10, fn () => [
-            'roles' => Role::query()->count(),
-            'permissions' => Permission::query()->count(),
-            'roles_with_permissions' => Role::query()->has('permissions')->count(),
+        $stats = Cache::remember('admin:roles:stats:v2', 10, fn () => [
+            'roles' => Role::query()->where('name', '!=', 'Super Admin')->count(),
+            'permissions' => \Spatie\Permission\Models\Permission::query()->count(),
+            'roles_with_permissions' => Role::query()
+                ->where('name', '!=', 'Super Admin')
+                ->has('permissions')
+                ->count(),
         ]);
 
         $totalRoles = (int) ($stats['roles'] ?? 0);

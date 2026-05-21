@@ -701,6 +701,7 @@ Route::post('waiting-list/{meja}/submit', function (\Illuminate\Http\Request $re
     });
 
     session()->put('waiting_list_last_order_id', $pesananId);
+    \Illuminate\Support\Facades\Cache::forget('waiting-list:list:stats:v1');
 
     return response()->json([
         'ok' => true,
@@ -736,16 +737,18 @@ Route::get('waiting-list/status/{pesanan}/json', function (\App\Models\Pesanan $
     $pesanan->loadMissing(['details.menu:id,nama_menu,nama_menu_en', 'details.addons:id,nama_addon,nama_addon_en']);
 
     $paid = $pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran);
+    $failed = $pesanan->status === 'batal';
 
     return response()->json([
         'ok' => true,
         'paid' => $paid,
+        'failed' => $failed,
         'paid_order' => $paid ? [
             'id' => (int) $pesanan->id,
             'kode_pesanan' => (string) $pesanan->kode_pesanan,
             'paid_at' => $pesanan->waktu_selesai?->toIso8601String(),
         ] : null,
-        'redirect' => $paid ? route('customer.waiting-list.index') : null,
+        'redirect' => ($paid || $failed) ? route('customer.waiting-list.index') : null,
         'order' => in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah', 'diproses', 'siap'], true) ? [
             'id' => (int) $pesanan->id,
             'kode_pesanan' => (string) $pesanan->kode_pesanan,
@@ -770,6 +773,17 @@ Route::get('order-status/{pesanan}/{token}', function (\App\Models\Pesanan $pesa
     abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
 
     $pesanan->loadMissing(['meja', 'details.menu', 'details.addons']);
+    $isWaitingListOrder = \Illuminate\Support\Str::startsWith((string) $pesanan->kode_pesanan, 'WTL-');
+
+    if ($pesanan->status === 'batal') {
+        if ($isWaitingListOrder) {
+            return redirect()->route('customer.waiting-list.index');
+        }
+
+        return redirect()->to($pesanan->meja?->qr_token
+            ? route('customer.order', ['token' => $pesanan->meja->qr_token])
+            : route('customer.waiting-list.index'));
+    }
 
     return view('customer.status', [
         'token' => (string) ($pesanan->meja?->qr_token ?? ''),
@@ -847,19 +861,26 @@ Route::post('order-status/{pesanan}/{token}/cancel', function (\App\Models\Pesan
 Route::get('order-status/{pesanan}/{token}/json', function (\App\Models\Pesanan $pesanan, string $token, OrderStatusService $orderStatus) {
     abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
 
+    $pesanan->loadMissing('meja');
     $paid = $pesanan->status === 'selesai' && !blank($pesanan->metode_pembayaran);
+    $failed = $pesanan->status === 'batal';
+    $orderUrl = $pesanan->meja?->qr_token
+        ? route('customer.order', ['token' => $pesanan->meja->qr_token])
+        : route('customer.waiting-list.index');
+    $failedRedirectUrl = \Illuminate\Support\Str::startsWith((string) $pesanan->kode_pesanan, 'WTL-')
+        ? route('customer.waiting-list.index')
+        : $orderUrl;
 
     return response()->json([
         'ok' => true,
         'paid' => $paid,
+        'failed' => $failed,
         'paid_order' => $paid ? [
             'id' => (int) $pesanan->id,
             'kode_pesanan' => (string) $pesanan->kode_pesanan,
             'paid_at' => $pesanan->waktu_selesai?->toIso8601String(),
         ] : null,
-        'redirect' => $paid && $pesanan->meja?->qr_token
-            ? route('customer.order', ['token' => $pesanan->meja->qr_token])
-            : ($paid ? route('customer.waiting-list.index') : null),
+        'redirect' => $paid ? $orderUrl : ($failed ? $failedRedirectUrl : null),
         'order' => in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah', 'diproses', 'siap'], true)
             ? $orderStatus->serializeCustomerOrder($pesanan)
             : null,
@@ -1219,7 +1240,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
             $remainingSeats = max(((int) ($lockedMeja->kapasitas ?? 0)) - $occupiedSeats, 0);
             if ($remainingSeats < $jumlahOrang) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'jumlah_orang' => __('This table is full. Please use the waiting list.'),
+                    'jumlah_orang' => __('Jumlah tamu melebihi kapasitas meja yang tersedia. Silakan ubah jumlah tamu.'),
                 ]);
             }
 
@@ -1472,7 +1493,7 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         $waitingListService = app(TableWaitingListService::class);
         if (!$waitingListService->hasCapacity($lockedMeja, $jumlahOrang)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'jumlah_orang' => __('This table is full. Please use the waiting list.'),
+                'jumlah_orang' => __('Jumlah tamu melebihi kapasitas meja yang tersedia. Silakan ubah jumlah tamu.'),
             ]);
         }
 
@@ -1537,9 +1558,9 @@ Route::post('{token}/checkout/submit', function (\Illuminate\Http\Request $reque
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => false,
-                'message' => collect($e->errors())->flatten()->first() ?: __('This table is full. Please use the waiting list.'),
-                'redirect' => route('customer.waiting-list.index'),
-            ], 409);
+                'message' => collect($e->errors())->flatten()->first() ?: __('Jumlah tamu melebihi kapasitas meja yang tersedia. Silakan ubah jumlah tamu.'),
+                'errors' => $e->errors(),
+            ], 422);
         }
 
         throw $e;

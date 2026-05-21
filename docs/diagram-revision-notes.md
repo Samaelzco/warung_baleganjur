@@ -69,7 +69,9 @@ Oleh karena itu, **Membuat Waiting List / Booking Meja** boleh dihubungkan langs
 
 ### Pembayaran
 
-Use case **Mengelola Pembayaran** tetap valid walaupun tidak ada tabel `pembayarans` tersendiri. Use case menjelaskan proses bisnis kasir, sedangkan data pembayaran disimpan di tabel `pesanans` karena satu pesanan hanya memiliki satu pembayaran.
+Keputusan final saat ini: **data pembayaran tidak dipisahkan ke tabel `pembayarans`**. Use case **Mengelola Pembayaran** tetap valid karena use case menggambarkan proses bisnis kasir, bukan harus sama persis dengan nama tabel database.
+
+Data pembayaran disimpan pada tabel `pesanans` karena ruang lingkup sistem masih menggunakan pola satu pesanan memiliki satu pembayaran akhir. Dengan begitu, data order dan status penyelesaian transaksi dapat dikelola secara sederhana tanpa membuat entitas pembayaran terpisah.
 
 Kolom pembayaran yang berada di tabel `pesanans` antara lain:
 
@@ -78,6 +80,8 @@ Kolom pembayaran yang berada di tabel `pesanans` antara lain:
 - `kembalian`
 - `referensi_pembayaran`
 - `waktu_selesai`
+
+Catatan untuk laporan: jika ditanya mengapa tidak dipisah, alasannya adalah proses pembayaran pada sistem ini bersifat sederhana, tidak mendukung cicilan, multi-payment, refund terpisah, atau riwayat transaksi berganda. Karena itu, penyimpanan atribut pembayaran langsung pada `pesanans` masih cukup proporsional untuk kebutuhan tugas akhir ini.
 
 ### Login
 
@@ -96,14 +100,41 @@ Gunakan checklist berikut saat memperbaiki diagram lain:
 - Fitur internal membutuhkan login atau hak akses.
 - Mengubah dan membatalkan pesanan dijelaskan sebagai proses lanjutan dari melihat status pesanan.
 - Waiting list dijelaskan sebagai proses mandiri, bukan tabel tersendiri.
-- Pembayaran dijelaskan sebagai proses bisnis kasir, walaupun datanya tersimpan pada tabel pesanan.
-- Data pembayaran tidak perlu dipisahkan menjadi tabel tersendiri untuk ruang lingkup sistem saat ini.
+- Pembayaran dijelaskan sebagai proses bisnis kasir, walaupun datanya tersimpan pada tabel `pesanans`.
+- Data pembayaran tidak dipisahkan menjadi tabel tersendiri untuk ruang lingkup sistem saat ini.
 
 ## 6. Implikasi ke Diagram Lain
 
 ### Activity Diagram
 
 Activity diagram sebaiknya tetap mengikuti 15 proses utama yang sudah dibuat. Untuk login, cukup digambarkan sebagai proses internal. Untuk ubah dan batal pesanan, aktivitas dimulai dari aksi pada halaman status pesanan.
+
+#### Catatan Activity 1 - Melakukan Pemesanan Melalui QR Meja
+
+Versi manual terbaru untuk activity 1 menggunakan dua swimlane, yaitu **Pelanggan** dan **Sistem**. Alur yang perlu dipertahankan:
+
+- Pelanggan memulai proses dengan memindai QR Code meja.
+- Sistem memvalidasi QR Code meja.
+- Decision **Status QR Code meja?** memiliki cabang:
+  - **Aktif**: sistem menampilkan halaman pemesanan, lalu pelanggan memilih menu dan addon.
+  - **Nonaktif**: sistem menampilkan halaman tidak ditemukan, lalu proses berakhir.
+- Pelanggan memilih menu dan addon, mengisi data pesanan, lalu mengirim pesanan.
+- Sistem memvalidasi data pesanan.
+- Decision **Status data pesanan?** memiliki cabang:
+  - **Sesuai**: sistem menghitung total pesanan.
+  - **Tidak sesuai**: sistem menampilkan pesan kesalahan, lalu alur kembali ke aktivitas pelanggan untuk memperbaiki data pesanan.
+- Setelah total dihitung, sistem memeriksa kapasitas meja.
+- Decision **Status kapasitas meja?** memiliki cabang:
+  - **Cukup**: sistem menyimpan pesanan dengan status menunggu, menyinkronkan status meja, dan menampilkan halaman status pesanan.
+  - **Tidak cukup**: sistem menampilkan pesan tamu melebihi kapasitas, lalu alur kembali ke aktivitas pelanggan untuk memperbaiki jumlah tamu/data pesanan.
+- Pelanggan melihat halaman status pesanan, lalu proses berakhir.
+
+Catatan notasi:
+
+- Gunakan initial node pada swimlane Pelanggan sebelum aktivitas memindai QR Code meja.
+- Gunakan final node pada cabang QR Code nonaktif dan pada akhir alur sukses setelah pelanggan melihat halaman status pesanan.
+- Label decision seperti **Status QR Code meja?**, **Status data pesanan?**, dan **Status kapasitas meja?** sebaiknya ditempatkan dekat diamond decision, bukan sebagai activity/action terpisah.
+- Cabang kesalahan data dan kapasitas tidak perlu langsung final karena pelanggan masih dapat memperbaiki input.
 
 ### Sequence Diagram
 
@@ -114,11 +145,11 @@ Sequence diagram sebaiknya menggunakan peserta utama:
 - sistem,
 - database.
 
-Untuk pembayaran, sistem boleh mengambil data pesanan dari database lalu menyimpan data pembayaran kembali pada data pesanan.
+Untuk pembayaran, sistem mengambil data pesanan dari database, memvalidasi nominal dan metode pembayaran, lalu memperbarui atribut pembayaran serta status pesanan pada tabel `pesanans`.
 
 ### Class Diagram dan ERD
 
-Class diagram dan ERD tetap mengikuti model/tabel utama sistem. Pembayaran tidak perlu menjadi class atau tabel terpisah selama satu pesanan hanya memiliki satu pembayaran.
+Class diagram dan ERD tetap mengikuti model/tabel utama sistem. **Pembayaran tidak perlu menjadi class atau tabel terpisah** selama satu pesanan hanya memiliki satu pembayaran akhir. Pada ERD dan basis data konseptual, atribut pembayaran cukup ditampilkan sebagai bagian dari entitas `pesanans`.
 
 ### Expanded Use Case
 

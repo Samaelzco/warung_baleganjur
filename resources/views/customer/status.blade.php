@@ -457,6 +457,20 @@
 
             const render = (payload) => {
                 const isPaid = !!payload?.paid
+                const isFailed = !!payload?.failed
+                if (isFailed) {
+                    stopPolling()
+                    toast(labelOrderFailed)
+                    statusEmpty?.classList.add('hidden')
+                    statusCard?.classList.add('hidden')
+
+                    const redirectUrl = payload?.redirect || redirectOrderUrl
+                    setTimeout(() => {
+                        window.location.href = redirectUrl
+                    }, 1200)
+                    return
+                }
+
                 if (isPaid) {
                     stopPolling()
                     toast(@json(__('Payment completed. Thank you!')))

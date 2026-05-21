@@ -5,7 +5,7 @@ Dokumen ini berisi 15 sequence diagram PlantUML berdasarkan 15 use case utama si
 Catatan:
 - Diagram dibuat sederhana agar mudah dimasukkan ke laporan tugas akhir.
 - Detail teknis seperti service Laravel, query rinci, cache, session, token internal, dan struktur tabel tidak ditampilkan.
-- Peserta utama diagram: aktor, halaman, sistem, dan database.
+- Peserta utama diagram: aktor, halaman, sistem, dan entity Data Store.
 
 ## 1. Melakukan Pemesanan Melalui QR Meja
 
@@ -19,7 +19,7 @@ skinparam defaultFontSize 14
 actor Pelanggan
 boundary "Halaman Pemesanan" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Pelanggan -> Page: Scan QR meja
 Page -> System: Validasi QR meja
@@ -43,7 +43,7 @@ System -> DB: Periksa menu, harga, dan kapasitas
 DB --> System: Hasil validasi
 
 alt Pesanan tidak dapat diproses
-    System --> Page: Pesan gagal atau arah waiting list
+    System --> Page: Pesan gagal
     Page --> Pelanggan: Tampilkan pesan gagal
 else Pesanan dapat diproses
     System -> DB: Simpan pesanan status menunggu
@@ -68,7 +68,7 @@ skinparam defaultFontSize 14
 actor Pelanggan
 boundary "Halaman Status" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Pelanggan -> Page: Buka halaman status pesanan
 Page -> System: Validasi akses status
@@ -110,39 +110,41 @@ skinparam defaultFontName Arial
 skinparam defaultFontSize 14
 
 actor Pelanggan
-boundary "Halaman Ubah Pesanan" as Page
+boundary "Halaman Status" as StatusPage
+boundary "Halaman Pemesanan" as OrderPage
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
-Pelanggan -> Page: Pilih aksi ubah pesanan
-Page -> System: Validasi akses dan status pesanan
+Pelanggan -> StatusPage: Pilih aksi ubah pesanan
+StatusPage -> System: Validasi akses dan status pesanan
 System -> DB: Ambil data pesanan
 DB --> System: Data pesanan
 
 alt Pesanan tidak dapat diubah
-    System --> Page: Pesanan tidak dapat diubah
-    Page --> Pelanggan: Tampilkan pesan gagal
+    System --> StatusPage: Pesanan tidak dapat diubah
+    StatusPage --> Pelanggan: Tampilkan pesan gagal
 else Pesanan dapat diubah
-    System -> DB: Ambil menu dan detail pesanan
-    DB --> System: Data form perubahan
-    System --> Page: Form ubah pesanan
-    Page --> Pelanggan: Tampilkan halaman ubah pesanan
+    System -> DB: Ubah status pesanan menjadi sedang diubah
+    DB --> System: Status tersimpan
+    System --> StatusPage: Redirect halaman pemesanan
+    StatusPage --> OrderPage: Buka halaman pemesanan mode ubah
+    OrderPage --> Pelanggan: Tampilkan pesanan aktif untuk diperbaiki
 end
 
-Pelanggan -> Page: Ubah item pesanan
-Pelanggan -> Page: Kirim perubahan
-Page -> System: Validasi perubahan
+Pelanggan -> OrderPage: Perbaiki item pesanan
+Pelanggan -> OrderPage: Kirim perubahan
+OrderPage -> System: Validasi perubahan
 System -> DB: Periksa item dan harga
 DB --> System: Hasil validasi
 
 alt Perubahan tidak valid
-    System --> Page: Error validasi
-    Page --> Pelanggan: Tampilkan error validasi
+    System --> OrderPage: Error validasi
+    OrderPage --> Pelanggan: Tampilkan error validasi
 else Perubahan valid
     System -> DB: Simpan perubahan dan hitung ulang total
     DB --> System: Perubahan tersimpan
-    System --> Page: Status terbaru
-    Page --> Pelanggan: Tampilkan status terbaru
+    System --> OrderPage: Redirect status pesanan
+    OrderPage --> Pelanggan: Tampilkan status terbaru
 end
 
 @enduml
@@ -160,7 +162,7 @@ skinparam defaultFontSize 14
 actor Pelanggan
 boundary "Halaman Status" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Pelanggan -> Page: Pilih aksi batalkan pesanan
 Page -> System: Validasi akses dan status pesanan
@@ -193,8 +195,10 @@ skinparam defaultFontSize 14
 
 actor Pelanggan
 boundary "Halaman Waiting List" as Page
+boundary "Halaman Pemesanan Waiting List" as OrderPage
+boundary "Halaman Status Pesanan" as StatusPage
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Pelanggan -> Page: Buka halaman waiting list
 Page -> System: Minta kondisi meja
@@ -207,22 +211,24 @@ Pelanggan -> Page: Pilih meja, menu, dan addon
 Page -> System: Ambil data menu
 System -> DB: Ambil menu dan addon tersedia
 DB --> System: Data menu
-System --> Page: Form waiting list
-Page --> Pelanggan: Tampilkan form waiting list
+System --> Page: Redirect halaman pemesanan waiting list
+Page --> OrderPage: Buka halaman pemesanan waiting list
+OrderPage --> Pelanggan: Tampilkan menu dan keranjang waiting list
 
-Pelanggan -> Page: Kirim waiting list
-Page -> System: Validasi data waiting list
+Pelanggan -> OrderPage: Kirim waiting list
+OrderPage -> System: Validasi data waiting list
 System -> DB: Periksa data meja, menu, dan harga
 DB --> System: Hasil validasi
 
 alt Waiting list tidak valid
-    System --> Page: Pesan kesalahan
-    Page --> Pelanggan: Tampilkan pesan kesalahan
+    System --> OrderPage: Pesan kesalahan
+    OrderPage --> Pelanggan: Tampilkan pesan kesalahan
 else Waiting list valid
-    System -> DB: Simpan pesanan status booking
+    System -> DB: Simpan pesanan status waiting list
     DB --> System: Waiting list tersimpan
-    System --> Page: Redirect status waiting list
-    Page --> Pelanggan: Tampilkan status waiting list
+    System --> OrderPage: Redirect halaman status pesanan
+    OrderPage --> StatusPage: Buka status pesanan
+    StatusPage --> Pelanggan: Tampilkan status pesanan
 end
 
 @enduml
@@ -240,7 +246,7 @@ skinparam defaultFontSize 14
 actor "User Internal" as UserInternal
 boundary "Halaman Login" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 UserInternal -> Page: Buka halaman login
 Page --> UserInternal: Tampilkan form login
@@ -275,7 +281,7 @@ skinparam defaultFontSize 14
 actor Admin
 boundary "Halaman Dashboard" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Admin -> Page: Buka dashboard
 Page -> System: Periksa permission dashboard
@@ -309,7 +315,7 @@ skinparam defaultFontSize 14
 actor "Admin/Kasir" as AdminKasir
 boundary "Halaman Pesanan" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 AdminKasir -> Page: Buka halaman pesanan
 Page -> System: Periksa permission pesanan
@@ -346,103 +352,119 @@ end
 @enduml
 ```
 
-## 9. Mengelola Kitchen Display
+## 9. Memproses Kitchen Display
 
 ```plantuml
 @startuml
-title Sequence Mengelola Kitchen Display
+title Sequence Memproses Kitchen Display
 
 skinparam defaultFontName Arial
 skinparam defaultFontSize 14
 
-actor Koki
+actor "Admin/Koki" as AdminKoki
 boundary "Kitchen Display" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
-Koki -> Page: Buka Kitchen Display
+AdminKoki -> Page: Buka Kitchen Display
 Page -> System: Periksa permission kitchen
-System -> DB: Cek hak akses koki
+System -> DB: Cek hak akses user
 DB --> System: Hasil permission
 
 alt Akses ditolak
     System --> Page: 403 Forbidden
-    Page --> Koki: Tampilkan 403
+    Page --> AdminKoki: Tampilkan 403
 else Akses diizinkan
-    System -> DB: Ambil pesanan aktif
+    System -> DB: Ambil pesanan aktif kitchen
     DB --> System: Daftar pesanan aktif
-    System --> Page: Data Kitchen Display
-    Page --> Koki: Tampilkan pesanan aktif
+    System --> Page: Data pesanan dan ringkasan status
+    Page --> AdminKoki: Tampilkan pesanan aktif
 end
 
-Koki -> Page: Pilih pesanan dan aksi status
-Page -> System: Validasi transisi status
+AdminKoki -> Page: Pilih pesanan
+AdminKoki -> Page: Kirim aksi mulai proses
+Page -> System: Validasi permission dan status menunggu
 System -> DB: Ambil status pesanan
 DB --> System: Status saat ini
 
-alt Transisi tidak valid
+alt Status tidak valid
     System --> Page: Pesan gagal
-    Page --> Koki: Tampilkan pesan gagal
-else Transisi valid
-    System -> DB: Ubah status pesanan
+    Page --> AdminKoki: Tampilkan pesan gagal
+else Status valid
+    System -> DB: Ubah status menjadi diproses
     DB --> System: Status tersimpan
-    System --> Page: Data terbaru
-    Page --> Koki: Tampilkan status terbaru
+    System --> Page: Data kitchen terbaru
+    Page --> AdminKoki: Tampilkan status diproses
+end
+
+AdminKoki -> Page: Kirim aksi pesanan siap
+Page -> System: Validasi permission dan status diproses
+System -> DB: Ambil status pesanan
+DB --> System: Status saat ini
+
+alt Status tidak valid
+    System --> Page: Pesan gagal
+    Page --> AdminKoki: Tampilkan pesan gagal
+else Status valid
+    System -> DB: Ubah status menjadi siap
+    DB --> System: Status tersimpan
+    System --> Page: Data kitchen terbaru
+    Page --> AdminKoki: Tampilkan pesanan siap
 end
 
 @enduml
 ```
 
-## 10. Mengelola Pembayaran
+## 10. Memproses Pembayaran
 
 ```plantuml
 @startuml
-title Sequence Mengelola Pembayaran
+title Sequence Memproses Pembayaran
 
 skinparam defaultFontName Arial
 skinparam defaultFontSize 14
 
-actor Kasir
+actor "Admin/Kasir" as AdminKasir
 boundary "Halaman Pembayaran" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
-Kasir -> Page: Buka halaman pembayaran
+AdminKasir -> Page: Buka halaman pembayaran
 Page -> System: Periksa permission pembayaran
-System -> DB: Cek hak akses kasir
+System -> DB: Cek hak akses user
 DB --> System: Hasil permission
 
 alt Akses ditolak
     System --> Page: 403 Forbidden
-    Page --> Kasir: Tampilkan 403
+    Page --> AdminKasir: Tampilkan 403
 else Akses diizinkan
     System -> DB: Ambil pesanan siap bayar
     DB --> System: Daftar pesanan siap bayar
     System --> Page: Data pembayaran
-    Page --> Kasir: Tampilkan pesanan siap bayar
+    Page --> AdminKasir: Tampilkan pesanan siap bayar
 end
 
-Kasir -> Page: Pilih pesanan
+AdminKasir -> Page: Pilih pesanan
 Page -> System: Ambil detail pembayaran
 System -> DB: Ambil detail pesanan
 DB --> System: Detail pesanan
 System --> Page: Detail pembayaran
-Page --> Kasir: Tampilkan detail pembayaran
+Page --> AdminKasir: Tampilkan detail pembayaran
 
-Kasir -> Page: Isi metode dan konfirmasi pembayaran
+AdminKasir -> Page: Isi metode dan konfirmasi pembayaran
 Page -> System: Validasi pembayaran
 System -> DB: Periksa pesanan dan total bayar
 DB --> System: Hasil validasi
 
 alt Pembayaran tidak valid
     System --> Page: Pesan gagal
-    Page --> Kasir: Tampilkan pesan gagal
+    Page --> AdminKasir: Tampilkan pesan gagal
 else Pembayaran valid
     System -> DB: Simpan pembayaran dan status selesai
     DB --> System: Pembayaran tersimpan
     System -> DB: Sinkronkan meja dan aktifkan waiting list
     System --> Page: Pembayaran berhasil
-    Page --> Kasir: Cetak struk jika diperlukan
+    Page --> AdminKasir: Cetak struk jika diperlukan
 end
 
 @enduml
@@ -460,7 +482,7 @@ skinparam defaultFontSize 14
 actor "Admin/Kasir" as AdminKasir
 boundary "Halaman Kelola Waiting List" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 AdminKasir -> Page: Buka halaman kelola waiting list
 Page -> System: Periksa permission waiting list
@@ -477,17 +499,12 @@ else Akses diizinkan
     Page --> AdminKasir: Tampilkan daftar waiting list
 end
 
-AdminKasir -> Page: Pilih data waiting list
+AdminKasir -> Page: Pilih aksi pada waiting list
+Page -> System: Validasi permission dan status waiting list
+System -> DB: Ambil data waiting list dan meja
+DB --> System: Data waiting list dan meja
 
-alt Aksi batalkan
-    Page -> System: Batalkan waiting list
-    System -> DB: Ubah status menjadi batal
-    DB --> System: Status tersimpan
-    System -> DB: Sinkronkan status meja
-    System --> Page: Pesan berhasil
-    Page --> AdminKasir: Tampilkan pesan berhasil
-else Aksi aktifkan
-    Page -> System: Aktifkan waiting list
+alt Aksi aktifkan waiting list
     System -> DB: Periksa kapasitas meja
     DB --> System: Hasil kapasitas
 
@@ -495,12 +512,18 @@ else Aksi aktifkan
         System --> Page: Pesan tidak dapat diaktifkan
         Page --> AdminKasir: Tampilkan pesan gagal
     else Dapat diaktifkan
-        System -> DB: Ubah status menjadi menunggu
+        System -> DB: Ubah status waiting list menjadi menunggu
         DB --> System: Status tersimpan
-        System -> DB: Sinkronkan meja dan Kitchen Display
-        System --> Page: Pesan berhasil
-        Page --> AdminKasir: Tampilkan pesan berhasil
+        System -> DB: Sinkronkan status meja
+        System --> Page: Data waiting list terbaru
+        Page --> AdminKasir: Tampilkan daftar waiting list terbaru
     end
+else Aksi batalkan waiting list
+    System -> DB: Ubah status waiting list menjadi batal
+    DB --> System: Status tersimpan
+    System -> DB: Sinkronkan status meja
+    System --> Page: Data waiting list terbaru
+    Page --> AdminKasir: Tampilkan daftar waiting list terbaru
 end
 
 @enduml
@@ -518,7 +541,7 @@ skinparam defaultFontSize 14
 actor "Admin/Koki" as AdminKoki
 boundary "Halaman Menu/Add-on" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 AdminKoki -> Page: Buka halaman menu atau addon
 Page -> System: Periksa permission menu atau addon
@@ -567,7 +590,7 @@ skinparam defaultFontSize 14
 actor Admin
 boundary "Halaman Data Referensi" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Admin -> Page: Buka halaman kategori, pajak, atau diskon
 Page -> System: Periksa permission data referensi
@@ -615,7 +638,7 @@ skinparam defaultFontSize 14
 actor Admin
 boundary "Halaman Meja" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Admin -> Page: Buka halaman meja
 Page -> System: Periksa permission meja
@@ -667,7 +690,7 @@ skinparam defaultFontSize 14
 actor Admin
 boundary "Halaman User/Role" as Page
 control "Sistem" as System
-database "Database" as DB
+entity "Data Store" as DB
 
 Admin -> Page: Buka halaman user atau role
 Page -> System: Periksa permission user dan role

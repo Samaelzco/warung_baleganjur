@@ -139,7 +139,7 @@
 
                             <div class="mt-3 flex items-center justify-between gap-3">
                                 <div class="text-xs font-medium text-neutral-500 dark:text-neutral-400" data-action-text>
-                                    {{ $isFull ? __('Join the waiting list') : __('Order now') }}
+                                    {{ $isFull ? __('Join the waiting list') : '' }}
                                 </div>
                                 <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-white shadow-sm ring-1 ring-black/5 dark:text-black">
                                     <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -175,7 +175,7 @@
             const labels = {
                 open: @json(__('Open')),
                 full: @json(__('Full')),
-                orderNow: @json(__('Order now')),
+                orderNow: '',
                 joinWaitingList: @json(__('Join the waiting list')),
                 updating: @json(__('Updating...')),
                 updated: @json(__('Updated')),

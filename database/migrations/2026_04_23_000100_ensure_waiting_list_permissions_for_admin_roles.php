@@ -11,9 +11,9 @@ return new class extends Migration
     public function up(): void
     {
         if (
-            !Schema::hasTable('permissions')
-            || !Schema::hasTable('roles')
-            || !Schema::hasTable('role_has_permissions')
+            ! Schema::hasTable('permissions')
+            || ! Schema::hasTable('roles')
+            || ! Schema::hasTable('role_has_permissions')
         ) {
             return;
         }
@@ -33,7 +33,7 @@ return new class extends Migration
         }
 
         Role::query()
-            ->whereIn('name', ['God', 'Super Admin'])
+            ->where('name', 'Super Admin')
             ->each(function (Role $role) use ($permissionNames) {
                 $role->givePermissionTo($permissionNames);
             });
@@ -44,9 +44,9 @@ return new class extends Migration
     public function down(): void
     {
         if (
-            !Schema::hasTable('permissions')
-            || !Schema::hasTable('roles')
-            || !Schema::hasTable('role_has_permissions')
+            ! Schema::hasTable('permissions')
+            || ! Schema::hasTable('roles')
+            || ! Schema::hasTable('role_has_permissions')
         ) {
             return;
         }
@@ -59,7 +59,7 @@ return new class extends Migration
         ];
 
         Role::query()
-            ->whereIn('name', ['God', 'Super Admin'])
+            ->where('name', 'Super Admin')
             ->each(function (Role $role) use ($permissionNames) {
                 $role->revokePermissionTo($permissionNames);
             });

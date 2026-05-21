@@ -2,17 +2,19 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use Spatie\Permission\Models\Role;
 
-new class extends Component {
+new class extends Component
+{
     use WithPagination;
 
     public ?int $confirmingDeleteId = null;
+
     public string $search = '';
+
     public string $roleFilter = 'all';
+
     public string $statusFilter = 'all';
 
     protected $queryString = [
@@ -22,13 +24,25 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
-    public function updatingSearch(): void { $this->resetPage(); }
-    public function updatingRoleFilter(): void { $this->resetPage(); }
-    public function updatingStatusFilter(): void { $this->resetPage(); }
+    public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingRoleFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
 
     public function confirmDelete(int $id): void
     {
         $this->authorizeManage();
+        $this->abortIfProtectedUser($id);
         $this->confirmingDeleteId = $id;
     }
 
@@ -39,13 +53,16 @@ new class extends Component {
 
         if ((int) auth()->id() === $id) {
             $this->dispatch('users-toast', message: __('You cannot deactivate your own account.'));
+
             return;
         }
 
-        $user = User::query()->select(['id', 'is_active'])->findOrFail($id);
-        $user->forceFill(['is_active' => !$user->is_active])->save();
+        $this->abortIfProtectedUser($id);
 
-        Cache::forget('admin:users:stats:v1');
+        $user = User::query()->select(['id', 'is_active'])->findOrFail($id);
+        $user->forceFill(['is_active' => ! $user->is_active])->save();
+
+        Cache::forget('admin:users:stats:v2');
 
         $this->dispatch('users-toast', message: $user->is_active
             ? __('User activated successfully.')
@@ -55,7 +72,7 @@ new class extends Component {
     public function delete(): void
     {
         $this->authorizeManage();
-        if (!$this->confirmingDeleteId) {
+        if (! $this->confirmingDeleteId) {
             return;
         }
 
@@ -66,11 +83,14 @@ new class extends Component {
             $this->dispatch('modal-close', name: 'confirm-delete-user');
             $this->dispatch('modal-close', name: 'confirm-delete-user-desktop');
             $this->dispatch('users-toast', message: __('You cannot delete your own account.'));
+
             return;
         }
 
+        $this->abortIfProtectedUser($this->confirmingDeleteId);
+
         User::whereKey($this->confirmingDeleteId)->delete();
-        Cache::forget('admin:users:stats:v1');
+        Cache::forget('admin:users:stats:v2');
         $this->confirmingDeleteId = null;
 
         $this->dispatch('modal-close', name: 'confirm-delete-user');
@@ -82,19 +102,50 @@ new class extends Component {
     {
         abort_unless(auth()->check() && auth()->user()->can('users.manage'), 403);
     }
+
+    protected function abortIfProtectedUser(int $id): void
+    {
+        abort_if(
+            User::query()
+                ->whereKey($id)
+                ->whereHas('roles', fn ($query) => $query->where('name', 'Super Admin'))
+                ->exists(),
+            404
+        );
+    }
 }; ?>
 
     <section class="w-full">
     @php
-        $roles = Role::query()->select(['id', 'name'])->orderBy('name')->get();
+        $roles = \Spatie\Permission\Models\Role::query()
+            ->select(['id', 'name'])
+            ->where('name', '!=', 'Super Admin')
+            ->orderBy('name')
+            ->get();
 
-        $stats = Cache::remember('admin:users:stats:v1', 10, fn () => [
-            'total' => User::query()->count(),
-            'active' => User::query()->where('is_active', true)->count(),
-            'inactive' => User::query()->where('is_active', false)->count(),
-            'role_counts' => DB::table('model_has_roles')
+        $stats = Cache::remember('admin:users:stats:v2', 10, fn () => [
+            'total' => User::query()
+                ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'Super Admin'))
+                ->count(),
+            'active' => User::query()
+                ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'Super Admin'))
+                ->where('is_active', true)
+                ->count(),
+            'inactive' => User::query()
+                ->whereDoesntHave('roles', fn ($query) => $query->where('name', 'Super Admin'))
+                ->where('is_active', false)
+                ->count(),
+            'role_counts' => \Illuminate\Support\Facades\DB::table('model_has_roles')
                 ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
                 ->where('model_has_roles.model_type', User::class)
+                ->where('roles.name', '!=', 'Super Admin')
+                ->whereNotIn('model_has_roles.model_id', function ($query) {
+                    $query->select('model_has_roles.model_id')
+                        ->from('model_has_roles')
+                        ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                        ->where('model_has_roles.model_type', User::class)
+                        ->where('roles.name', 'Super Admin');
+                })
                 ->select('roles.name')
                 ->selectRaw('count(distinct model_has_roles.model_id) as agg')
                 ->groupBy('roles.name')
@@ -109,7 +160,8 @@ new class extends Component {
 
         $query = User::query()
             ->select(['id', 'name', 'email', 'is_active'])
-            ->with(['roles:id,name']);
+            ->with(['roles:id,name'])
+            ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'Super Admin'));
 
         if (!empty($search)) {
             $query->where(function ($sub) use ($search) {

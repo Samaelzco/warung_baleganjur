@@ -5,7 +5,8 @@ use Livewire\Volt\Component;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-new class extends Component {
+new class extends Component
+{
     public Role $role;
 
     public array $form = [
@@ -15,6 +16,8 @@ new class extends Component {
 
     public function mount(Role $role): void
     {
+        abort_if($role->name === 'Super Admin', 404);
+
         $this->role = $role->loadMissing('permissions');
 
         $this->form = [
@@ -26,7 +29,7 @@ new class extends Component {
     public function update(): void
     {
         $validated = validator($this->form, [
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name,' . $this->role->id],
+            'name' => ['required', 'string', 'max:255', 'unique:roles,name,'.$this->role->id],
             'permissions' => ['array'],
             'permissions.*' => ['string', 'max:255', 'regex:/^[A-Za-z0-9_.-]+$/'],
         ])->validate();
@@ -40,7 +43,7 @@ new class extends Component {
         $this->ensurePermissionsExist($permissionNames);
         $this->role->syncPermissions($permissionNames);
 
-        Cache::forget('admin:roles:stats:v1');
+        Cache::forget('admin:roles:stats:v2');
 
         session()->flash('roles_toast', __('Role updated successfully.'));
         $this->redirectRoute('roles.index', navigate: true);

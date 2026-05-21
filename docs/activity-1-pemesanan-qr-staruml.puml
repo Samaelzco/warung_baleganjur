@@ -1,0 +1,38 @@
+@startuml
+title Activity Melakukan Pemesanan Melalui QR Meja
+
+|Pelanggan|
+start
+:Memindai QR Code meja;
+
+|Sistem|
+:Memvalidasi QR meja;
+
+if (Meja valid dan aktif?) then (Ya)
+    :Menampilkan menu dan addon;
+else (Tidak)
+    :Menampilkan halaman tidak ditemukan;
+    stop
+endif
+
+|Pelanggan|
+:Memilih menu dan addon;
+:Mengisi data pesanan;
+:Mengirim pesanan;
+
+|Sistem|
+:Memvalidasi pesanan;
+:Memeriksa kapasitas meja;
+
+if (Pesanan dapat diproses?) then (Ya)
+    :Menyimpan pesanan status menunggu;
+    :Menyinkronkan status meja;
+    |Pelanggan|
+    :Melihat halaman status pesanan;
+    stop
+else (Tidak)
+    :Menampilkan pesan gagal atau arah waiting list;
+    stop
+endif
+
+@enduml

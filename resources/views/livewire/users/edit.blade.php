@@ -3,9 +3,9 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
-use Spatie\Permission\Models\Role;
 
-new class extends Component {
+new class extends Component
+{
     public User $user;
 
     public array $form = [
@@ -19,6 +19,7 @@ new class extends Component {
     public function mount(User $user): void
     {
         $this->user = $user->loadMissing('roles');
+        abort_if($this->user->hasRole('Super Admin'), 404);
 
         $this->form = [
             'name' => $this->user->name,
@@ -33,11 +34,11 @@ new class extends Component {
     {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $this->user->id],
-            'role' => ['nullable', 'string', 'max:255', 'exists:roles,name'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$this->user->id],
+            'role' => ['nullable', 'string', 'max:255', 'not_in:Super Admin', 'exists:roles,name'],
         ];
 
-        if (!empty($this->form['password'])) {
+        if (! empty($this->form['password'])) {
             $rules['password'] = ['required', 'string', 'min:8', 'confirmed'];
         } else {
             $rules['password'] = ['nullable', 'string'];
@@ -50,19 +51,19 @@ new class extends Component {
             'email' => $validated['email'],
         ];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $payload['password'] = $validated['password'];
         }
 
         $this->user->update($payload);
 
-        if (!empty($validated['role'])) {
+        if (! empty($validated['role'])) {
             $this->user->syncRoles([$validated['role']]);
         } else {
             $this->user->syncRoles([]);
         }
 
-        Cache::forget('admin:users:stats:v1');
+        Cache::forget('admin:users:stats:v2');
 
         session()->flash('users_toast', __('User updated successfully.'));
         $this->redirectRoute('users.index', navigate: true);
@@ -70,7 +71,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full space-y-6">
-    @php($roles = Role::query()->select(['id', 'name'])->orderBy('name')->get())
+    @php($roles = \Spatie\Permission\Models\Role::query()->select(['id', 'name'])->where('name', '!=', 'Super Admin')->orderBy('name')->get())
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="space-y-1">

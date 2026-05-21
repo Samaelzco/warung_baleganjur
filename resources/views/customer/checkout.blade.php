@@ -809,7 +809,20 @@
                 if (!lines.length) return
 
                 const name = addMode ? '' : String(customerName?.value || '').trim()
-                const guests = addMode ? 1 : Math.max(Number(jumlahOrang?.value || 1), 1)
+                const rawGuests = Number(jumlahOrang?.value || 0)
+                if (!addMode && (!Number.isFinite(rawGuests) || rawGuests < 1)) {
+                    if (checkoutError) {
+                        checkoutError.textContent = @json(__('Jumlah tamu minimal 1 orang.'));
+                        checkoutError.classList.remove('hidden')
+                    }
+                    if (jumlahOrang) {
+                        jumlahOrang.value = '1'
+                        jumlahOrang.focus()
+                        jumlahOrang.select?.()
+                    }
+                    return
+                }
+                const guests = addMode ? 1 : Math.max(rawGuests, 1)
                 const note = String(noteInput?.value || readNote() || '').trim()
                 if (!addMode) {
                     if (!name) {
@@ -862,6 +875,10 @@
                     if (checkoutError && !addMode) {
                         checkoutError.textContent = json?.message || labelSubmitFailed
                         checkoutError.classList.remove('hidden')
+                        if (json?.errors?.jumlah_orang) {
+                            jumlahOrang?.focus()
+                            jumlahOrang?.select?.()
+                        }
                     } else {
                         alert(json?.message || labelSubmitFailed)
                     }

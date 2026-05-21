@@ -5,9 +5,9 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
-use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class SuperAdminSeeder extends Seeder
 {
@@ -21,8 +21,6 @@ class SuperAdminSeeder extends Seeder
         try {
             if (Schema::hasTable('roles') && Schema::hasTable('model_has_roles')) {
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-                $this->call(GodRoleSeeder::class);
 
                 if (Schema::hasTable('permissions') && Schema::hasTable('role_has_permissions')) {
                     $defaultPermissions = [
@@ -59,13 +57,12 @@ class SuperAdminSeeder extends Seeder
                 }
 
                 $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
-                $godRole = Role::firstOrCreate(['name' => 'God', 'guard_name' => 'web']);
 
                 if (Schema::hasTable('permissions') && Schema::hasTable('role_has_permissions')) {
                     $superAdminRole->syncPermissions(Permission::query()->pluck('name')->all());
                 }
 
-                $user->syncRoles([$superAdminRole->name, $godRole->name]);
+                $user->syncRoles([$superAdminRole->name]);
 
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
             }

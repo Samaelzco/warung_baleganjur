@@ -35,12 +35,24 @@ new class extends Component {
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
-            $pesanan = Pesanan::query()->select(['id', 'meja_id'])->find($this->confirmingDeleteId);
+            $pesanan = Pesanan::query()->select(['id', 'meja_id', 'status'])->find($this->confirmingDeleteId);
             $mejaId = $pesanan?->meja_id;
+            $activeStatuses = ['booking', 'menunggu', 'sedang_diubah', 'diproses', 'siap'];
+
+            if ($pesanan && in_array($pesanan->status, $activeStatuses, true)) {
+                $this->confirmingDeleteId = null;
+                $this->dispatch('modal-close', name: 'confirm-delete-pesanan');
+                $this->dispatch('modal-close', name: 'confirm-delete-pesanan-desktop');
+                $this->dispatch('pesanan-toast', message: __('Pesanan harus dibatalkan terlebih dahulu sebelum dihapus.'));
+                return;
+            }
+
             $pesanan?->delete();
+
             if ($mejaId) {
                 $waitingListService = app(TableWaitingListService::class);
                 $waitingListService->activateNextWaitingLists((int) $mejaId);
+                $waitingListService->syncMejaStatus((int) $mejaId);
                 $waitingListService->forgetKitchenCache();
             }
             $this->confirmingDeleteId = null;

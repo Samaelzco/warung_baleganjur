@@ -3,9 +3,9 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
-use Spatie\Permission\Models\Role;
 
-new class extends Component {
+new class extends Component
+{
     public array $form = [
         'name' => '',
         'email' => '',
@@ -20,7 +20,7 @@ new class extends Component {
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'role' => ['nullable', 'string', 'max:255', 'exists:roles,name'],
+            'role' => ['nullable', 'string', 'max:255', 'not_in:Super Admin', 'exists:roles,name'],
         ])->validate();
 
         $user = User::create([
@@ -29,11 +29,11 @@ new class extends Component {
             'password' => $validated['password'],
         ]);
 
-        if (!empty($validated['role'])) {
+        if (! empty($validated['role'])) {
             $user->syncRoles([$validated['role']]);
         }
 
-        Cache::forget('admin:users:stats:v1');
+        Cache::forget('admin:users:stats:v2');
 
         session()->flash('users_toast', __('User created successfully.'));
         $this->redirectRoute('users.index', navigate: true);
@@ -41,7 +41,7 @@ new class extends Component {
 }; ?>
 
 <section class="w-full space-y-6">
-    @php($roles = Role::query()->select(['id', 'name'])->orderBy('name')->get())
+    @php($roles = \Spatie\Permission\Models\Role::query()->select(['id', 'name'])->where('name', '!=', 'Super Admin')->orderBy('name')->get())
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="space-y-1">

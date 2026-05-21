@@ -23,11 +23,11 @@ start
 :Memindai QR Code meja;
 
 |Sistem|
-:Memvalidasi QR meja;
+:Memvalidasi QR Code meja;
 
-if (Meja valid dan aktif?) then (Ya)
-    :Menampilkan menu dan addon;
-else (Tidak)
+if (Status QR Code meja?) then (Valid)
+    :Menampilkan halaman pemesanan;
+else (Tidak valid)
     :Menampilkan halaman tidak ditemukan;
     stop
 endif
@@ -38,17 +38,27 @@ endif
 :Mengirim pesanan;
 
 |Sistem|
-:Memvalidasi pesanan;
+:Memvalidasi data pesanan;
+
+if (Status data pesanan?) then (Sesuai)
+else (Tidak sesuai)
+    :Menampilkan pesan kesalahan;
+    stop
+endif
+
+:Menghitung total pesanan;
 :Memeriksa kapasitas meja;
 
-if (Pesanan dapat diproses?) then (Tidak)
-    :Menampilkan pesan gagal atau arah waiting list;
-    stop
-else (Ya)
+if (Status kapasitas meja?) then (Cukup)
     :Menyimpan pesanan status menunggu;
     :Menyinkronkan status meja;
+    :Menampilkan halaman status pesanan;
+
     |Pelanggan|
     :Melihat halaman status pesanan;
+    stop
+else (Tidak cukup)
+    :Menampilkan pesan jumlah tamu melebihi kapasitas;
     stop
 endif
 
@@ -71,12 +81,13 @@ start
 :Membuka halaman status pesanan;
 
 |Sistem|
-:Memvalidasi akses status;
-:Mengambil data pesanan;
+:Memvalidasi status token pesanan;
 
-if (Pesanan ditemukan?) then (Ya)
-    :Menampilkan status pesanan;
-else (Tidak)
+if (Status token pesanan?) then (Valid)
+    :Mengambil data pesanan;
+    :Menampilkan detail pesanan;
+    :Menampilkan status awal pesanan;
+else (Tidak valid)
     :Menampilkan halaman tidak ditemukan;
     stop
 endif
@@ -85,15 +96,23 @@ endif
 :Melihat status pesanan;
 
 |Sistem|
-:Memuat pembaruan status;
+:Memuat pembaruan status pesanan;
 
-if (Pesanan masih aktif?) then (Ya)
-    :Menampilkan status terbaru;
-    stop
-else (Tidak)
-    :Menampilkan status akhir pesanan;
-    stop
+if (Status pesanan?) then (Masih aktif)
+    :Menampilkan status terbaru pesanan;
+    |Pelanggan|
+    :Memantau perubahan status pesanan;
+else (Tidak aktif)
+    if (Status akhir pesanan?) then (Selesai)
+        :Menampilkan status pembayaran selesai;
+        :Redirect ke halaman pemesanan;
+    else (Batal)
+        :Menampilkan status pesanan batal;
+        :Redirect ke halaman pemesanan;
+    endif
 endif
+
+stop
 
 @enduml
 ```

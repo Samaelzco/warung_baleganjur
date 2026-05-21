@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Addon;
 use App\Models\KategoriMenu;
 use App\Models\Menu;
 use App\Services\MenuImageService;
@@ -8,7 +7,8 @@ use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithFileUploads;
 
-new class extends Component {
+new class extends Component
+{
     use WithFileUploads;
 
     public array $form = [
@@ -36,7 +36,7 @@ new class extends Component {
                 'integer',
                 'exists:kategori_menus,id',
                 function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (!KategoriMenu::query()->whereKey($value)->where('is_active', true)->exists()) {
+                    if (! KategoriMenu::query()->whereKey($value)->where('is_active', true)->exists()) {
                         $fail(__('The selected category is inactive.'));
                     }
                 },
@@ -79,7 +79,7 @@ new class extends Component {
 <section class="w-full space-y-6">
     @php
         $kategories = KategoriMenu::query()->select(['id', 'nama_kategori'])->where('is_active', true)->orderBy('nama_kategori')->get();
-        $addons = Addon::query()->select(['id', 'nama_addon', 'harga', 'status'])->orderBy('nama_addon')->get();
+        $addons = \App\Models\Addon::query()->select(['id', 'nama_addon', 'harga', 'status'])->orderBy('nama_addon')->get();
     @endphp
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -120,7 +120,7 @@ new class extends Component {
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <flux:input wire:model.defer="form.harga" type="number" min="0" step="100" inputmode="numeric" placeholder="0" :label="__('Price (IDR)')" required />
+                            <x-rupiah-input model="form.harga" :label="__('Price (IDR)')" required />
                             @error('form.harga')
                                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                             @enderror

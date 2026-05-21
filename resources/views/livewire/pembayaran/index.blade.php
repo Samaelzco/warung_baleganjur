@@ -292,7 +292,6 @@ use Livewire\WithPagination;
         $stats = Cache::remember('payments:stats:' . $today, 10, function () use ($today) {
             $readyAgg = Pesanan::query()
                 ->selectRaw("
-                    sum(case when status = 'siap' then 1 else 0 end) as ready,
                     sum(case when status = 'siap' and (metode_pembayaran is null or metode_pembayaran = '') then 1 else 0 end) as ready_unpaid
                 ")
                 ->first();
@@ -306,29 +305,21 @@ use Livewire\WithPagination;
 
             return [
                 'ready_unpaid' => (int) ($readyAgg->ready_unpaid ?? 0),
-                'ready' => (int) ($readyAgg->ready ?? 0),
                 'paid_today_count' => (int) ($paidAgg->cnt ?? 0),
                 'paid_today_total' => (float) ($paidAgg->total ?? 0),
             ];
         });
 
         $totalReadyUnpaid = (int) ($stats['ready_unpaid'] ?? 0);
-        $totalReady = (int) ($stats['ready'] ?? 0);
         $paidTodayCount = (int) ($stats['paid_today_count'] ?? 0);
         $paidTodayTotal = (float) ($stats['paid_today_total'] ?? 0);
 
         $statusMeta = [
             'ready_unpaid' => [
-                'label' => __('Ready & unpaid'),
+                'label' => __('Waiting for payment'),
                 'count' => $totalReadyUnpaid,
                 'dot'   => 'bg-emerald-500',
                 'hint'  => __('Waiting for cashier payment'),
-            ],
-            'ready' => [
-                'label' => __('Ready'),
-                'count' => $totalReady,
-                'dot'   => 'bg-cyan-500',
-                'hint'  => __('Ready to be paid or served'),
             ],
             'paid_today' => [
                 'label' => __('Paid today'),
@@ -391,24 +382,13 @@ use Livewire\WithPagination;
         </div>
 
         <!-- summary desktop -->
-        <div class="hidden sm:grid gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="hidden sm:grid gap-2 sm:gap-3 sm:grid-cols-3">
             <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
-                <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">{{ __('Ready & unpaid') }}</p>
+                <p class="text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">{{ __('Waiting for payment') }}</p>
                 <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
                     <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $totalReadyUnpaid }}</span>
                     <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('orders') }}</span>
                 </div>
-            </div>
-            <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
-                <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
-                    <span class="h-2 w-2 rounded-full bg-cyan-500"></span>
-                    <span>{{ __('Ready') }}</span>
-                </div>
-                <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
-                    <span class="text-2xl sm:text-3xl font-semibold text-neutral-900 dark:text-white">{{ $totalReady }}</span>
-                    <span class="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('orders') }}</span>
-                </div>
-                <p class="mt-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400">{{ __('Kitchen has marked ready') }}</p>
             </div>
             <div class="rounded-xl sm:rounded-2xl border border-neutral-200/70 bg-white/85 p-3 sm:p-4 shadow-sm sm:shadow-lg shadow-neutral-200/40 dark:border-neutral-700/60 dark:bg-neutral-900/70 dark:shadow-black/30">
                 <div class="flex items-center gap-2 text-[11px] sm:text-xs font-medium uppercase tracking-[0.18em] sm:tracking-[0.2em] text-neutral-400">
@@ -741,7 +721,25 @@ use Livewire\WithPagination;
                     </div>
                 </div>
 
-	                <form id="pay-pesanan-form" wire:submit.prevent="confirmPayment" class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0">
+	                <form
+                        id="pay-pesanan-form"
+                        wire:key="pay-pesanan-form-{{ $payingId ?? 'none' }}"
+                        wire:submit.prevent="confirmPayment"
+                        x-data="{
+                            total: @js((float) ($payingOrder['total_harga'] ?? 0)),
+                            paid: @js((string) ($payForm['dibayar'] ?? '')),
+                            change: @js((float) ($payForm['kembalian'] ?? 0)),
+                            recalculate() {
+                                const paidAmount = Number.parseFloat(this.paid || 0) || 0;
+                                this.change = Math.max(paidAmount - this.total, 0);
+                                this.$wire.set('payForm.dibayar', String(this.paid || ''), false);
+                                this.$wire.set('payForm.kembalian', this.change, false);
+                            },
+                        }"
+                        x-init="recalculate()"
+                        x-on:submit="recalculate()"
+                        class="flex-1 space-y-6 px-1 py-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:pb-0"
+                    >
 	                    @php($isNonCash = in_array(($payForm['metode_pembayaran'] ?? ''), ['transfer', 'qris'], true))
 
 	                    @if (!empty($payingOrder))
@@ -822,7 +820,7 @@ use Livewire\WithPagination;
 
 		                            @if ($isNonCash)
 		                                <flux:input
-		                                    wire:model.live="payForm.dibayar"
+		                                    wire:model="payForm.dibayar"
 		                                    type="number"
 		                                    step="0.01"
 		                                    min="0"
@@ -833,7 +831,8 @@ use Livewire\WithPagination;
 		                                />
 		                            @else
 		                                <flux:input
-		                                    wire:model.live.debounce.250ms="payForm.dibayar"
+                                            x-model="paid"
+                                            x-on:input="recalculate()"
 		                                    type="number"
 		                                    step="0.01"
 		                                    min="0"
@@ -857,7 +856,7 @@ use Livewire\WithPagination;
 
 		                        <div class="space-y-4">
 		                            <flux:input
-		                                wire:model.defer="payForm.kembalian"
+                                        x-model="change"
 		                                type="number"
 		                                step="0.01"
 		                                min="0"

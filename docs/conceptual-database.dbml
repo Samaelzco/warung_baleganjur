@@ -1,0 +1,356 @@
+Project warung_baleganjur {
+  database_type: "MySQL"
+  Note: '''
+    Model konseptual database Warung Baleganjur.
+    Fokus pada data domain restoran, transaksi pesanan, pembayaran, dan akses pengguna.
+    Tabel teknis Laravel seperti cache, jobs, job_batches, dan failed_jobs tidak dimasukkan.
+  '''
+}
+
+Enum meja_status {
+  kosong
+  terisi
+  reservasi
+  nonaktif
+}
+
+Enum menu_status {
+  tersedia
+  habis
+}
+
+Enum addon_status {
+  tersedia
+  habis
+}
+
+Enum pesanan_status {
+  booking
+  menunggu
+  sedang_diubah
+  diproses
+  siap
+  selesai
+  batal
+}
+
+Enum metode_pembayaran {
+  tunai
+  transfer
+  qris
+}
+
+Enum diskon_tipe {
+  percent
+  nominal
+}
+
+Table users {
+  id bigint [pk, increment]
+  name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  email_verified_at timestamp [null]
+  password varchar(255) [not null]
+  two_factor_secret text [null]
+  two_factor_recovery_codes text [null]
+  two_factor_confirmed_at timestamp [null]
+  is_active boolean [not null, default: true]
+  remember_token varchar(100) [null]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  Note: "Akun staf/admin yang mengelola master data, pesanan, kasir, dan dapur."
+}
+
+Table roles {
+  id bigint [pk, increment]
+  name varchar(255) [not null]
+  guard_name varchar(255) [not null]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    (name, guard_name) [unique]
+  }
+}
+
+Table permissions {
+  id bigint [pk, increment]
+  name varchar(255) [not null]
+  guard_name varchar(255) [not null]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    (name, guard_name) [unique]
+  }
+}
+
+Table model_has_roles {
+  role_id bigint [not null]
+  model_type varchar(255) [not null]
+  model_id bigint [not null]
+
+  indexes {
+    (role_id, model_id, model_type) [pk]
+    (model_id, model_type)
+  }
+
+  Note: "Relasi polymorphic Spatie Permission; pada aplikasi ini dipakai untuk User."
+}
+
+Table model_has_permissions {
+  permission_id bigint [not null]
+  model_type varchar(255) [not null]
+  model_id bigint [not null]
+
+  indexes {
+    (permission_id, model_id, model_type) [pk]
+    (model_id, model_type)
+  }
+
+  Note: "Relasi polymorphic Spatie Permission; pada aplikasi ini dipakai untuk User."
+}
+
+Table role_has_permissions {
+  permission_id bigint [not null]
+  role_id bigint [not null]
+
+  indexes {
+    (permission_id, role_id) [pk]
+  }
+}
+
+Table kategori_menus {
+  id bigint [pk, increment]
+  nama_kategori varchar(100) [not null]
+  nama_kategori_en varchar(100) [null]
+  deskripsi text [null]
+  is_active boolean [not null, default: true]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  Note: "Kelompok menu seperti makanan, minuman, atau kategori lain."
+}
+
+Table menus {
+  id bigint [pk, increment]
+  user_id bigint [null]
+  kategori_id bigint [not null]
+  nama_menu varchar(100) [not null]
+  nama_menu_en varchar(150) [null]
+  deskripsi text [null]
+  deskripsi_en text [null]
+  harga decimal(10,2) [not null]
+  gambar varchar(255) [null]
+  status menu_status [not null, default: "tersedia"]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    (kategori_id, status)
+    nama_menu
+  }
+
+  Note: "Item menu yang dapat dipesan pelanggan."
+}
+
+Table addons {
+  id bigint [pk, increment]
+  user_id bigint [null]
+  nama_addon varchar(100) [not null, unique]
+  nama_addon_en varchar(100) [null]
+  harga decimal(12,2) [not null, default: 0]
+  status addon_status [not null, default: "tersedia"]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    status
+    nama_addon
+  }
+
+  Note: "Tambahan menu seperti topping, ekstra lauk, atau opsi pelengkap."
+}
+
+Table addon_menu {
+  menu_id bigint [not null]
+  addon_id bigint [not null]
+
+  indexes {
+    (menu_id, addon_id) [unique]
+    (menu_id, addon_id)
+  }
+
+  Note: "Daftar addon yang boleh dipilih untuk suatu menu."
+}
+
+Table mejas {
+  id bigint [pk, increment]
+  user_id bigint [null]
+  nomor_meja varchar(10) [not null]
+  qr_token varchar(100) [not null, unique]
+  status meja_status [not null, default: "kosong"]
+  kapasitas smallint [not null, default: 4]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  Note: "Meja restoran yang diakses pelanggan lewat QR."
+}
+
+Table diskons {
+  id bigint [pk, increment]
+  user_id bigint [null]
+  kode varchar(50) [not null, unique]
+  tipe diskon_tipe [not null]
+  nilai decimal(10,2) [not null]
+  min_subtotal decimal(12,2) [null]
+  is_active boolean [not null, default: true]
+  tanggal_mulai date [null]
+  tanggal_selesai date [null]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    (tipe, is_active)
+    tanggal_mulai
+    tanggal_selesai
+  }
+
+  Note: "Aturan potongan harga yang dapat diterapkan pada pesanan."
+}
+
+Table pajaks {
+  id bigint [pk, increment]
+  user_id bigint [null]
+  nama varchar(100) [not null]
+  persentase decimal(5,2) [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    is_active
+    nama
+  }
+
+  Note: "Aturan pajak atau biaya persentase untuk pesanan."
+}
+
+Table pesanans {
+  id bigint [pk, increment]
+  meja_id bigint [not null]
+  kode_pesanan varchar(20) [not null, unique]
+  status_token varchar(64) [null, unique]
+  customer_name varchar(100) [not null]
+  customer_note varchar(255) [null]
+  jumlah_orang smallint [not null, default: 1]
+  subtotal decimal(12,2) [not null, default: 0]
+  discount_total decimal(12,2) [not null, default: 0]
+  tax_total decimal(12,2) [not null, default: 0]
+  total_harga decimal(12,2) [not null, default: 0]
+  status pesanan_status [not null, default: "menunggu"]
+  metode_pembayaran metode_pembayaran [null]
+  dibayar decimal(12,2) [null]
+  kembalian decimal(12,2) [null]
+  referensi_pembayaran varchar(100) [null]
+  kasir_id bigint [null]
+  chef_id bigint [null]
+  diskon_id bigint [null]
+  pajak_id bigint [null]
+  waktu_pesan datetime [not null]
+  waktu_selesai datetime [null]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    status
+    waktu_pesan
+    metode_pembayaran
+    (status, waktu_pesan, id)
+    (meja_id, status, waktu_pesan)
+    (meja_id, status, waktu_pesan, id)
+  }
+
+  Note: "Transaksi pesanan pelanggan, termasuk booking, status dapur, dan pembayaran."
+}
+
+Table pesanan_details {
+  id bigint [pk, increment]
+  pesanan_id bigint [not null]
+  menu_id bigint [not null]
+  qty int [not null]
+  harga decimal(12,2) [not null]
+  subtotal decimal(12,2) [not null]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    pesanan_id
+    menu_id
+  }
+
+  Note: "Baris item menu dalam satu pesanan."
+}
+
+Table pesanan_detail_addons {
+  pesanan_detail_id bigint [not null]
+  addon_id bigint [not null]
+  harga decimal(12,2) [not null, default: 0]
+  created_at timestamp [null]
+  updated_at timestamp [null]
+
+  indexes {
+    (pesanan_detail_id, addon_id) [unique]
+    (pesanan_detail_id, addon_id)
+  }
+
+  Note: "Addon yang benar-benar dipilih pada detail pesanan, beserta harga saat transaksi."
+}
+
+Table password_reset_tokens {
+  email varchar(255) [pk]
+  token varchar(255) [not null]
+  created_at timestamp [null]
+}
+
+Table sessions {
+  id varchar(255) [pk]
+  user_id bigint [null]
+  ip_address varchar(45) [null]
+  user_agent text [null]
+  payload longtext [not null]
+  last_activity int [not null]
+
+  indexes {
+    user_id
+    last_activity
+  }
+}
+
+Ref: menus.kategori_id > kategori_menus.id [delete: cascade]
+Ref: menus.user_id > users.id [delete: set null]
+Ref: addons.user_id > users.id [delete: set null]
+Ref: addon_menu.menu_id > menus.id [delete: cascade]
+Ref: addon_menu.addon_id > addons.id [delete: cascade]
+
+Ref: mejas.user_id > users.id [delete: set null]
+Ref: diskons.user_id > users.id [delete: set null]
+Ref: pajaks.user_id > users.id [delete: set null]
+
+Ref: pesanans.meja_id > mejas.id
+Ref: pesanans.kasir_id > users.id [delete: set null]
+Ref: pesanans.chef_id > users.id [delete: set null]
+Ref: pesanans.diskon_id > diskons.id [delete: set null]
+Ref: pesanans.pajak_id > pajaks.id [delete: set null]
+
+Ref: pesanan_details.pesanan_id > pesanans.id [delete: cascade]
+Ref: pesanan_details.menu_id > menus.id
+Ref: pesanan_detail_addons.pesanan_detail_id > pesanan_details.id [delete: cascade]
+Ref: pesanan_detail_addons.addon_id > addons.id [delete: restrict]
+
+Ref: role_has_permissions.permission_id > permissions.id [delete: cascade]
+Ref: role_has_permissions.role_id > roles.id [delete: cascade]
+Ref: model_has_roles.role_id > roles.id [delete: cascade]
+Ref: model_has_permissions.permission_id > permissions.id [delete: cascade]
+Ref: sessions.user_id > users.id

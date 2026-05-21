@@ -95,7 +95,7 @@ new class extends Component {
         if ($statusFilter !== 'all' && !empty($statusFilter)) {
             $query->where('status', $statusFilter);
         }
-        $items = $query->orderBy('nomor_meja')->paginate(5);
+        $items = $query->orderBy('nomor_meja')->paginate(6);
         $statusMeta = [
             'kosong' => [
                 'label' => __('Empty'),

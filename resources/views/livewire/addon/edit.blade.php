@@ -4,7 +4,8 @@ use App\Models\Addon;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public Addon $addon;
 
     public array $form = [
@@ -28,7 +29,7 @@ new class extends Component {
     public function update(): void
     {
         $validated = validator($this->form, [
-            'nama_addon' => ['required', 'string', 'max:100', 'unique:addons,nama_addon,' . $this->addon->id],
+            'nama_addon' => ['required', 'string', 'max:100', 'unique:addons,nama_addon,'.$this->addon->id],
             'nama_addon_en' => ['nullable', 'string', 'max:100'],
             'harga' => ['required', 'numeric', 'min:0'],
             'status' => ['required', 'in:tersedia,habis'],
@@ -80,16 +81,7 @@ new class extends Component {
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <flux:input
-                                wire:model.defer="form.harga"
-                                type="number"
-                                min="0"
-                                step="100"
-                                inputmode="numeric"
-                                placeholder="0"
-                                :label="__('Price (IDR)')"
-                                required
-                            />
+                            <x-rupiah-input model="form.harga" :label="__('Price (IDR)')" required />
                             @error('form.harga')
                                 <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
                             @enderror

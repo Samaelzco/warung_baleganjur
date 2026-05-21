@@ -28,7 +28,7 @@ new class extends Component {
         $this->ensurePermissionsExist($permissionNames);
         $role->syncPermissions($permissionNames);
 
-        Cache::forget('admin:roles:stats:v1');
+        Cache::forget('admin:roles:stats:v2');
 
         session()->flash('roles_toast', __('Role created successfully.'));
         $this->redirectRoute('roles.index', navigate: true);

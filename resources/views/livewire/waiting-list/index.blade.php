@@ -11,6 +11,7 @@ new class extends Component {
 
     public string $search = '';
     public string $tableFilter = 'all';
+    public ?int $lastBookingMaxId = null;
 
     protected $queryString = [
         'search' => ['except' => ''],
@@ -20,6 +21,27 @@ new class extends Component {
 
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingTableFilter(): void { $this->resetPage(); }
+
+    public function mount(): void
+    {
+        $this->lastBookingMaxId = $this->currentBookingMaxId();
+    }
+
+    public function pollWaitingList(): void
+    {
+        $current = $this->currentBookingMaxId();
+
+        if ($this->lastBookingMaxId === null) {
+            $this->lastBookingMaxId = $current;
+            return;
+        }
+
+        if ($current !== null && $current > $this->lastBookingMaxId) {
+            $this->lastBookingMaxId = $current;
+            Cache::forget('waiting-list:list:stats:v1');
+            $this->dispatch('waiting-list-toast', message: __('New waiting list entry received.'));
+        }
+    }
 
     public function clearFilters(): void
     {
@@ -82,6 +104,15 @@ new class extends Component {
     {
         abort_unless(auth()->check() && auth()->user()->can('waiting-list.manage'), 403);
     }
+
+    protected function currentBookingMaxId(): ?int
+    {
+        $max = Pesanan::query()
+            ->where('status', 'booking')
+            ->max('id');
+
+        return $max ? (int) $max : null;
+    }
 }; ?>
 
 <section class="w-full">
@@ -141,6 +172,22 @@ new class extends Component {
                 @endcan
             </div>
         </div>
+
+        <div
+            x-data="{
+                active: !document.hidden,
+                init() {
+                    const sync = () => { this.active = !document.hidden }
+                    document.addEventListener('visibilitychange', sync)
+                    sync()
+                },
+            }"
+            x-init="init()"
+            x-show="active"
+            wire:poll.visible.2s="pollWaitingList"
+            class="fixed left-0 top-0 h-1 w-1 opacity-0 pointer-events-none"
+            aria-hidden="true"
+        ></div>
 
         <!-- Mobile: horizontal scroll chips -->
         <div class="block sm:hidden -mx-4 overflow-x-auto no-scrollbar">
@@ -513,12 +560,34 @@ new class extends Component {
         </div>
 
         <div
-            x-data="{ show:false, message:'', timeout:null, handle(e){ this.message=e.detail?.message || ''; this.show=!!this.message; clearTimeout(this.timeout); this.timeout=setTimeout(()=>this.show=false,3500); } }"
+            x-data="{
+                show: false,
+                message: '',
+                timeout: null,
+                handle(event) {
+                    this.message = event.detail?.message || '';
+                    this.show = !!this.message;
+                    clearTimeout(this.timeout);
+                    this.timeout = setTimeout(() => this.show = false, 3500);
+                }
+            }"
             x-on:waiting-list-toast.window="handle($event)"
             class="pointer-events-none fixed inset-x-0 top-6 flex justify-center px-4"
         >
-            <div x-show="show" class="pointer-events-auto rounded-2xl toast-brand px-4 py-3 text-sm">
-                <span x-text="message"></span>
+            <div
+                x-show="show"
+                x-transition:enter="transform ease-out duration-200"
+                x-transition:enter-start="-translate-y-3 opacity-0"
+                x-transition:enter-end="translate-y-0 opacity-100"
+                x-transition:leave="transform ease-in duration-200"
+                x-transition:leave-start="translate-y-0 opacity-100"
+                x-transition:leave-end="-translate-y-3 opacity-0"
+                class="pointer-events-auto rounded-2xl toast-brand px-4 py-3 text-sm"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon icon="check-circle" />
+                    <span x-text="message"></span>
+                </div>
             </div>
         </div>
     </div>

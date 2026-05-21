@@ -4,7 +4,8 @@ use App\Models\Addon;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 
-new class extends Component {
+new class extends Component
+{
     public array $form = [
         'nama_addon' => '',
         'nama_addon_en' => '',
@@ -71,13 +72,8 @@ new class extends Component {
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <flux:input
-                                wire:model.defer="form.harga"
-                                type="number"
-                                min="0"
-                                step="100"
-                                inputmode="numeric"
-                                placeholder="0"
+                            <x-rupiah-input
+                                model="form.harga"
                                 :label="__('Price (IDR)')"
                                 required
                                 help="{{ __('This price will be added to the selected menu price.') }}"
