@@ -328,7 +328,7 @@ new class extends Component {
                                     <flux:button
                                         size="sm"
                                         icon="trash"
-                                        variant="danger"
+                                        variant="{{ $disableDelete ? 'ghost' : 'danger' }}"
                                         class="{{ $disableDelete ? 'btn-disabled-muted' : '' }} w-full"
                                         wire:click="confirmDelete({{ $m->id }})"
                                         :disabled="$disableDelete"
@@ -415,7 +415,7 @@ new class extends Component {
                                     <flux:button
                                         size="sm"
                                         icon="trash"
-                                        variant="danger"
+                                        variant="{{ $disableDelete ? 'ghost' : 'danger' }}"
                                         class="{{ $disableDelete ? 'btn-disabled-muted' : '' }} w-full"
                                         wire:click="confirmDelete({{ $m->id }})"
                                         :disabled="$disableDelete"
@@ -539,7 +539,7 @@ new class extends Component {
                                                         <flux:button
                                                         size="sm"
                                                         icon="trash"
-                                                        variant="danger"
+                                                        variant="{{ $disableDelete ? 'ghost' : 'danger' }}"
                                                         class="{{ $disableDelete ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                         wire:click="confirmDelete({{ $m->id }})"
                                                         :disabled="$disableDelete"
