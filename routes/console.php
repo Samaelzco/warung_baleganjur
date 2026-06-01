@@ -133,3 +133,65 @@ Artisan::command('menus:thumbnails {--force : Regenerate thumbnails even if they
     $this->info("Done. Updated {$generated} menu(s).");
     return 0;
 })->purpose('Generate WebP thumbnails for menu images (customer page optimization).');
+
+Artisan::command('menus:cleanup-images {--execute : Delete orphaned files instead of only showing a report}', function () {
+    $disk = 'public';
+    $storage = \Illuminate\Support\Facades\Storage::disk($disk);
+
+    $referenced = \App\Models\Menu::query()
+        ->whereNotNull('gambar')
+        ->where('gambar', '!=', '')
+        ->pluck('gambar')
+        ->map(fn ($path) => ltrim((string) $path, '/'))
+        ->reject(fn ($path) => $path === '' || Str::startsWith($path, ['http://', 'https://', '/']))
+        ->values();
+
+    $referencedWithThumbs = $referenced
+        ->flatMap(fn ($path) => array_merge(
+            [$path],
+            array_values(\App\Services\MenuImageService::thumbnailPaths($path, [160, 320, 480, 640])),
+        ))
+        ->unique()
+        ->flip();
+
+    $files = collect($storage->allFiles('menus'));
+    $orphans = $files
+        ->reject(fn ($path) => $referencedWithThumbs->has($path))
+        ->values();
+
+    $this->line('Disk: '.$disk);
+    $this->line('Referenced menu images: '.$referenced->count());
+    $this->line('Files under menus/: '.$files->count());
+    $this->line('Orphan files: '.$orphans->count());
+    $this->newLine();
+
+    if ($orphans->isEmpty()) {
+        $this->info('No orphan menu image files found.');
+        return 0;
+    }
+
+    foreach ($orphans->take(30) as $path) {
+        $this->line('- '.$path);
+    }
+
+    if ($orphans->count() > 30) {
+        $this->line('... and '.($orphans->count() - 30).' more');
+    }
+
+    $this->newLine();
+
+    if (! (bool) $this->option('execute')) {
+        $this->warn('Dry-run only. Re-run with --execute to delete these files.');
+        return 0;
+    }
+
+    $deleted = 0;
+    foreach ($orphans as $path) {
+        if ($storage->delete($path)) {
+            $deleted++;
+        }
+    }
+
+    $this->info("Deleted {$deleted} orphan menu image file(s).");
+    return 0;
+})->purpose('Delete menu image files that are no longer referenced by menus.gambar.');

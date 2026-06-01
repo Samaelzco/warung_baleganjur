@@ -47,7 +47,7 @@ new class extends Component
             'deskripsi_en' => ['nullable', 'string'],
             'addon_ids' => ['nullable', 'array'],
             'addon_ids.*' => ['integer', 'exists:addons,id'],
-            'gambar' => ['nullable', 'image', 'max:2048'],
+            'gambar' => ['nullable', 'image', 'max:5120'],
         ])->validate();
 
         $addonIds = $validated['addon_ids'] ?? [];

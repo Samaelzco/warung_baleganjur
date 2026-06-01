@@ -512,13 +512,22 @@ new class extends Component {
             <div class="overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full table-fixed text-sm">
+                        <colgroup>
+                            <col class="w-[8%]" />
+                            <col class="w-[8%]" />
+                            <col class="w-[22%]" />
+                            <col class="w-[12%]" />
+                            <col class="w-[14%]" />
+                            <col class="w-[12%]" />
+                            <col class="w-[24%]" />
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th class="hidden sm:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('ID') }}</th>
                                 <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Image') }}</th>
                                 <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Name') }}</th>
-                                <th class="hidden lg:table-cell border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Category') }}</th>
-                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Price') }}</th>
+                                <th class="hidden lg:table-cell border-b border-r border-neutral-200/80 px-4 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Category') }}</th>
+                                <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400 whitespace-nowrap">{{ __('Price') }}</th>
                                 <th class="border-b border-r border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Status') }}</th>
                                 <th class="md:min-w-[280px] lg:min-w-0 border-b border-neutral-200/80 px-6 py-4 text-center text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 dark:border-neutral-800/70 dark:text-neutral-400">{{ __('Actions') }}</th>
                             </tr>
@@ -563,10 +572,12 @@ new class extends Component {
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="hidden lg:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-600 dark:border-neutral-800/70 dark:text-neutral-300">
-                                        {{ $m->kategori?->nama_kategori ?? '—' }}
+                                    <td class="hidden lg:table-cell border-r border-neutral-200/80 px-4 py-4 align-middle text-center text-neutral-600 dark:border-neutral-800/70 dark:text-neutral-300">
+                                        <span class="mx-auto block max-w-full break-words leading-5">
+                                            {{ $m->kategori?->nama_kategori ?? '—' }}
+                                        </span>
                                     </td>
-                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center text-neutral-800 dark:border-neutral-800/70 dark:text-neutral-100">
+                                    <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center font-semibold whitespace-nowrap text-neutral-800 dark:border-neutral-800/70 dark:text-neutral-100">
                                         Rp {{ number_format($m->harga, 0, ',', '.') }}
                                     </td>
                                     <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">

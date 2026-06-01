@@ -123,12 +123,12 @@
                 </div>
             </div>
 
-            <div class="pt-2">
-                <nav class="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 text-sm no-scrollbar scroll-px-4" data-category-tabs>
+            <div class="-mx-4 overflow-x-auto px-4 pt-2 no-scrollbar category-tabs-scroll">
+                <nav class="flex w-max min-w-full snap-x snap-mandatory gap-2 pb-2 text-sm scroll-px-4" data-category-tabs aria-label="{{ __('Menu categories') }}">
                     <a
                         href="#all"
                         data-cat-link="all"
-                        class="snap-center shrink-0 rounded-full border border-[color-mix(in_srgb,var(--brand-primary)_45%,transparent)] bg-[color-mix(in_srgb,var(--brand-primary)_16%,transparent)] px-4 py-2 font-extrabold text-neutral-900 shadow-sm dark:text-white"
+                        class="snap-center shrink-0 whitespace-nowrap rounded-full border border-[color-mix(in_srgb,var(--brand-primary)_45%,transparent)] bg-[color-mix(in_srgb,var(--brand-primary)_16%,transparent)] px-4 py-2 font-extrabold text-neutral-900 shadow-sm dark:text-white"
                     >
                     {{ __('All Items') }}
                     </a>
@@ -136,7 +136,7 @@
                         <a
                             href="#cat-{{ $c->id }}"
                             data-cat-link="cat-{{ $c->id }}"
-                            class="snap-center shrink-0 rounded-full border border-transparent px-4 py-2 font-semibold text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900/40 dark:hover:text-white"
+                            class="snap-center shrink-0 whitespace-nowrap rounded-full border border-transparent px-4 py-2 font-semibold text-neutral-600 hover:bg-neutral-100/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900/40 dark:hover:text-white"
                         >
                             {{ $c->nama_kategori_localized }}
                         </a>

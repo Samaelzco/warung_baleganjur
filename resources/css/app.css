@@ -58,6 +58,11 @@
 
 /* horizontal scroll without visible scrollbar */
 .no-scrollbar::-webkit-scrollbar { display: none; }
+.category-tabs-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+}
 
 /* Customer (public QR) */
 .customer-menu-card--selected {
