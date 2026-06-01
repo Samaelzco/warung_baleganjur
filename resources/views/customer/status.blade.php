@@ -42,6 +42,7 @@
                     <form method="POST" action="{{ route('locale.set') }}" class="contents">
                         @csrf
                         <input type="hidden" name="locale" value="{{ app()->getLocale() === 'id' ? 'en' : 'id' }}" />
+                        <input type="hidden" name="redirect" value="{{ request()->fullUrl() }}" />
                         <button
                             type="submit"
                             class="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-neutral-200/70 bg-white/60 px-3 text-xs font-extrabold tracking-wide text-neutral-700 shadow-sm backdrop-blur hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60"

@@ -14,11 +14,25 @@ Route::redirect('/', '/login')->name('home');
 Route::post('locale', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate([
         'locale' => ['required', 'in:en,id'],
+        'redirect' => ['nullable', 'string', 'max:2048'],
     ]);
 
     $request->session()->put('locale', $validated['locale']);
     app()->setLocale($validated['locale']);
     Carbon::setLocale($validated['locale']);
+
+    $redirect = (string) ($validated['redirect'] ?? '');
+    if ($redirect !== '') {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $currentHost = $request->getSchemeAndHttpHost();
+        $isRelative = str_starts_with($redirect, '/') && !str_starts_with($redirect, '//');
+        $isSameApp = $appUrl !== '' && str_starts_with($redirect, $appUrl);
+        $isSameHost = str_starts_with($redirect, $currentHost);
+
+        if ($isRelative || $isSameApp || $isSameHost) {
+            return redirect()->to($redirect);
+        }
+    }
 
     return back();
 })->name('locale.set');
