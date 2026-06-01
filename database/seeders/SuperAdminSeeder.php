@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
+use RuntimeException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -13,9 +14,20 @@ class SuperAdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $email = (string) env('SUPER_ADMIN_EMAIL', 'superadmin@gmail.com');
+        $password = (string) env('SUPER_ADMIN_PASSWORD', '');
+
+        if ($password === '' && app()->environment('production')) {
+            throw new RuntimeException('SUPER_ADMIN_PASSWORD must be set in production.');
+        }
+
         $user = User::updateOrCreate(
-            ['email' => 'superadmin@gmail.com'],
-            ['name' => 'Super Admin', 'password' => 'password', 'is_active' => true],
+            ['email' => $email],
+            [
+                'name' => (string) env('SUPER_ADMIN_NAME', 'Super Admin'),
+                'password' => $password !== '' ? $password : 'password',
+                'is_active' => true,
+            ],
         );
 
         try {

@@ -13,7 +13,7 @@ class MejaSeeder extends Seeder
     public function run(): void
     {
         $userId = User::query()
-            ->where('email', 'superadmin@gmail.com')
+            ->where('email', (string) env('SUPER_ADMIN_EMAIL', 'superadmin@gmail.com'))
             ->value('id') ?? User::query()->value('id');
 
         foreach (range(1, 6) as $number) {

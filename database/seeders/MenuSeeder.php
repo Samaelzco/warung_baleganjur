@@ -20,7 +20,7 @@ class MenuSeeder extends Seeder
         }
 
         $userId = User::query()
-            ->where('email', 'superadmin@gmail.com')
+            ->where('email', (string) env('SUPER_ADMIN_EMAIL', 'superadmin@gmail.com'))
             ->value('id') ?? User::query()->value('id');
 
         DB::transaction(function () use ($path, $userId): void {
