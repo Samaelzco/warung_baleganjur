@@ -22,6 +22,8 @@ new class extends Component {
         KategoriMenu::create($validated);
         Cache::forget('customer:categories:v1');
         Cache::forget('customer:menus_available:v1');
+        Cache::forget('customer:menus_orderable_display:v1');
+        Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
         Cache::forget('admin:kategori:stats:v1');
 
         session()->flash('kategori_toast', __('Category created successfully.'));

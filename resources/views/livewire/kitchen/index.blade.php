@@ -383,16 +383,18 @@ new class extends Component {
                 x-data="{
                     active: !document.hidden,
                     modalOpen: false,
+                    loggingOut: false,
                     init() {
                         const sync = () => { this.active = !document.hidden }
                         document.addEventListener('visibilitychange', sync)
                         window.addEventListener('modal-show', () => { this.modalOpen = true })
                         window.addEventListener('modal-close', () => { this.modalOpen = false })
+                        window.addEventListener('app-logout-start', () => { this.loggingOut = true })
                         sync()
                     },
                 }"
                 x-init="init()"
-                x-show="active && !modalOpen"
+                x-show="active && !modalOpen && !loggingOut"
                 wire:poll.visible.2s="pollKitchen"
                 class="fixed left-0 top-0 h-1 w-1 opacity-0 pointer-events-none"
                 aria-hidden="true"

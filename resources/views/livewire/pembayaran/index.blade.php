@@ -436,23 +436,30 @@ use Livewire\WithPagination;
             </div>
         </div>
 
-        <div class="space-y-4">
+        <div
+            x-data="paymentNewOrderSound({ src: '{{ asset('audio/discord-notification.mp3') }}' })"
+            class="space-y-4"
+        >
+            <audio x-ref="audio" class="hidden" preload="auto"></audio>
+
             @if(!$payingId)
                 <div
                     x-data="{
                         active: !document.hidden,
                         modalOpen: false,
+                        loggingOut: false,
                         init() {
                             const sync = () => { this.active = !document.hidden }
                             document.addEventListener('visibilitychange', sync)
                             window.addEventListener('modal-show', () => { this.modalOpen = true })
                             window.addEventListener('modal-close', () => { this.modalOpen = false })
+                            window.addEventListener('app-logout-start', () => { this.loggingOut = true })
                             sync()
                         },
                     }"
                     x-init="init()"
-                    x-show="active && !modalOpen"
-                    wire:poll.visible.5s
+                    x-show="active && !modalOpen && !loggingOut"
+                    wire:poll.visible.2s
                     class="fixed left-0 top-0 h-1 w-1 opacity-0 pointer-events-none"
                     aria-hidden="true"
                 ></div>
@@ -461,7 +468,11 @@ use Livewire\WithPagination;
         <div class="block sm:hidden">
             <div class="grid gap-3">
                 @forelse ($items as $item)
-                    <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                    <div
+                        data-payment-order
+                        data-order-id="{{ (int) $item->id }}"
+                        class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900"
+                    >
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3">
                                 <div class="h-14 w-14 rounded bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
@@ -527,7 +538,11 @@ use Livewire\WithPagination;
         <div class="hidden sm:block lg:hidden">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse ($items as $item)
-                    <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
+                    <div
+                        data-payment-order
+                        data-order-id="{{ (int) $item->id }}"
+                        class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900"
+                    >
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex min-w-0 items-center gap-3">
                                 <div class="h-12 w-12 rounded bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
@@ -623,7 +638,11 @@ use Livewire\WithPagination;
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $item)
-                                <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
+                                <tr
+                                    data-payment-order
+                                    data-order-id="{{ (int) $item->id }}"
+                                    class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50"
+                                >
                                     <td class="hidden md:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
                                             #{{ str_pad((string) $item->id, 3, '0', STR_PAD_LEFT) }}

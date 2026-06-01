@@ -38,6 +38,8 @@ new class extends Component {
         $addon->forceFill(['status' => $nextStatus])->save();
 
         Cache::forget('customer:menus_available:v1');
+        Cache::forget('customer:menus_orderable_display:v1');
+        Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
         Cache::forget('admin:addon:stats:v1');
 
         $this->dispatch('addon-toast', message: $nextStatus === 'habis'
@@ -74,6 +76,8 @@ new class extends Component {
             $addon->delete();
         });
         Cache::forget('customer:menus_available:v1');
+        Cache::forget('customer:menus_orderable_display:v1');
+        Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
         Cache::forget('admin:addon:stats:v1');
 
         $this->confirmingDeleteId = null;
@@ -109,6 +113,12 @@ new class extends Component {
         }
 
         $items = $query->orderBy('nama_addon')->paginate(10);
+        $usedAddonIds = DB::table('pesanan_detail_addons')
+            ->whereIn('addon_id', $items->getCollection()->pluck('id'))
+            ->pluck('addon_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->flip();
 
         $stats = Cache::remember('admin:addon:stats:v1', 10, fn () => [
             'total'     => Addon::query()->count(),
@@ -236,6 +246,7 @@ new class extends Component {
         <div class="block sm:hidden">
             <div class="mt-2 grid gap-3">
                 @forelse ($items as $addon)
+                    @php($isUsedInOrders = $usedAddonIds->has((int) $addon->id))
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div>
@@ -281,8 +292,10 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                        class="{{ $isUsedInOrders ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $addon->id }})"
+                                        :disabled="$isUsedInOrders"
+                                        title="{{ $isUsedInOrders ? __('This add-on is already used in orders.') : __('Delete') }}"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -306,6 +319,7 @@ new class extends Component {
             <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse ($items as $addon)
                     @php($isAvailable = $addon->status === 'tersedia')
+                    @php($isUsedInOrders = $usedAddonIds->has((int) $addon->id))
                     <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -348,8 +362,10 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                        class="{{ $isUsedInOrders ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $addon->id }})"
+                                        :disabled="$isUsedInOrders"
+                                        title="{{ $isUsedInOrders ? __('This add-on is already used in orders.') : __('Delete') }}"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -385,6 +401,7 @@ new class extends Component {
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $addon)
                                 @php($isAvailable = $addon->status === 'tersedia')
+                                @php($isUsedInOrders = $usedAddonIds->has((int) $addon->id))
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
@@ -435,9 +452,10 @@ new class extends Component {
                                                             size="sm"
                                                             icon="trash"
                                                             variant="danger"
-                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            class="{{ $isUsedInOrders ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
                                                             wire:click="confirmDelete({{ $addon->id }})"
-                                                            title="{{ __('Delete') }}"
+                                                            :disabled="$isUsedInOrders"
+                                                            title="{{ $isUsedInOrders ? __('This add-on is already used in orders.') : __('Delete') }}"
                                                         >
                                                             {{ __('Delete') }}
                                                         </flux:button>

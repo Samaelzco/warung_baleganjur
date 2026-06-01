@@ -37,6 +37,8 @@ new class extends Component {
 
         Cache::forget('customer:categories:v1');
         Cache::forget('customer:menus_available:v1');
+        Cache::forget('customer:menus_orderable_display:v1');
+        Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
         Cache::forget('admin:kategori:stats:v1');
 
         $this->dispatch('kategori-toast', message: $kategori->is_active
@@ -63,6 +65,8 @@ new class extends Component {
             KategoriMenu::where('id', $this->confirmingDeleteId)->delete();
             Cache::forget('customer:categories:v1');
             Cache::forget('customer:menus_available:v1');
+            Cache::forget('customer:menus_orderable_display:v1');
+            Cache::forever('customer:menu_version', ((int) Cache::get('customer:menu_version', 1)) + 1);
             Cache::forget('admin:kategori:stats:v1');
             $this->confirmingDeleteId = null;
             $this->dispatch('modal-close', name: 'confirm-delete-kategori');
@@ -96,6 +100,12 @@ new class extends Component {
         }
 
         $items        = $query->orderBy('nama_kategori')->paginate(10);
+        $linkedCategoryIds = Menu::query()
+            ->whereIn('kategori_id', $items->getCollection()->pluck('id'))
+            ->pluck('kategori_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->flip();
         $stats = Cache::remember('admin:kategori:stats:v1', 10, fn () => [
             'total' => KategoriMenu::query()->count(),
             'active' => KategoriMenu::query()->where('is_active', true)->count(),
@@ -225,6 +235,7 @@ new class extends Component {
         <div class="block sm:hidden">
             <div class="grid gap-3">
                 @forelse ($items as $k)
+                    @php($isLinked = $linkedCategoryIds->has((int) $k->id))
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div>
@@ -256,7 +267,17 @@ new class extends Component {
                         <div class="mt-2 flex items-center gap-2">
                             @can('kategori.manage')
                                 <flux:modal.trigger name="confirm-delete-kategori" class="flex-1">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="{{ $isLinked ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                        wire:click="confirmDelete({{ $k->id }})"
+                                        :disabled="$isLinked"
+                                        title="{{ $isLinked ? __('This category is already used by menus.') : __('Delete') }}"
+                                    >
+                                        {{ __('Delete') }}
+                                    </flux:button>
                                 </flux:modal.trigger>
                             @endcan
                         </div>
@@ -276,6 +297,7 @@ new class extends Component {
         <div class="hidden sm:block lg:hidden">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse ($items as $k)
+                    @php($isLinked = $linkedCategoryIds->has((int) $k->id))
                     <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -307,7 +329,17 @@ new class extends Component {
                         <div class="mt-2">
                             @can('kategori.manage')
                                 <flux:modal.trigger name="confirm-delete-kategori-desktop">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center" wire:click="confirmDelete({{ $k->id }})">{{ __('Delete') }}</flux:button>
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="{{ $isLinked ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                        wire:click="confirmDelete({{ $k->id }})"
+                                        :disabled="$isLinked"
+                                        title="{{ $isLinked ? __('This category is already used by menus.') : __('Delete') }}"
+                                    >
+                                        {{ __('Delete') }}
+                                    </flux:button>
                                 </flux:modal.trigger>
                             @endcan
                         </div>
@@ -339,6 +371,7 @@ new class extends Component {
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $k)
+                                @php($isLinked = $linkedCategoryIds->has((int) $k->id))
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
@@ -388,9 +421,10 @@ new class extends Component {
                                                             size="sm"
                                                             icon="trash"
                                                             variant="danger"
-                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            class="{{ $isLinked ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
                                                             wire:click="confirmDelete({{ $k->id }})"
-                                                            title="{{ __('Delete') }}"
+                                                            :disabled="$isLinked"
+                                                            title="{{ $isLinked ? __('This category is already used by menus.') : __('Delete') }}"
                                                         >
                                                             {{ __('Delete') }}
                                                         </flux:button>

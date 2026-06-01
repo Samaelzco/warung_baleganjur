@@ -310,6 +310,7 @@ new class extends Component {
                 @forelse ($items as $item)
                     @php($status = $item->status)
                     @php($meta = $statusMeta[$status] ?? null)
+                    @php($isActiveOrder = in_array($status, ['booking', 'menunggu', 'sedang_diubah', 'diproses', 'siap'], true))
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div>
@@ -418,8 +419,10 @@ new class extends Component {
                                     <flux:button
                                         size="sm"
                                         variant="danger"
-                                        class="w-full"
+                                        class="{{ $isActiveOrder ? 'btn-disabled-muted' : '' }} w-full"
                                         wire:click="confirmDelete({{ $item->id }})"
+                                        :disabled="$isActiveOrder"
+                                        title="{{ $isActiveOrder ? __('Pesanan harus dibatalkan terlebih dahulu sebelum dihapus.') : __('Delete') }}"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -475,6 +478,7 @@ new class extends Component {
                             @forelse ($items as $item)
                                 @php($status = $item->status)
                                 @php($meta = $statusMeta[$status] ?? null)
+                                @php($isActiveOrder = in_array($status, ['booking', 'menunggu', 'sedang_diubah', 'diproses', 'siap'], true))
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <div class="flex flex-col items-center">
@@ -584,8 +588,10 @@ new class extends Component {
                                                         <flux:button
                                                             size="sm"
                                                             variant="danger"
-                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            class="{{ $isActiveOrder ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
                                                             wire:click="confirmDelete({{ $item->id }})"
+                                                            :disabled="$isActiveOrder"
+                                                            title="{{ $isActiveOrder ? __('Pesanan harus dibatalkan terlebih dahulu sebelum dihapus.') : __('Delete') }}"
                                                         >
                                                             {{ __('Delete') }}
                                                         </flux:button>

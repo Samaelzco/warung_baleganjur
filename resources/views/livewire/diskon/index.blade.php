@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Diskon;
+use App\Models\Pesanan;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -18,6 +19,11 @@ new class extends Component {
         'page' => ['except' => 1],
     ];
 
+    public function mount(): void
+    {
+        $this->deactivateExpiredDiscounts();
+    }
+
     public function updatingSearch(): void { $this->resetPage(); }
     public function updatingStatusFilter(): void { $this->resetPage(); }
 
@@ -31,8 +37,15 @@ new class extends Component {
     {
         $this->authorizeManage();
 
-        $diskon = Diskon::query()->select(['id', 'is_active'])->findOrFail($id);
-        $diskon->forceFill(['is_active' => !$diskon->is_active])->save();
+        $diskon = Diskon::query()->select(['id', 'is_active', 'tanggal_selesai'])->findOrFail($id);
+        $nextActive = !$diskon->is_active;
+
+        if ($nextActive && $diskon->tanggal_selesai && $diskon->tanggal_selesai->isBefore(today())) {
+            $this->dispatch('diskon-toast', message: __('This discount period has ended and cannot be activated.'));
+            return;
+        }
+
+        $diskon->forceFill(['is_active' => $nextActive])->save();
 
         Cache::forget('admin:diskon:stats:v1');
 
@@ -71,6 +84,19 @@ new class extends Component {
     {
         abort_unless(auth()->check() && auth()->user()->can('diskon.manage'), 403);
     }
+
+    protected function deactivateExpiredDiscounts(): void
+    {
+        $updated = Diskon::query()
+            ->where('is_active', true)
+            ->whereNotNull('tanggal_selesai')
+            ->whereDate('tanggal_selesai', '<', today())
+            ->update(['is_active' => false]);
+
+        if ($updated > 0) {
+            Cache::forget('admin:diskon:stats:v1');
+        }
+    }
 }; ?>
 
 <section class="w-full">
@@ -97,6 +123,12 @@ new class extends Component {
         }
 
         $items = $query->orderBy('kode')->paginate(10);
+        $usedDiscountIds = Pesanan::query()
+            ->whereIn('diskon_id', $items->getCollection()->pluck('id'))
+            ->pluck('diskon_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->flip();
 
         $stats = Cache::remember('admin:diskon:stats:v1', 10, fn () => [
             'total'    => Diskon::query()->count(),
@@ -222,6 +254,9 @@ new class extends Component {
         <div class="block sm:hidden">
             <div class="mt-2 grid gap-3">
                 @forelse($items as $d)
+                    @php($isUsedInOrders = $usedDiscountIds->has((int) $d->id))
+                    @php($isExpired = $d->tanggal_selesai && $d->tanggal_selesai->isBefore(today()))
+                    @php($disableActivate = !$d->is_active && $isExpired)
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div>
@@ -255,18 +290,14 @@ new class extends Component {
                             @if($d->min_subtotal !== null)
                                 <p>{{ __('Min. subtotal') }}: Rp {{ number_format($d->min_subtotal, 0, ',', '.') }}</p>
                             @endif
-                            @php
-                                $start = $d->tanggal_mulai;
-                                $end   = $d->tanggal_selesai;
-                            @endphp
                             <p>
                                 {{ __('Validity') }}:
-                                @if($start && $end)
-                                    {{ $start->format('d M Y') }} - {{ $end->format('d M Y') }}
-                                @elseif($start)
-                                    {{ __('From') }} {{ $start->format('d M Y') }}
-                                @elseif($end)
-                                    {{ __('Until') }} {{ $end->format('d M Y') }}
+                                @if($d->tanggal_mulai && $d->tanggal_selesai)
+                                    {{ $d->tanggal_mulai->format('d M Y') }} - {{ $d->tanggal_selesai->format('d M Y') }}
+                                @elseif($d->tanggal_mulai)
+                                    {{ __('From') }} {{ $d->tanggal_mulai->format('d M Y') }}
+                                @elseif($d->tanggal_selesai)
+                                    {{ __('Until') }} {{ $d->tanggal_selesai->format('d M Y') }}
                                 @else
                                     {{ __('No date limit') }}
                                 @endif
@@ -279,8 +310,10 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="btn-ghost-accent flex-1 rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                    class="{{ $disableActivate ? 'btn-disabled-muted' : 'btn-ghost-accent' }} flex-1 rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleActive({{ $d->id }})"
+                                    :disabled="$disableActivate"
+                                    title="{{ $disableActivate ? __('This discount period has ended.') : ($d->is_active ? __('Deactivate') : __('Activate')) }}"
                                 >
                                     {{ $d->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
@@ -297,8 +330,10 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                        class="{{ $isUsedInOrders ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $d->id }})"
+                                        :disabled="$isUsedInOrders"
+                                        title="{{ $isUsedInOrders ? __('This discount is already used in orders.') : __('Delete') }}"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -328,6 +363,9 @@ new class extends Component {
         <div class="hidden sm:block lg:hidden">
             <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse($items as $d)
+                    @php($isUsedInOrders = $usedDiscountIds->has((int) $d->id))
+                    @php($isExpired = $d->tanggal_selesai && $d->tanggal_selesai->isBefore(today()))
+                    @php($disableActivate = !$d->is_active && $isExpired)
                     <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -361,18 +399,14 @@ new class extends Component {
                             @if($d->min_subtotal !== null)
                                 <p>{{ __('Min. subtotal') }}: Rp {{ number_format($d->min_subtotal, 0, ',', '.') }}</p>
                             @endif
-                            @php
-                                $start = $d->tanggal_mulai;
-                                $end   = $d->tanggal_selesai;
-                            @endphp
                             <p>
                                 {{ __('Validity') }}:
-                                @if($start && $end)
-                                    {{ $start->format('d M Y') }} - {{ $end->format('d M Y') }}
-                                @elseif($start)
-                                    {{ __('From') }} {{ $start->format('d M Y') }}
-                                @elseif($end)
-                                    {{ __('Until') }} {{ $end->format('d M Y') }}
+                                @if($d->tanggal_mulai && $d->tanggal_selesai)
+                                    {{ $d->tanggal_mulai->format('d M Y') }} - {{ $d->tanggal_selesai->format('d M Y') }}
+                                @elseif($d->tanggal_mulai)
+                                    {{ __('From') }} {{ $d->tanggal_mulai->format('d M Y') }}
+                                @elseif($d->tanggal_selesai)
+                                    {{ __('Until') }} {{ $d->tanggal_selesai->format('d M Y') }}
                                 @else
                                     {{ __('No date limit') }}
                                 @endif
@@ -385,8 +419,10 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                    class="{{ $disableActivate ? 'btn-disabled-muted' : 'btn-ghost-accent' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                     wire:click="toggleActive({{ $d->id }})"
+                                    :disabled="$disableActivate"
+                                    title="{{ $disableActivate ? __('This discount period has ended.') : ($d->is_active ? __('Deactivate') : __('Activate')) }}"
                                 >
                                     {{ $d->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
@@ -401,8 +437,10 @@ new class extends Component {
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                        class="{{ $isUsedInOrders ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                         wire:click="confirmDelete({{ $d->id }})"
+                                        :disabled="$isUsedInOrders"
+                                        title="{{ $isUsedInOrders ? __('This discount is already used in orders.') : __('Delete') }}"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -439,6 +477,9 @@ new class extends Component {
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse($items as $d)
+                                @php($isUsedInOrders = $usedDiscountIds->has((int) $d->id))
+                                @php($isExpired = $d->tanggal_selesai && $d->tanggal_selesai->isBefore(today()))
+                                @php($disableActivate = !$d->is_active && $isExpired)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
@@ -475,16 +516,12 @@ new class extends Component {
                                     </td>
                                     <td class="hidden lg:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-xs text-neutral-500 dark:text-neutral-400">
-                                            @php
-                                                $start = $d->tanggal_mulai;
-                                                $end   = $d->tanggal_selesai;
-                                            @endphp
-                                            @if($start && $end)
-                                                {{ $start->format('d M Y') }} - {{ $end->format('d M Y') }}
-                                            @elseif($start)
-                                                {{ __('From') }} {{ $start->format('d M Y') }}
-                                            @elseif($end)
-                                                {{ __('Until') }} {{ $end->format('d M Y') }}
+                                            @if($d->tanggal_mulai && $d->tanggal_selesai)
+                                                {{ $d->tanggal_mulai->format('d M Y') }} - {{ $d->tanggal_selesai->format('d M Y') }}
+                                            @elseif($d->tanggal_mulai)
+                                                {{ __('From') }} {{ $d->tanggal_mulai->format('d M Y') }}
+                                            @elseif($d->tanggal_selesai)
+                                                {{ __('Until') }} {{ $d->tanggal_selesai->format('d M Y') }}
                                             @else
                                                 {{ __('No date limit') }}
                                             @endif
@@ -511,9 +548,10 @@ new class extends Component {
                                                         size="sm"
                                                         icon="{{ $d->is_active ? 'pause-circle' : 'check-circle' }}"
                                                         variant="ghost"
-                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        class="{{ $disableActivate ? 'btn-disabled-muted' : 'btn-ghost-accent' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                         wire:click="toggleActive({{ $d->id }})"
-                                                        title="{{ $d->is_active ? __('Deactivate') : __('Activate') }}"
+                                                        :disabled="$disableActivate"
+                                                        title="{{ $disableActivate ? __('This discount period has ended.') : ($d->is_active ? __('Deactivate') : __('Activate')) }}"
                                                     >
                                                         {{ $d->is_active ? __('Deactivate') : __('Activate') }}
                                                     </flux:button>
@@ -533,9 +571,10 @@ new class extends Component {
                                                             size="sm"
                                                             icon="trash"
                                                             variant="danger"
-                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
+                                                            class="{{ $isUsedInOrders ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center sm:col-span-2 lg:col-span-1"
                                                             wire:click="confirmDelete({{ $d->id }})"
-                                                            title="{{ __('Delete') }}"
+                                                            :disabled="$isUsedInOrders"
+                                                            title="{{ $isUsedInOrders ? __('This discount is already used in orders.') : __('Delete') }}"
                                                         >
                                                             {{ __('Delete') }}
                                                         </flux:button>

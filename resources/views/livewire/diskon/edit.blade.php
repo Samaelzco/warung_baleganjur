@@ -44,6 +44,9 @@ new class extends Component {
         ])->validate();
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
+        if (!blank($validated['tanggal_selesai'] ?? null) && $validated['tanggal_selesai'] < now()->toDateString()) {
+            $validated['is_active'] = false;
+        }
 
         $this->diskon->update($validated);
         Cache::forget('admin:diskon:stats:v1');

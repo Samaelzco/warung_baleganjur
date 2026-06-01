@@ -87,6 +87,12 @@ new class extends Component
 
         $items = $query->paginate(10);
 
+        $assignedRoleIds = DB::table('model_has_roles')
+            ->whereIn('role_id', $items->pluck('id'))
+            ->distinct()
+            ->pluck('role_id')
+            ->mapWithKeys(fn ($id) => [(int) $id => true]);
+
         $stats = Cache::remember('admin:roles:stats:v2', 10, fn () => [
             'roles' => Role::query()->where('name', '!=', 'Super Admin')->count(),
             'permissions' => \Spatie\Permission\Models\Permission::query()->count(),
@@ -201,6 +207,7 @@ new class extends Component
         <div class="block sm:hidden">
             <div class="grid gap-3">
                 @forelse ($items as $role)
+                    @php($isAssignedToUsers = $assignedRoleIds->has((int) $role->id))
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div>
@@ -222,7 +229,14 @@ new class extends Component
                                     </flux:button>
                                 </flux:link>
                                 <flux:modal.trigger name="confirm-delete-role" class="flex-1">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $role->id }})">
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="{{ $isAssignedToUsers ? 'btn-disabled-muted' : '' }} w-full"
+                                        wire:click="confirmDelete({{ $role->id }})"
+                                        :disabled="$isAssignedToUsers"
+                                    >
                                         {{ __('Delete') }}
                                     </flux:button>
                                 </flux:modal.trigger>
@@ -244,6 +258,7 @@ new class extends Component
         <div class="hidden sm:block lg:hidden">
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse ($items as $role)
+                    @php($isAssignedToUsers = $assignedRoleIds->has((int) $role->id))
                     <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -265,7 +280,14 @@ new class extends Component
                                     </flux:button>
                                 </flux:link>
                                 <flux:modal.trigger name="confirm-delete-role-desktop">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $role->id }})">
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="{{ $isAssignedToUsers ? 'btn-disabled-muted' : '' }} w-full"
+                                        wire:click="confirmDelete({{ $role->id }})"
+                                        :disabled="$isAssignedToUsers"
+                                    >
                                         {{ __('Delete') }}
                                     </flux:button>
                                 </flux:modal.trigger>
@@ -297,6 +319,7 @@ new class extends Component
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $role)
+                                @php($isAssignedToUsers = $assignedRoleIds->has((int) $role->id))
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="text-base font-semibold text-neutral-900 dark:text-white">{{ $role->name }}</span>
@@ -325,8 +348,9 @@ new class extends Component
                                                         size="sm"
                                                         icon="trash"
                                                         variant="danger"
-                                                        class="w-full rounded-2xl shadow-sm transition justify-center"
+                                                        class="{{ $isAssignedToUsers ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition justify-center"
                                                         wire:click="confirmDelete({{ $role->id }})"
+                                                        :disabled="$isAssignedToUsers"
                                                     >
                                                         {{ __('Delete') }}
                                                     </flux:button>

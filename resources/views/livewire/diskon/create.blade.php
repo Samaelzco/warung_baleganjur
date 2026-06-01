@@ -28,6 +28,9 @@ new class extends Component {
         ])->validate();
 
         $validated['is_active'] = (bool) ($validated['is_active'] ?? false);
+        if (!blank($validated['tanggal_selesai'] ?? null) && $validated['tanggal_selesai'] < now()->toDateString()) {
+            $validated['is_active'] = false;
+        }
         $validated['user_id'] = auth()->id();
 
         Diskon::create($validated);

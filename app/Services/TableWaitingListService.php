@@ -34,6 +34,16 @@ class TableWaitingListService
         return $this->remainingSeats($meja) >= max($jumlahOrang, 1);
     }
 
+    public function isEmpty(Meja|int $meja): bool
+    {
+        $model = $meja instanceof Meja ? $meja : Meja::query()->find($meja);
+        if (!$model) {
+            return false;
+        }
+
+        return $model->status === 'kosong' && $this->occupiedSeats($model) === 0;
+    }
+
     public function syncMejaStatus(Meja|int $meja): void
     {
         $model = $meja instanceof Meja ? $meja : Meja::query()->find($meja);
@@ -65,12 +75,9 @@ class TableWaitingListService
                 return;
             }
 
-            while (true) {
-                $remaining = $this->remainingSeats($table);
-                if ($remaining <= 0) {
-                    break;
-                }
+            $this->syncMejaStatus($table);
 
+            if ($this->isEmpty($table)) {
                 $waitingList = Pesanan::query()
                     ->where('meja_id', $table->id)
                     ->where('status', 'booking')
@@ -79,17 +86,10 @@ class TableWaitingListService
                     ->lockForUpdate()
                     ->first();
 
-                if (!$waitingList) {
-                    break;
+                if ($waitingList) {
+                    $waitingList->forceFill(['status' => 'menunggu'])->save();
+                    $activated++;
                 }
-
-                $jumlahOrang = max((int) ($waitingList->jumlah_orang ?? 1), 1);
-                if ($jumlahOrang > $remaining) {
-                    break;
-                }
-
-                $waitingList->forceFill(['status' => 'menunggu'])->save();
-                $activated++;
             }
 
             $this->syncMejaStatus($table);

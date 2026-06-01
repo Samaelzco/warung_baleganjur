@@ -1346,14 +1346,10 @@
                         return
                     }
 
-                    let touched = false
-                    for (const menu of Array.isArray(data?.menus) ? data.menus : []) {
-                        touched = applyMenuAvailability(menu?.id, menu?.available === true) || touched
-                    }
-
                     menuVersion = nextVersion
                     if (root) root.dataset.menuVersion = String(menuVersion)
-                    if (touched) recompute()
+                    stopMenuPolling()
+                    window.location.reload()
                 } catch (_) {
                 } finally {
                     menuPollInflight = false

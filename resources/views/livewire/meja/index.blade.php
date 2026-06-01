@@ -2,6 +2,7 @@
 
 use App\Models\Meja;
 use App\Models\Pesanan;
+use App\Services\TableWaitingListService;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -27,6 +28,14 @@ new class extends Component {
     {
         $this->authorizeManage();
         if ($this->confirmingDeleteId) {
+            if ($this->hasActiveCustomer($this->confirmingDeleteId)) {
+                $this->dispatch('modal-close', name: 'confirm-delete-meja');
+                $this->dispatch('modal-close', name: 'confirm-delete-meja-desktop');
+                $this->dispatch('meja-toast', message: __('This table cannot be deleted because there are still active customers at the table.'));
+                $this->confirmingDeleteId = null;
+                return;
+            }
+
             $hasOrders = Pesanan::query()
                 ->where('meja_id', $this->confirmingDeleteId)
                 ->exists();
@@ -56,6 +65,11 @@ new class extends Component {
         $meja = Meja::query()->findOrFail($id);
         $nextStatus = $meja->status === 'nonaktif' ? 'kosong' : 'nonaktif';
 
+        if ($nextStatus === 'nonaktif' && $this->hasActiveCustomer($id)) {
+            $this->dispatch('meja-toast', message: __('This table cannot be deactivated because there are still active customers at the table.'));
+            return;
+        }
+
         $meja->forceFill(['status' => $nextStatus])->save();
 
         Cache::forget('admin:meja:stats:v1');
@@ -71,6 +85,17 @@ new class extends Component {
     protected function authorizeManage(): void
     {
         abort_unless(auth()->check() && auth()->user()->can('meja.manage'), 403);
+    }
+
+    protected function hasActiveCustomer(int $mejaId): bool
+    {
+        return Pesanan::query()
+            ->where('meja_id', $mejaId)
+            ->whereIn('status', TableWaitingListService::ACTIVE_STATUSES)
+            ->where(function ($q) {
+                $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
+            })
+            ->exists();
     }
 
 }; ?>
@@ -96,6 +121,22 @@ new class extends Component {
             $query->where('status', $statusFilter);
         }
         $items = $query->orderBy('nomor_meja')->paginate(6);
+        $activeCustomerTableIds = Pesanan::query()
+            ->whereIn('meja_id', $items->getCollection()->pluck('id'))
+            ->whereIn('status', TableWaitingListService::ACTIVE_STATUSES)
+            ->where(function ($q) {
+                $q->whereNull('metode_pembayaran')->orWhere('metode_pembayaran', '');
+            })
+            ->pluck('meja_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->flip();
+        $linkedOrderTableIds = Pesanan::query()
+            ->whereIn('meja_id', $items->getCollection()->pluck('id'))
+            ->pluck('meja_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->flip();
         $statusMeta = [
             'kosong' => [
                 'label' => __('Empty'),
@@ -241,6 +282,10 @@ new class extends Component {
                                 </div>
                             </div>
                             @php($status = $m->status)
+                            @php($hasActiveCustomer = $activeCustomerTableIds->has((int) $m->id))
+                            @php($hasLinkedOrders = $linkedOrderTableIds->has((int) $m->id))
+                            @php($disableDeactivate = $m->status !== 'nonaktif' && $hasActiveCustomer)
+                            @php($disableDelete = $hasActiveCustomer || $hasLinkedOrders)
                             <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold {{ $statusMeta[$status]['badge'] ?? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200' }}">
                                 <span class="h-2 w-2 rounded-full {{ $statusMeta[$status]['dot'] ?? 'bg-neutral-400' }}"></span>
                                 {{ $statusMeta[$status]['label'] ?? ucfirst($status) }}
@@ -269,8 +314,10 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
                                     variant="ghost"
-                                    class="w-full btn-ghost-accent"
+                                    class="w-full {{ $disableDeactivate ? 'btn-disabled-muted' : 'btn-ghost-accent' }}"
                                     wire:click="toggleActive({{ $m->id }})"
+                                    :disabled="$disableDeactivate"
+                                    title="{{ $disableDeactivate ? __('This table still has active customers.') : ($m->status === 'nonaktif' ? __('Activate') : __('Deactivate')) }}"
                                 >
                                     {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
                                 </flux:button>
@@ -278,7 +325,17 @@ new class extends Component {
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
                                 <flux:modal.trigger name="confirm-delete-meja" class="w-full">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="{{ $disableDelete ? 'btn-disabled-muted' : '' }} w-full"
+                                        wire:click="confirmDelete({{ $m->id }})"
+                                        :disabled="$disableDelete"
+                                        title="{{ $hasActiveCustomer ? __('This table still has active customers.') : ($hasLinkedOrders ? __('This table is already linked to orders.') : __('Delete')) }}"
+                                    >
+                                        {{ __('Delete') }}
+                                    </flux:button>
                                 </flux:modal.trigger>
                             @else
                                 <div></div>
@@ -301,6 +358,10 @@ new class extends Component {
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse ($items as $m)
                     @php($status = $m->status)
+                    @php($hasActiveCustomer = $activeCustomerTableIds->has((int) $m->id))
+                    @php($hasLinkedOrders = $linkedOrderTableIds->has((int) $m->id))
+                    @php($disableDeactivate = $m->status !== 'nonaktif' && $hasActiveCustomer)
+                    @php($disableDelete = $hasActiveCustomer || $hasLinkedOrders)
                     <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -340,8 +401,10 @@ new class extends Component {
                                     size="sm"
                                     icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
                                     variant="ghost"
-                                    class="w-full btn-ghost-accent"
+                                    class="w-full {{ $disableDeactivate ? 'btn-disabled-muted' : 'btn-ghost-accent' }}"
                                     wire:click="toggleActive({{ $m->id }})"
+                                    :disabled="$disableDeactivate"
+                                    title="{{ $disableDeactivate ? __('This table still has active customers.') : ($m->status === 'nonaktif' ? __('Activate') : __('Deactivate')) }}"
                                 >
                                     {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
                                 </flux:button>
@@ -349,7 +412,17 @@ new class extends Component {
                                     <flux:button size="sm" icon="pencil-square" variant="primary" class="w-full btn-accent">{{ __('Edit') }}</flux:button>
                                 </flux:link>
                                 <flux:modal.trigger name="confirm-delete-meja-desktop" class="w-full">
-                                    <flux:button size="sm" icon="trash" variant="danger" class="w-full" wire:click="confirmDelete({{ $m->id }})">{{ __('Delete') }}</flux:button>
+                                    <flux:button
+                                        size="sm"
+                                        icon="trash"
+                                        variant="danger"
+                                        class="{{ $disableDelete ? 'btn-disabled-muted' : '' }} w-full"
+                                        wire:click="confirmDelete({{ $m->id }})"
+                                        :disabled="$disableDelete"
+                                        title="{{ $hasActiveCustomer ? __('This table still has active customers.') : ($hasLinkedOrders ? __('This table is already linked to orders.') : __('Delete')) }}"
+                                    >
+                                        {{ __('Delete') }}
+                                    </flux:button>
                                 </flux:modal.trigger>
                             @else
                                 <div></div>
@@ -384,6 +457,10 @@ new class extends Component {
                         </thead>
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse($items as $m)
+                                @php($hasActiveCustomer = $activeCustomerTableIds->has((int) $m->id))
+                                @php($hasLinkedOrders = $linkedOrderTableIds->has((int) $m->id))
+                                @php($disableDeactivate = $m->status !== 'nonaktif' && $hasActiveCustomer)
+                                @php($disableDelete = $hasActiveCustomer || $hasLinkedOrders)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="hidden sm:table-cell border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <span class="inline-flex items-center rounded-full bg-neutral-900/5 px-3 py-1 text-xs font-semibold text-neutral-500 dark:bg-white/5 dark:text-neutral-300">
@@ -440,9 +517,10 @@ new class extends Component {
                                                         size="sm"
                                                         icon="{{ $m->status === 'nonaktif' ? 'check-circle' : 'pause-circle' }}"
                                                         variant="ghost"
-                                                        class="btn-ghost-accent w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        class="{{ $disableDeactivate ? 'btn-disabled-muted' : 'btn-ghost-accent' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
                                                         wire:click="toggleActive({{ $m->id }})"
-                                                        title="{{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}"
+                                                        :disabled="$disableDeactivate"
+                                                        title="{{ $disableDeactivate ? __('This table still has active customers.') : ($m->status === 'nonaktif' ? __('Activate') : __('Deactivate')) }}"
                                                     >
                                                         {{ $m->status === 'nonaktif' ? __('Activate') : __('Deactivate') }}
                                                     </flux:button>
@@ -459,15 +537,16 @@ new class extends Component {
                                                     </flux:link>
                                                     <flux:modal.trigger name="confirm-delete-meja-desktop">
                                                         <flux:button
-                                                            size="sm"
-                                                            icon="trash"
-                                                            variant="danger"
-                                                            class="w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
-                                                            wire:click="confirmDelete({{ $m->id }})"
-                                                            title="{{ __('Delete') }}"
-                                                        >
-                                                            {{ __('Delete') }}
-                                                        </flux:button>
+                                                        size="sm"
+                                                        icon="trash"
+                                                        variant="danger"
+                                                        class="{{ $disableDelete ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition whitespace-nowrap justify-center"
+                                                        wire:click="confirmDelete({{ $m->id }})"
+                                                        :disabled="$disableDelete"
+                                                        title="{{ $hasActiveCustomer ? __('This table still has active customers.') : ($hasLinkedOrders ? __('This table is already linked to orders.') : __('Delete')) }}"
+                                                    >
+                                                        {{ __('Delete') }}
+                                                    </flux:button>
                                                     </flux:modal.trigger>
                                                 </div>
                                             @endcan

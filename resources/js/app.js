@@ -1,3 +1,17 @@
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+
+    try {
+        const action = new URL(form.action, window.location.href);
+        const current = new URL(window.location.href);
+
+        if (action.origin === current.origin && action.pathname.endsWith('/logout')) {
+            window.dispatchEvent(new CustomEvent('app-logout-start'));
+        }
+    } catch (_) {}
+}, true);
+
 document.addEventListener('alpine:init', () => {
     if (!window.Alpine?.data) return;
 
@@ -375,12 +389,95 @@ document.addEventListener('alpine:init', () => {
         async toggle() {
             this.enabled = !this.enabled;
             localStorage.setItem('paymentSoundEnabled', JSON.stringify(this.enabled));
+            window.dispatchEvent(new CustomEvent('payment-sound-toggled', { detail: { enabled: this.enabled } }));
 
             if (this.enabled) {
                 this.play();
             }
         },
         play() {
+            try {
+                const audio = this.$refs.audio;
+                audio.currentTime = 0;
+                const res = audio.play();
+                if (res?.catch) res.catch(() => {});
+            } catch (_) {}
+        },
+    }));
+
+    Alpine.data('paymentNewOrderSound', ({ src } = {}) => ({
+        enabled: false,
+        src: src || '',
+        orderIds: new Set(),
+        initialized: false,
+        scanQueued: false,
+        observer: null,
+        lastPlayedAt: 0,
+        init() {
+            try {
+                this.enabled = JSON.parse(localStorage.getItem('paymentSoundEnabled') || 'false') === true;
+            } catch (_) {
+                this.enabled = false;
+            }
+
+            this.$refs.audio.src = this.src;
+            try { this.$refs.audio.load?.(); } catch (_) {}
+
+            window.addEventListener('payment-sound-toggled', (event) => {
+                this.enabled = event.detail?.enabled === true;
+            });
+
+            this.observer = new MutationObserver(() => this.queueScan());
+            this.observer.observe(this.$el, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                attributeFilter: ['data-order-id'],
+            });
+
+            this.queueScan();
+        },
+        scan() {
+            const nextIds = new Set();
+            let hasNewOrder = false;
+
+            this.$el.querySelectorAll('[data-payment-order][data-order-id]').forEach((el) => {
+                const id = String(el.getAttribute('data-order-id') || '');
+                if (!id) return;
+
+                nextIds.add(id);
+                if (this.initialized && !this.orderIds.has(id)) {
+                    hasNewOrder = true;
+                }
+            });
+
+            this.orderIds = nextIds;
+
+            if (!this.initialized) {
+                this.initialized = true;
+                return;
+            }
+
+            if (hasNewOrder && this.enabled) {
+                this.play();
+            }
+        },
+        queueScan() {
+            if (this.scanQueued) return;
+            this.scanQueued = true;
+            const run = () => {
+                this.scanQueued = false;
+                this.scan();
+            };
+
+            if (typeof queueMicrotask === 'function') queueMicrotask(run);
+            else Promise.resolve().then(run);
+        },
+        play() {
+            const now = Date.now();
+            if (now - this.lastPlayedAt < 1200) return;
+            this.lastPlayedAt = now;
+
             try {
                 const audio = this.$refs.audio;
                 audio.currentTime = 0;

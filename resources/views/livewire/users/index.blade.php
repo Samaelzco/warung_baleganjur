@@ -314,6 +314,7 @@ new class extends Component
             <div class="grid gap-3">
                 @forelse ($items as $user)
                     @php($roleNames = $user->roles->pluck('name')->values())
+                    @php($isCurrentUser = auth()->id() === $user->id)
                     <div class="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3">
@@ -359,9 +360,9 @@ new class extends Component
                                     size="sm"
                                     icon="{{ $user->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="btn-ghost-accent w-full justify-center"
+                                    class="{{ $isCurrentUser ? 'btn-disabled-muted' : 'btn-ghost-accent' }} w-full justify-center"
                                     wire:click="toggleActive({{ $user->id }})"
-                                    :disabled="auth()->id() === $user->id"
+                                    :disabled="$isCurrentUser"
                                 >
                                     {{ $user->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
@@ -375,9 +376,9 @@ new class extends Component
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full"
+                                        class="{{ $isCurrentUser ? 'btn-disabled-muted' : '' }} w-full"
                                         wire:click="confirmDelete({{ $user->id }})"
-                                        :disabled="auth()->id() === $user->id"
+                                        :disabled="$isCurrentUser"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -401,6 +402,7 @@ new class extends Component
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 @forelse ($items as $user)
                     @php($roleNames = $user->roles->pluck('name')->values())
+                    @php($isCurrentUser = auth()->id() === $user->id)
                     <div class="flex h-full flex-col rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm dark:border-neutral-800/70 dark:bg-neutral-900">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex min-w-0 items-center gap-3">
@@ -446,9 +448,9 @@ new class extends Component
                                     size="sm"
                                     icon="{{ $user->is_active ? 'pause-circle' : 'check-circle' }}"
                                     variant="ghost"
-                                    class="btn-ghost-accent w-full justify-center"
+                                    class="{{ $isCurrentUser ? 'btn-disabled-muted' : 'btn-ghost-accent' }} w-full justify-center"
                                     wire:click="toggleActive({{ $user->id }})"
-                                    :disabled="auth()->id() === $user->id"
+                                    :disabled="$isCurrentUser"
                                 >
                                     {{ $user->is_active ? __('Deactivate') : __('Activate') }}
                                 </flux:button>
@@ -462,9 +464,9 @@ new class extends Component
                                         size="sm"
                                         icon="trash"
                                         variant="danger"
-                                        class="w-full"
+                                        class="{{ $isCurrentUser ? 'btn-disabled-muted' : '' }} w-full"
                                         wire:click="confirmDelete({{ $user->id }})"
-                                        :disabled="auth()->id() === $user->id"
+                                        :disabled="$isCurrentUser"
                                     >
                                         {{ __('Delete') }}
                                     </flux:button>
@@ -500,6 +502,7 @@ new class extends Component
                         <tbody class="divide-y divide-neutral-100/80 text-neutral-700 dark:divide-neutral-900/40 dark:text-neutral-200">
                             @forelse ($items as $user)
                                 @php($roleNames = $user->roles->pluck('name')->values())
+                                @php($isCurrentUser = auth()->id() === $user->id)
                                 <tr class="group transition hover:bg-white/70 focus-within:bg-white/90 dark:hover:bg-neutral-900/40 dark:focus-within:bg-neutral-900/50">
                                     <td class="border-r border-neutral-200/80 px-6 py-4 align-middle text-center dark:border-neutral-800/70">
                                         <div class="mx-auto flex w-fit min-w-[220px] items-center gap-3 text-left">
@@ -548,9 +551,9 @@ new class extends Component
                                                     size="sm"
                                                     icon="{{ $user->is_active ? 'pause-circle' : 'check-circle' }}"
                                                     variant="ghost"
-                                                    class="btn-ghost-accent w-full rounded-2xl shadow-sm transition justify-center"
+                                                    class="{{ $isCurrentUser ? 'btn-disabled-muted' : 'btn-ghost-accent' }} w-full rounded-2xl shadow-sm transition justify-center"
                                                     wire:click="toggleActive({{ $user->id }})"
-                                                    :disabled="auth()->id() === $user->id"
+                                                    :disabled="$isCurrentUser"
                                                     title="{{ $user->is_active ? __('Deactivate') : __('Activate') }}"
                                                 >
                                                     {{ $user->is_active ? __('Deactivate') : __('Activate') }}
@@ -570,9 +573,9 @@ new class extends Component
                                                         size="sm"
                                                         icon="trash"
                                                         variant="danger"
-                                                        class="w-full rounded-2xl shadow-sm transition justify-center"
+                                                        class="{{ $isCurrentUser ? 'btn-disabled-muted' : '' }} w-full rounded-2xl shadow-sm transition justify-center"
                                                         wire:click="confirmDelete({{ $user->id }})"
-                                                        :disabled="auth()->id() === $user->id"
+                                                        :disabled="$isCurrentUser"
                                                     >
                                                         {{ __('Delete') }}
                                                     </flux:button>
