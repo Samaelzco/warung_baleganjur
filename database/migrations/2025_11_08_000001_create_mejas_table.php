@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('nomor_meja', 10);
             $table->string('qr_token', 100)->unique();
-            $table->enum('status', ['kosong', 'terisi', 'reservasi'])->default('kosong');
+            $table->enum('status', ['kosong', 'terisi', 'reservasi', 'nonaktif'])->default('kosong');
             $table->timestamps();
         });
     }
@@ -22,4 +22,3 @@ return new class extends Migration
         Schema::dropIfExists('mejas');
     }
 };
-

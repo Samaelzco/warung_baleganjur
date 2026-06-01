@@ -58,6 +58,30 @@
 
 /* horizontal scroll without visible scrollbar */
 .no-scrollbar::-webkit-scrollbar { display: none; }
+.category-tabs-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+}
+
+/* Customer (public QR) */
+.customer-menu-card--selected {
+    border-color: var(--brand-primary) !important;
+    border-width: 2px !important;
+}
+
+@layer utilities {
+    /* Gives cards consistent depth in dark mode (borders + subtle glow/shadow). */
+    .customer-card-depth {
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    .dark .customer-card-depth {
+        border-color: rgba(255, 255, 255, 0.10) !important;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+            0 16px 40px -28px rgba(0, 0, 0, 0.90);
+    }
+}
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {
@@ -78,6 +102,24 @@ select:focus[data-flux-control] {
 .btn-brand { background: var(--brand-primary); color: var(--brand-accent); }
 .btn-brand:hover { background: var(--brand-primary-hover); }
 .btn-brand:active { background: var(--brand-primary-active); }
+
+/* Kitchen: Updated badge (same layout as status badge) */
+.kitchen-updated-badge {
+    display: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    color: var(--brand-primary);
+    border: 1px solid color-mix(in srgb, var(--brand-primary) 55%, transparent);
+    background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+}
+
+.kitchen-updated-dot {
+    background: var(--brand-primary);
+}
+
+.kitchen-updated-badge[data-updated="1"] {
+    display: inline-flex;
+}
 
 .btn-accent { background: var(--brand-accent); color: white; }
 .btn-accent:hover { background: var(--brand-accent-hover); }
@@ -110,6 +152,61 @@ select:focus[data-flux-control] {
 }
 .dark .btn-ghost-accent:hover {
     background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+}
+
+/* Dashboard date filter */
+button.date-filter-trigger {
+    background: var(--brand-primary);
+    color: var(--brand-accent);
+    border: 1px solid var(--brand-primary-active);
+}
+button.date-filter-trigger:hover { background: var(--brand-primary-hover); }
+button.date-filter-trigger:active { background: var(--brand-primary-active); }
+
+/* Muted disabled buttons (clear visual difference) */
+button.btn-disabled-muted {
+    background: color-mix(in srgb, var(--color-zinc-600) 6%, #ffffff) !important;
+    color: var(--color-zinc-400) !important;
+    border: 1px solid color-mix(in srgb, var(--color-zinc-600) 16%, transparent) !important;
+    cursor: not-allowed;
+}
+.dark button.btn-disabled-muted {
+    background: color-mix(in srgb, var(--color-zinc-400) 10%, #0a0a0a) !important;
+    color: var(--color-zinc-500) !important;
+    border-color: color-mix(in srgb, var(--color-zinc-400) 22%, transparent) !important;
+}
+
+.date-filter-menu {
+    border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-zinc-200));
+    box-shadow:
+        0 14px 25px -12px color-mix(in srgb, var(--color-accent) 28%, transparent),
+        0 6px 10px -6px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+.dark .date-filter-menu {
+    border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-zinc-600));
+    box-shadow:
+        0 14px 25px -12px color-mix(in srgb, var(--color-accent) 26%, transparent),
+        0 6px 10px -6px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+/* Brand toast (used on Meja page) */
+.toast-brand {
+    border: 1px solid color-mix(in srgb, var(--brand-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--brand-accent) 10%, #ffffff);
+    color: var(--brand-accent);
+    box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--brand-accent) 20%, transparent),
+        0 4px 6px -4px color-mix(in srgb, var(--brand-accent) 20%, transparent);
+}
+.btn-ghost-neutral { background: transparent; color: var(--color-zinc-600); }
+.btn-ghost-neutral:hover { background: color-mix(in srgb, var(--color-zinc-600) 10%, transparent); }
+.dark .btn-ghost-neutral { color: var(--color-zinc-400); }
+.dark .btn-ghost-neutral:hover { background: color-mix(in srgb, var(--color-zinc-400) 16%, transparent); }
+.dark .toast-brand {
+    border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
+    background: color-mix(in srgb, var(--brand-primary) 15%, #0a0a0a);
+    color: var(--brand-primary);
+    box-shadow: 0 10px 15px -3px color-mix(in srgb, var(--brand-primary) 20%, transparent),
+        0 4px 6px -4px color-mix(in srgb, var(--brand-primary) 20%, transparent);
 }
 
 /* \[:where(&)\]:size-4 {

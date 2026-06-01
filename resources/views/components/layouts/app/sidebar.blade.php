@@ -4,19 +4,65 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        <flux:sidebar sticky stashable class="print:hidden border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-            <a href="{{ route('dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
-                <x-app-logo />
+            <a href="{{ route('dashboard') }}" class="me-5 flex items-center justify-center py-2" wire:navigate>
+                <img
+                    src="{{ asset('img/logo/logo 2 black.svg') }}"
+                    alt="Warung Baleganjur Logo"
+                    class="h-14 w-auto max-w-[180px] object-contain dark:hidden"
+                />
+                <img
+                    src="{{ asset('img/logo/logo 2.svg') }}"
+                    alt="Warung Baleganjur Logo"
+                    class="hidden h-14 w-auto max-w-[180px] object-contain dark:block"
+                />
             </a>
 
-            <flux:navlist variant="outline">
-                <flux:navlist.group :heading="__('Platform')" class="grid">
-                    <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="view-columns" :href="route('meja.index')" :current="request()->routeIs('meja.*')" wire:navigate>{{ __('Tables') }}</flux:navlist.item>
-                </flux:navlist.group>
-            </flux:navlist>
+                <flux:navlist variant="outline">
+                    <flux:navlist.group :heading="__('Platform')" class="grid">
+                    @can('dashboard.access')
+                        <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                    @endcan
+                    @can('meja.access')
+                        <flux:navlist.item icon="view-columns" :href="route('meja.index')" :current="request()->routeIs('meja.*')" wire:navigate>{{ __('Tables') }}</flux:navlist.item>
+                    @endcan
+                    @can('kategori.access')
+                        <flux:navlist.item icon="layout-grid" :href="route('kategori.index')" :current="request()->routeIs('kategori.*')" wire:navigate>{{ __('Menu Categories') }}</flux:navlist.item>
+                    @endcan
+                    @can('menu.access')
+                        <flux:navlist.item icon="list-bullet" :href="route('menu.index')" :current="request()->routeIs('menu.*')" wire:navigate>{{ __('Menus') }}</flux:navlist.item>
+                    @endcan
+                    @can('addon.access')
+                        <flux:navlist.item icon="squares-plus" :href="route('addon.index')" :current="request()->routeIs('addon.*')" wire:navigate>{{ __('Add-ons') }}</flux:navlist.item>
+                    @endcan
+                    @can('pajak.access')
+                        <flux:navlist.item icon="banknotes" :href="route('pajak.index')" :current="request()->routeIs('pajak.*')" wire:navigate>{{ __('Taxes') }}</flux:navlist.item>
+                    @endcan
+                    @can('diskon.access')
+                        <flux:navlist.item icon="tag" :href="route('diskon.index')" :current="request()->routeIs('diskon.*')" wire:navigate>{{ __('Discounts') }}</flux:navlist.item>
+                    @endcan
+                    @can('pesanan.access')
+                        <flux:navlist.item icon="receipt-percent" :href="route('pesanan.index')" :current="request()->routeIs('pesanan.*')" wire:navigate>{{ __('Orders') }}</flux:navlist.item>
+                    @endcan
+                    @can('waiting-list.access')
+                        <flux:navlist.item icon="clipboard-document-list" :href="route('waiting-list.index')" :current="request()->routeIs('waiting-list.*')" wire:navigate>{{ __('Waiting List') }}</flux:navlist.item>
+                    @endcan
+                    @can('kitchen.access')
+                        <flux:navlist.item icon="fire" :href="route('kitchen.index')" :current="request()->routeIs('kitchen.*')" wire:navigate>{{ __('Kitchen') }}</flux:navlist.item>
+                    @endcan
+                    @can('pembayaran.access')
+                        <flux:navlist.item icon="credit-card" :href="route('pembayaran.index')" :current="request()->routeIs('pembayaran.*')" wire:navigate>{{ __('Payments') }}</flux:navlist.item>
+                    @endcan
+                    @can('users.access')
+                        <flux:navlist.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')" wire:navigate>{{ __('Users') }}</flux:navlist.item>
+                    @endcan
+                    @can('roles.access')
+                        <flux:navlist.item icon="shield-check" :href="route('roles.index')" :current="request()->routeIs('roles.*')" wire:navigate>{{ __('Roles') }}</flux:navlist.item>
+                    @endcan
+                    </flux:navlist.group>
+                </flux:navlist>
 
             <flux:spacer />
 
@@ -78,7 +124,7 @@
         </flux:sidebar>
 
         <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden">
+        <flux:header class="lg:hidden print:hidden">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
             <flux:spacer />
