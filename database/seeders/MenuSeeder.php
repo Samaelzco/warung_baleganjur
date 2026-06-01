@@ -13,7 +13,7 @@ class MenuSeeder extends Seeder
 {
     public function run(): void
     {
-        $path = database_path('seeders/data/seedmenu_rapi_warung_baleganjur_revisi.csv');
+        $path = database_path('seeders/data/seedmenu.csv');
 
         if (! is_file($path)) {
             throw new RuntimeException("Menu seed CSV not found: {$path}");
