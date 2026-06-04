@@ -249,10 +249,10 @@
             </div>
         </div>
 
-        @if(($editOrderUrl || $continueEditUrl || $cancelOrderUrl) && in_array($status, ['menunggu', 'sedang_diubah'], true))
-            <div id="customerOrderActions" class="flex flex-col justify-center gap-2 sm:flex-row">
+        @if($editOrderUrl || $continueEditUrl || $cancelOrderUrl)
+            <div id="customerOrderActions" class="{{ in_array($status, ['booking', 'menunggu', 'sedang_diubah'], true) ? 'flex' : 'hidden' }} flex-col justify-center gap-2 sm:flex-row">
                 @if($editOrderUrl)
-                    <form method="POST" action="{{ $editOrderUrl }}">
+                    <form method="POST" action="{{ $editOrderUrl }}" data-customer-action="edit" class="@if(!in_array($status, ['booking', 'menunggu'], true)) hidden @endif">
                         @csrf
                         <button
                             type="submit"
@@ -267,7 +267,8 @@
                 @if($continueEditUrl)
                     <a
                         href="{{ $continueEditUrl }}"
-                        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] sm:w-auto"
+                        data-customer-action="continue"
+                        class="{{ $status === 'sedang_diubah' ? 'inline-flex' : 'hidden' }} h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-5 text-sm font-semibold text-[var(--brand-accent)] shadow-sm ring-1 ring-black/5 hover:bg-[var(--brand-primary-hover)] active:bg-[var(--brand-primary-active)] sm:w-auto"
                     >
                         <flux:icon icon="pencil-square" class="size-4" />
                         {{ __('Continue editing') }}
@@ -275,10 +276,11 @@
                 @endif
 
                 @if($cancelOrderUrl)
-                    <form method="POST" action="{{ $cancelOrderUrl }}">
+                    <form method="POST" action="{{ $cancelOrderUrl }}" data-customer-action="cancel" class="@if(!in_array($status, ['booking', 'menunggu', 'sedang_diubah'], true)) hidden @endif">
                         @csrf
                         <button
                             type="submit"
+                            data-confirm-cancel-trigger
                             class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-red-200/70 bg-red-50/80 px-5 text-sm font-semibold text-red-700 shadow-sm backdrop-blur hover:bg-red-100/80 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200 dark:hover:bg-red-900/30 sm:w-auto"
                         >
                             <flux:icon icon="x-circle" class="size-4" />
@@ -288,6 +290,34 @@
                 @endif
             </div>
         @endif
+
+        <div id="cancelOrderModal" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none" role="dialog" aria-modal="true" aria-labelledby="cancelOrderTitle">
+            <button type="button" class="absolute inset-0 bg-black/40" data-confirm-cancel-close aria-label="{{ __('Close') }}"></button>
+
+            <div data-cancel-panel class="relative flex min-h-svh translate-y-4 scale-95 items-center justify-center p-4 transition duration-200 ease-out motion-reduce:translate-y-0 motion-reduce:scale-100 motion-reduce:transition-none">
+                <div class="customer-card-depth w-full max-w-md rounded-3xl border border-neutral-200/70 bg-white/90 p-5 shadow-2xl backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/85">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div id="cancelOrderTitle" class="text-lg font-semibold text-neutral-900 dark:text-white">
+                                {{ __('Cancel order?') }}
+                            </div>
+                            <div class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+                                {{ __('Your order will be cancelled and removed from the queue. You can place a new order anytime.') }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-end gap-2 pt-1">
+                        <button type="button" data-confirm-cancel-close class="inline-flex h-11 items-center justify-center rounded-2xl border border-neutral-200/70 bg-white/60 px-4 text-sm font-semibold text-neutral-700 shadow-sm backdrop-blur hover:bg-white/80 dark:border-neutral-800/70 dark:bg-neutral-900/40 dark:text-neutral-200 dark:hover:bg-neutral-900/60">
+                            {{ __('Keep order') }}
+                        </button>
+                        <button type="button" data-confirm-cancel-submit class="inline-flex h-11 items-center justify-center rounded-2xl border border-red-200/70 bg-red-50/80 px-4 text-sm font-semibold text-red-700 shadow-sm backdrop-blur hover:bg-red-100/80 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-200 dark:hover:bg-red-900/30">
+                            {{ __('Cancel order') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         @if($order && in_array($status, ['menunggu', 'diproses'], true) && empty($statusJsonUrl))
             <div class="flex justify-center">
@@ -330,6 +360,15 @@
             const editingNote = document.getElementById('editingNote')
             const readyNote = document.getElementById('readyNote')
             const customerOrderActions = document.getElementById('customerOrderActions')
+            const customerEditAction = customerOrderActions?.querySelector('[data-customer-action="edit"]')
+            const customerContinueAction = customerOrderActions?.querySelector('[data-customer-action="continue"]')
+            const customerCancelAction = customerOrderActions?.querySelector('[data-customer-action="cancel"]')
+            const cancelOrderModal = document.getElementById('cancelOrderModal')
+            const cancelOrderPanel = cancelOrderModal?.querySelector('[data-cancel-panel]')
+            const cancelOrderSubmit = cancelOrderModal?.querySelector('[data-confirm-cancel-submit]')
+            let pendingCancelForm = null
+            const modalTransitionMs = 220
+            let cancelModalCloseTimer = null
             const pollHint = document.getElementById('pollHint')
 
             const breakdownEl = document.getElementById('orderBreakdown')
@@ -354,6 +393,62 @@
                     window.dispatchEvent(new CustomEvent('customer-toast', { detail: { message } }))
                 } catch (e) {}
             }
+
+            const openCancelModal = (form) => {
+                pendingCancelForm = form
+                if (!cancelOrderModal) {
+                    form?.submit?.()
+                    return
+                }
+
+                clearTimeout(cancelModalCloseTimer)
+                cancelOrderModal.classList.remove('hidden')
+                requestAnimationFrame(() => {
+                    cancelOrderModal.classList.remove('opacity-0')
+                    cancelOrderPanel?.classList.remove('translate-y-4', 'scale-95')
+                    cancelOrderPanel?.classList.add('translate-y-0', 'scale-100')
+                    cancelOrderSubmit?.focus?.()
+                })
+            }
+
+            const closeCancelModal = () => {
+                pendingCancelForm = null
+                if (!cancelOrderModal) return
+
+                cancelOrderModal.classList.add('opacity-0')
+                cancelOrderPanel?.classList.add('translate-y-4', 'scale-95')
+                cancelOrderPanel?.classList.remove('translate-y-0', 'scale-100')
+                cancelModalCloseTimer = setTimeout(() => {
+                    cancelOrderModal.classList.add('hidden')
+                }, modalTransitionMs)
+            }
+
+            document.querySelectorAll('[data-confirm-cancel-trigger]').forEach((button) => {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault()
+                    openCancelModal(button.closest('form'))
+                })
+            })
+
+            cancelOrderModal?.querySelectorAll('[data-confirm-cancel-close]').forEach((button) => {
+                button.addEventListener('click', closeCancelModal)
+            })
+
+            cancelOrderModal?.addEventListener('click', (event) => {
+                if (event.target === cancelOrderModal) closeCancelModal()
+            })
+
+            cancelOrderSubmit?.addEventListener('click', () => {
+                const form = pendingCancelForm
+                closeCancelModal()
+                form?.submit?.()
+            })
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && cancelOrderModal && !cancelOrderModal.classList.contains('hidden')) {
+                    closeCancelModal()
+                }
+            })
 
             const submitted = @json($justSubmitted);
             if (submitted) {
@@ -456,6 +551,26 @@
                 })
             }
 
+            const updateCustomerActions = (status) => {
+                const s = String(status || '')
+                const canEdit = s === 'booking' || s === 'menunggu'
+                const canContinue = s === 'sedang_diubah'
+                const canCancel = s === 'booking' || s === 'menunggu' || s === 'sedang_diubah'
+                const showActions = canEdit || canContinue || canCancel
+
+                if (customerOrderActions) {
+                    customerOrderActions.classList.toggle('hidden', !showActions)
+                    customerOrderActions.classList.toggle('flex', showActions)
+                }
+
+                if (customerEditAction) customerEditAction.classList.toggle('hidden', !canEdit)
+                if (customerContinueAction) {
+                    customerContinueAction.classList.toggle('hidden', !canContinue)
+                    customerContinueAction.classList.toggle('inline-flex', canContinue)
+                }
+                if (customerCancelAction) customerCancelAction.classList.toggle('hidden', !canCancel)
+            }
+
             const render = (payload) => {
                 const isPaid = !!payload?.paid
                 const isFailed = !!payload?.failed
@@ -552,9 +667,7 @@
                 const waitingListNote = document.getElementById('waitingListNote')
                 if (waitingListNote) waitingListNote.classList.toggle('hidden', order.status !== 'booking')
                 if (readyNote) readyNote.classList.toggle('hidden', order.status !== 'siap')
-                if (customerOrderActions) {
-                    customerOrderActions.classList.toggle('hidden', !['menunggu', 'sedang_diubah'].includes(String(order.status || '')))
-                }
+                updateCustomerActions(order.status)
 
                 if (breakdownItemsList) {
                     const rows = Array.isArray(order.items) ? order.items : []

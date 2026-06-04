@@ -809,13 +809,13 @@ Route::get('order-status/{pesanan}/{token}', function (\App\Models\Pesanan $pesa
         'orderUrl' => $pesanan->meja?->qr_token
             ? route('customer.order', ['token' => $pesanan->meja->qr_token])
             : route('customer.waiting-list.index'),
-        'editOrderUrl' => $pesanan->status === 'menunggu'
+        'editOrderUrl' => in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true)
             ? route('customer.order-status.edit', ['pesanan' => $pesanan->id, 'token' => $token])
             : null,
-        'continueEditUrl' => $pesanan->status === 'sedang_diubah'
+        'continueEditUrl' => in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true)
             ? route('customer.order', ['token' => $pesanan->meja->qr_token, 'edit' => 1, 'order' => $pesanan->id, 'status_token' => $token])
             : null,
-        'cancelOrderUrl' => in_array($pesanan->status, ['menunggu', 'sedang_diubah'], true)
+        'cancelOrderUrl' => in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true)
             ? route('customer.order-status.cancel', ['pesanan' => $pesanan->id, 'token' => $token])
             : null,
     ]);
@@ -828,9 +828,9 @@ Route::post('order-status/{pesanan}/{token}/edit', function (\App\Models\Pesanan
     abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
     abort_unless($pesanan->meja?->qr_token, 404);
 
-    abort_unless(in_array($pesanan->status, ['menunggu', 'sedang_diubah'], true), 409);
+    abort_unless(in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true), 409);
 
-    if ($pesanan->status === 'menunggu') {
+    if (in_array($pesanan->status, ['booking', 'menunggu'], true)) {
         $pesanan->forceFill(['status' => 'sedang_diubah'])->save();
         app(TableWaitingListService::class)->forgetKitchenCache();
     }
@@ -848,7 +848,7 @@ Route::post('order-status/{pesanan}/{token}/edit', function (\App\Models\Pesanan
 
 Route::post('order-status/{pesanan}/{token}/cancel', function (\App\Models\Pesanan $pesanan, string $token, OrderStatusService $orderStatus) {
     abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
-    abort_unless(in_array($pesanan->status, ['menunggu', 'sedang_diubah'], true), 409);
+    abort_unless(in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true), 409);
 
     $mejaId = (int) $pesanan->meja_id;
     $pesanan->forceFill(['status' => 'batal'])->save();
@@ -1651,13 +1651,13 @@ Route::get('{token}/status', function (string $token) {
         'order' => $order,
         'justSubmitted' => (bool) session()->pull('customer_order_submitted_' . $token, false),
         'justCancelled' => (bool) session()->pull('customer_order_cancelled_' . $token, false),
-        'editOrderUrl' => ($order && $order->status === 'menunggu' && !blank($order->status_token))
+        'editOrderUrl' => ($order && in_array($order->status, ['booking', 'menunggu', 'sedang_diubah'], true) && !blank($order->status_token))
             ? route('customer.order-status.edit', ['pesanan' => $order->id, 'token' => $order->status_token])
             : null,
-        'continueEditUrl' => ($order && $order->status === 'sedang_diubah' && !blank($order->status_token))
+        'continueEditUrl' => ($order && in_array($order->status, ['booking', 'menunggu', 'sedang_diubah'], true) && !blank($order->status_token))
             ? route('customer.order', ['token' => $token, 'edit' => 1, 'order' => $order->id, 'status_token' => $order->status_token])
             : null,
-        'cancelOrderUrl' => ($order && in_array($order->status, ['menunggu', 'sedang_diubah'], true) && !blank($order->status_token))
+        'cancelOrderUrl' => ($order && in_array($order->status, ['booking', 'menunggu', 'sedang_diubah'], true) && !blank($order->status_token))
             ? route('customer.order-status.cancel', ['pesanan' => $order->id, 'token' => $order->status_token])
             : null,
     ]);

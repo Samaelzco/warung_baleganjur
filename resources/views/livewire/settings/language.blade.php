@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Carbon;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -22,6 +23,7 @@ new class extends Component {
 
         Session::put('locale', $validated['locale']);
         app()->setLocale($validated['locale']);
+        Carbon::setLocale($validated['locale']);
 
         $this->dispatch('language-updated');
     }
