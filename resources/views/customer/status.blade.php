@@ -250,9 +250,9 @@
         </div>
 
         @if($editOrderUrl || $continueEditUrl || $cancelOrderUrl)
-            <div id="customerOrderActions" class="{{ in_array($status, ['booking', 'menunggu', 'sedang_diubah'], true) ? 'flex' : 'hidden' }} flex-col justify-center gap-2 sm:flex-row">
+            <div id="customerOrderActions" class="{{ in_array($status, ['menunggu', 'sedang_diubah'], true) ? 'flex' : 'hidden' }} flex-col justify-center gap-2 sm:flex-row">
                 @if($editOrderUrl)
-                    <form method="POST" action="{{ $editOrderUrl }}" data-customer-action="edit" class="@if(!in_array($status, ['booking', 'menunggu'], true)) hidden @endif">
+                    <form method="POST" action="{{ $editOrderUrl }}" data-customer-action="edit" class="@if($status !== 'menunggu') hidden @endif">
                         @csrf
                         <button
                             type="submit"
@@ -276,7 +276,7 @@
                 @endif
 
                 @if($cancelOrderUrl)
-                    <form method="POST" action="{{ $cancelOrderUrl }}" data-customer-action="cancel" class="@if(!in_array($status, ['booking', 'menunggu', 'sedang_diubah'], true)) hidden @endif">
+                    <form method="POST" action="{{ $cancelOrderUrl }}" data-customer-action="cancel" class="@if(!in_array($status, ['menunggu', 'sedang_diubah'], true)) hidden @endif">
                         @csrf
                         <button
                             type="submit"
@@ -553,9 +553,9 @@
 
             const updateCustomerActions = (status) => {
                 const s = String(status || '')
-                const canEdit = s === 'booking' || s === 'menunggu'
+                const canEdit = s === 'menunggu'
                 const canContinue = s === 'sedang_diubah'
-                const canCancel = s === 'booking' || s === 'menunggu' || s === 'sedang_diubah'
+                const canCancel = s === 'menunggu' || s === 'sedang_diubah'
                 const showActions = canEdit || canContinue || canCancel
 
                 if (customerOrderActions) {

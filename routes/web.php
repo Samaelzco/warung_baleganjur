@@ -828,9 +828,9 @@ Route::post('order-status/{pesanan}/{token}/edit', function (\App\Models\Pesanan
     abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
     abort_unless($pesanan->meja?->qr_token, 404);
 
-    abort_unless(in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true), 409);
+    abort_unless(in_array($pesanan->status, ['menunggu', 'sedang_diubah'], true), 409);
 
-    if (in_array($pesanan->status, ['booking', 'menunggu'], true)) {
+    if ($pesanan->status === 'menunggu') {
         $pesanan->forceFill(['status' => 'sedang_diubah'])->save();
         app(TableWaitingListService::class)->forgetKitchenCache();
     }
@@ -848,7 +848,7 @@ Route::post('order-status/{pesanan}/{token}/edit', function (\App\Models\Pesanan
 
 Route::post('order-status/{pesanan}/{token}/cancel', function (\App\Models\Pesanan $pesanan, string $token, OrderStatusService $orderStatus) {
     abort_unless($orderStatus->tokenMatches($pesanan, $token), 404);
-    abort_unless(in_array($pesanan->status, ['booking', 'menunggu', 'sedang_diubah'], true), 409);
+    abort_unless(in_array($pesanan->status, ['menunggu', 'sedang_diubah'], true), 409);
 
     $mejaId = (int) $pesanan->meja_id;
     $pesanan->forceFill(['status' => 'batal'])->save();
