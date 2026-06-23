@@ -748,6 +748,18 @@ use Livewire\WithPagination;
                             total: @js((float) ($payingOrder['total_harga'] ?? 0)),
                             paid: @js((string) ($payForm['dibayar'] ?? '')),
                             change: @js((float) ($payForm['kembalian'] ?? 0)),
+                            formatRupiah(value) {
+                                const amount = Math.max(Number.parseFloat(value || 0) || 0, 0);
+                                return `Rp ${Math.round(amount).toLocaleString('id-ID')}`;
+                            },
+                            parseRupiah(value) {
+                                return String(value || '').replace(/[^\d]/g, '');
+                            },
+                            syncPaidFromInput(event) {
+                                this.paid = this.parseRupiah(event.target.value);
+                                this.recalculate();
+                                event.target.value = this.formatRupiah(this.paid);
+                            },
                             recalculate() {
                                 const paidAmount = Number.parseFloat(this.paid || 0) || 0;
                                 this.change = Math.max(paidAmount - this.total, 0);
@@ -850,11 +862,11 @@ use Livewire\WithPagination;
 		                                />
 		                            @else
 		                                <flux:input
-                                            x-model="paid"
-                                            x-on:input="recalculate()"
-		                                    type="number"
-		                                    step="0.01"
-		                                    min="0"
+                                            x-bind:value="formatRupiah(paid)"
+                                            x-on:input="syncPaidFromInput($event)"
+                                            x-on:blur="$event.target.value = formatRupiah(paid)"
+		                                    type="text"
+		                                    inputmode="numeric"
 		                                    :label="__('Cash Given')"
 		                                    required
 		                                    class="w-full"
@@ -875,10 +887,8 @@ use Livewire\WithPagination;
 
 		                        <div class="space-y-4">
 		                            <flux:input
-                                        x-model="change"
-		                                type="number"
-		                                step="0.01"
-		                                min="0"
+                                        x-bind:value="formatRupiah(change)"
+		                                type="text"
 		                                :label="__('Change')"
 		                                class="w-full"
 		                                readonly
